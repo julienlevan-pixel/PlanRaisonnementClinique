@@ -2,14 +2,17 @@ openapi: 3.1.0
 info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
-  version: 0.1.0
-  description: API specification
+  version: 1.0.0
+  description: API de PRC Pharmacie
 servers:
   - url: /api
     description: Base API path
 tags:
-  - name: health
-    description: Health operations
+  - name: auth
+  - name: teachers
+  - name: prcs
+  - name: activities
+  - name: participants
 paths:
   /healthz:
     get:
@@ -24,13 +27,770 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      responses:
+        "200":
+          description: Current user and CSRF token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated teacher
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      responses:
+        "200":
+          description: Session ended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordChangeInput"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ok"
+  /teachers:
+    get:
+      operationId: listTeachers
+      tags: [teachers]
+      responses:
+        "200":
+          description: Teacher accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Teacher"
+    post:
+      operationId: createTeacher
+      tags: [teachers]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherInput"
+      responses:
+        "201":
+          description: Teacher created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Teacher"
+  /teachers/{teacherId}:
+    patch:
+      operationId: updateTeacher
+      tags: [teachers]
+      parameters:
+        - in: path
+          name: teacherId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeacherUpdate"
+      responses:
+        "200":
+          description: Teacher updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Teacher"
+  /workspace/summary:
+    get:
+      operationId: getWorkspaceSummary
+      tags: [prcs]
+      responses:
+        "200":
+          description: Dashboard totals and recent activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkspaceSummary"
+  /prcs:
+    get:
+      operationId: listPrcs
+      tags: [prcs]
+      responses:
+        "200":
+          description: PRCs owned by the current teacher
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Prc"
+    post:
+      operationId: createPrc
+      tags: [prcs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrcInput"
+      responses:
+        "201":
+          description: PRC created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prc"
+  /prcs/{prcId}:
+    get:
+      operationId: getPrc
+      tags: [prcs]
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: PRC and editable clinical content
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrcDetail"
+    put:
+      operationId: updatePrc
+      tags: [prcs]
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrcInput"
+      responses:
+        "200":
+          description: PRC saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrcDetail"
+  /prcs/{prcId}/launches:
+    post:
+      operationId: createLaunch
+      tags: [activities]
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LaunchInput"
+      responses:
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launch"
+  /launches/{launchId}:
+    get:
+      operationId: getLaunch
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Activity control surface
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaunchDetail"
+  /launches/{launchId}/invitations:
+    post:
+      operationId: createInvitation
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationInput"
+      responses:
+        "201":
+          description: Individual expert invitation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Invitation"
+  /join/{code}:
+    get:
+      operationId: getJoinInfo
+      tags: [participants]
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Public activity details without answers or reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JoinInfo"
+  /launches/{launchId}/join:
+    post:
+      operationId: joinLaunch
+      tags: [participants]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JoinInput"
+      responses:
+        "200":
+          description: Participant session and immutable case snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantSession"
+  /participant/response:
+    get:
+      operationId: getParticipantResponse
+      tags: [participants]
+      responses:
+        "200":
+          description: Saved draft response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantState"
+    put:
+      operationId: saveParticipantResponse
+      tags: [participants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantResponseInput"
+      responses:
+        "200":
+          description: Draft saved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantState"
+  /participant/submit:
+    post:
+      operationId: submitParticipantResponse
+      tags: [participants]
+      responses:
+        "200":
+          description: Final locked submission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Submission"
+  /launches/{launchId}/close:
+    post:
+      operationId: closeLaunch
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Collection closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launch"
+  /launches/{launchId}/reveal:
+    post:
+      operationId: revealLaunch
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RevealInput"
+      responses:
+        "200":
+          description: Activity reveal state updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launch"
+  /launches/{launchId}/panel-results:
+    get:
+      operationId: getPanelResults
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Expert response distributions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PanelResults"
+  /launches/{launchId}/reference/generate:
+    post:
+      operationId: generateReference
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReferenceGenerateInput"
+      responses:
+        "200":
+          description: Immutable reference preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reference"
+  /launches/{launchId}/reference/validate:
+    post:
+      operationId: validateReference
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReferenceValidateInput"
+      responses:
+        "200":
+          description: Validated immutable reference
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Reference"
+  /launches/{launchId}/publish:
+    post:
+      operationId: publishResults
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Individual results published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Launch"
+  /launches/{launchId}/results:
+    get:
+      operationId: getLaunchResults
+      tags: [activities]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Teacher view of participants and scores
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LaunchResults"
+  /participant/results:
+    get:
+      operationId: getParticipantResults
+      tags: [participants]
+      responses:
+        "200":
+          description: Own score and visible panel data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantResults"
 components:
   schemas:
     HealthStatus:
       type: object
+      properties: { status: { type: string } }
+      required: [status]
+    Ok:
+      type: object
+      properties: { ok: { type: boolean } }
+      required: [ok]
+    CurrentUser:
+      type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        user: { $ref: "#/components/schemas/Teacher" }
+        csrfToken: { type: ["string", "null"] }
+      required: [user, csrfToken]
+    Teacher:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        role: { type: string, enum: [admin, teacher] }
+        active: { type: boolean }
+        mustChangePassword: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required: [id, username, role, active, mustChangePassword, createdAt]
+    TeacherInput:
+      type: object
+      properties:
+        username: { type: string, minLength: 3, maxLength: 80 }
+        password: { type: string, minLength: 12, maxLength: 200 }
+      required: [username, password]
+    TeacherUpdate:
+      type: object
+      properties:
+        active: { type: boolean }
+        password: { type: string, minLength: 12, maxLength: 200 }
+    LoginInput:
+      type: object
+      properties:
+        username: { type: string, minLength: 1, maxLength: 80 }
+        password: { type: string, minLength: 1, maxLength: 200 }
+      required: [username, password]
+    PasswordChangeInput:
+      type: object
+      properties:
+        currentPassword: { type: string }
+        newPassword: { type: string, minLength: 12, maxLength: 200 }
+      required: [currentPassword, newPassword]
+    Prc:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        scenario: { type: string }
+        status: { type: string }
+        version: { type: integer }
+        updatedAt: { type: string, format: date-time }
+        launchCount: { type: integer }
+      required: [id, name, scenario, status, version, updatedAt, launchCount]
+    PrcDetail:
+      allOf:
+        - $ref: "#/components/schemas/Prc"
+        - type: object
+          properties:
+            instructions: { type: string }
+            diagnostics:
+              type: array
+              items: { $ref: "#/components/schemas/Diagnostic" }
+            observations:
+              type: array
+              items: { $ref: "#/components/schemas/Observation" }
+          required: [instructions, diagnostics, observations]
+    PrcInput:
+      type: object
+      properties:
+        name: { type: string, maxLength: 160 }
+        scenario: { type: string, maxLength: 20000 }
+        instructions: { type: string, maxLength: 5000 }
+        diagnostics:
+          type: array
+          items: { type: string, maxLength: 240 }
+        observations:
+          type: array
+          items: { $ref: "#/components/schemas/ObservationInput" }
+      required: [name, scenario, instructions, diagnostics, observations]
+    Diagnostic:
+      type: object
+      properties:
+        id: { type: string }
+        label: { type: string }
+      required: [id, label]
+    Observation:
+      type: object
+      properties:
+        id: { type: string }
+        text: { type: string }
+        category: { type: string }
+        position: { type: integer }
+      required: [id, text, category, position]
+    ObservationInput:
+      type: object
+      properties:
+        id: { type: string }
+        text: { type: string }
+        category: { type: string }
+        position: { type: integer }
+      required: [id, text, category, position]
+    Launch:
+      type: object
+      properties:
+        id: { type: string }
+        prcId: { type: string }
+        role: { type: string, enum: [panel, students] }
+        name: { type: string }
+        code: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+        participantCount: { type: integer }
+        submissionCount: { type: integer }
+      required: [id, prcId, role, name, code, status, createdAt, participantCount, submissionCount]
+    LaunchDetail:
+      allOf:
+        - $ref: "#/components/schemas/Launch"
+        - type: object
+          properties:
+            reveals: { $ref: "#/components/schemas/RevealState" }
+            referenceStatus: { type: ["string", "null"] }
+          required: [reveals, referenceStatus]
+    LaunchInput:
+      type: object
+      properties:
+        role: { type: string, enum: [panel, students] }
+        name: { type: string, maxLength: 160 }
+      required: [role, name]
+    InvitationInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+      required: [name]
+    Invitation:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        url: { type: string }
+        code: { type: string }
+      required: [id, name, url, code]
+    JoinInfo:
+      type: object
+      properties:
+        launchId: { type: string }
+        role: { type: string }
+        name: { type: string }
+        status: { type: string }
+        scenario: { type: string }
+        instructions: { type: string }
+        diagnostics:
+          type: array
+          items: { $ref: "#/components/schemas/Diagnostic" }
+        observations:
+          type: array
+          items: { $ref: "#/components/schemas/Observation" }
+      required: [launchId, role, name, status, scenario, instructions, diagnostics, observations]
+    JoinInput:
+      type: object
+      properties:
+        pseudonym: { type: string, minLength: 1, maxLength: 100 }
+        invitationToken: { type: string }
+      required: [pseudonym]
+    ParticipantSession:
+      type: object
+      properties:
+        participantId: { type: string }
+        csrfToken: { type: string }
+        response: { $ref: "#/components/schemas/ParticipantResponse" }
+        joinInfo: { $ref: "#/components/schemas/JoinInfo" }
+      required: [participantId, csrfToken, response, joinInfo]
+    ParticipantResponse:
+      type: object
+      properties:
+        state: { type: string }
+        mainDiagnosticId: { type: ["string", "null"] }
+        alternativeDiagnosticId: { type: ["string", "null"] }
+        mainChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
+        alternativeChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
+        updatedAt: { type: ["string", "null"], format: date-time }
+      required: [state, mainDiagnosticId, alternativeDiagnosticId, mainChoices, alternativeChoices, updatedAt]
+    ParticipantState:
+      type: object
+      properties:
+        response: { $ref: "#/components/schemas/ParticipantResponse" }
+        joinInfo: { $ref: "#/components/schemas/JoinInfo" }
+        csrfToken: { type: string }
+      required: [response, joinInfo, csrfToken]
+    ParticipantResponseInput:
+      type: object
+      properties:
+        mainDiagnosticId: { type: ["string", "null"] }
+        alternativeDiagnosticId: { type: ["string", "null"] }
+        mainChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
+        alternativeChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
+      required: [mainDiagnosticId, alternativeDiagnosticId, mainChoices, alternativeChoices]
+    Choice:
+      type: object
+      properties:
+        observationId: { type: string }
+        sign: { type: string, enum: ["+", "-"] }
+      required: [observationId, sign]
+    Submission:
+      allOf:
+        - $ref: "#/components/schemas/ParticipantResponse"
+        - type: object
+          properties:
+            submittedAt: { type: string, format: date-time }
+          required: [submittedAt]
+    RevealState:
+      type: object
+      properties:
+        mainDiagnostic: { type: boolean }
+        mainArguments: { type: boolean }
+        alternativeDiagnostic: { type: boolean }
+        alternativeArguments: { type: boolean }
+        reference: { type: boolean }
+      required: [mainDiagnostic, mainArguments, alternativeDiagnostic, alternativeArguments, reference]
+    RevealInput:
+      type: object
+      properties:
+        mainDiagnostic: { type: boolean }
+        mainArguments: { type: boolean }
+        alternativeDiagnostic: { type: boolean }
+        alternativeArguments: { type: boolean }
+        reference: { type: boolean }
+      required: [mainDiagnostic, mainArguments, alternativeDiagnostic, alternativeArguments, reference]
+    PanelResults:
+      type: object
+      properties:
+        totalSubmissions: { type: integer }
+        minimumPanelSize: { type: integer }
+        diagnostics:
+          type: array
+          items: { type: object, additionalProperties: true }
+        distributions:
+          type: array
+          items: { type: object, additionalProperties: true }
+      required: [totalSubmissions, minimumPanelSize, diagnostics, distributions]
+    ReferenceGenerateInput:
+      type: object
+      properties:
+        minimumPanelSize: { type: integer, minimum: 1, maximum: 100 }
+      required: [minimumPanelSize]
+    ReferenceValidateInput:
+      type: object
+      properties:
+        explanation: { type: string, maxLength: 5000 }
+      required: [explanation]
+    Reference:
+      type: object
+      properties:
+        status: { type: string }
+        minimumPanelSize: { type: integer }
+        panelSize: { type: integer }
+        explanation: { type: string }
+        scoring: { type: object, additionalProperties: true }
+        diagnostics: { type: array, items: { type: object, additionalProperties: true } }
+        distributions: { type: array, items: { type: object, additionalProperties: true } }
+      required: [status, minimumPanelSize, panelSize, explanation, scoring, diagnostics, distributions]
+    WorkspaceSummary:
+      type: object
+      properties:
+        prcCount: { type: integer }
+        activeLaunchCount: { type: integer }
+        participantCount: { type: integer }
+        submissionCount: { type: integer }
+        recentLaunches:
+          type: array
+          items: { $ref: "#/components/schemas/Launch" }
+      required: [prcCount, activeLaunchCount, participantCount, submissionCount, recentLaunches]
+    LaunchResults:
+      type: object
+      properties:
+        launch: { $ref: "#/components/schemas/Launch" }
+        participants:
+          type: array
+          items: { type: object, additionalProperties: true }
+        submittedCount: { type: integer }
+        participantCount: { type: integer }
+      required: [launch, participants, submittedCount, participantCount]
+    ParticipantResults:
+      type: object
+      properties:
+        published: { type: boolean }
+        response: { $ref: "#/components/schemas/ParticipantResponse" }
+        score: { type: ["number", "null"] }
+        components: { type: object, additionalProperties: true }
+        panel: { type: object, additionalProperties: true }
+      required: [published, response, score, components, panel]
 

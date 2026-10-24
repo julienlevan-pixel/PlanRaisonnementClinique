@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "PRC Pharmacie"
+description = "Une application pédagogique de plans de raisonnement clinique pour préparer des cas, recueillir les réponses d’un panel d’experts, valider un corrigé puis animer des groupes d’étudiants."
+version = "1.0.0"
+id = "artifacts/prc-pharmacie"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22573
+
+[services.development]
+run = "pnpm --filter @workspace/prc-pharmacie run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/prc-pharmacie", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/prc-pharmacie/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22573"
+BASE_PATH = "/"
