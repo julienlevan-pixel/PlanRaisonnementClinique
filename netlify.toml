@@ -1,9 +1,9 @@
 [build]
-  command = "pnpm --filter @workspace/prc-pharmacie run build"
+  command = "pnpm --filter @workspace/prc-pharmacie run build && pnpm --filter @workspace/api-server run build:netlify"
   publish = "artifacts/prc-pharmacie/dist/public"
 
 [functions]
-  directory = "artifacts/prc-pharmacie/netlify/functions"
+  directory = "artifacts/prc-pharmacie/dist/functions"
   node_bundler = "esbuild"
 
 [[redirects]]
