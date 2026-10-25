@@ -78,9 +78,26 @@ export function Home({ actions }: { actions: AppActions }) {
   if (current.isLoading) return <div className="auth-page"><Loading label="Vérification de la session…" /></div>;
   if (!user) return <div className="public-prc-home">
     <header className="public-prc-header"><Link href="/" className="brand"><span className="brand-mark"><Stethoscope size={20} /></span><span><b>PRC</b><small>PHARMACIE</small></span></Link><Btn onClick={() => navigate('/login')}>Se connecter <ArrowRight size={16} /></Btn></header>
-    <main className="public-prc-content"><section className="public-prc-intro"><div><div className="eyebrow">FACULTÉ DE PHARMACIE</div><h1>Plan de raisonnement clinique (PRC)</h1><p>Un même cas, deux hypothèses et les données qui permettent de les discuter. Préparez le cas, recueillez le panel et accompagnez le raisonnement des étudiants.</p></div><form className="public-join" onSubmit={join}><label htmlFor="public-code">Rejoindre une activité</label><p>Saisissez le code transmis par votre enseignant.</p><div><input id="public-code" value={code} onChange={event => setCode(event.target.value)} autoComplete="off" placeholder="Code d’accès" required /><button type="submit">Rejoindre <ArrowRight size={16} /></button></div></form></section>
+    <main className="public-prc-content">
+      <section className="public-prc-hero" aria-label="Bienvenue dans PRC Pharmacie">
+        <div className="reasoning-statement">
+          <div className="reasoning-kicker">Raisonnement clinique</div>
+          <div className="reasoning-line" aria-hidden="true" />
+          <p className="reasoning-words">Observer.<br />Interpréter.<br /><em>Décider.</em></p>
+          <p className="reasoning-description">Un espace de travail pour enseigner<br className="reasoning-desktop-break" /> la démarche clinique en pharmacie.</p>
+        </div>
+        <div className="public-prc-welcome">
+          <div className="eyebrow">FACULTÉ DE PHARMACIE</div>
+          <h1>Plan de raisonnement clinique (PRC)</h1>
+          <p className="public-prc-description">Un même cas, deux hypothèses et les données qui permettent de les discuter. Préparez le cas, recueillez le panel et accompagnez le raisonnement des étudiants.</p>
+          <form className="public-join" onSubmit={join}><label htmlFor="public-code">Rejoindre une activité</label><p>Saisissez le code transmis par votre enseignant.</p><div><input id="public-code" value={code} onChange={event => setCode(event.target.value)} autoComplete="off" placeholder="Code d’accès" required /><button type="submit">Rejoindre <ArrowRight size={16} /></button></div></form>
+          <a className="public-demo-link" href="#demo-toux">Découvrir l’exemple « Toux » <ArrowRight size={15} /></a>
+        </div>
+      </section>
+      <section id="demo-toux" className="public-demo-section" aria-label="Démonstration Toux">
       <section className="public-demo-intro"><FlaskConical size={22} /><div><h2>Essayez un cas fictif : « Toux »</h2><p>Explorez les 20 observations du questionnaire commun. Les experts choisissent cinq données par hypothèse ; les étudiants peuvent en retenir de une à cinq.</p></div></section>
       {publicDemo.isLoading ? <Loading label="Chargement des 20 observations de démonstration…" /> : publicDemo.isError ? <ErrorBox message="L’aperçu fictif n’est pas disponible pour le moment." retry={() => publicDemo.refetch()} /> : publicDemo.data ? <CasePreview data={publicDemo.data} title="Toux — essai du tableau" /> : null}
+      </section>
     </main><footer className="public-prc-footer">Ce logiciel a été créé par la Faculté de pharmacie de l’Université de Montréal.</footer>
   </div>;
   return <Shell user={user} actions={actions}>
