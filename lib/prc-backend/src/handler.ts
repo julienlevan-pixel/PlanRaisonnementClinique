@@ -827,46 +827,56 @@ async function handle(request: Request): Promise<Response> {
     const limit = await enforceLoginLimit(request, username);
     if (!limit.allowed)
       fail(429, "Trop de tentatives. Réessayez dans quelques minutes.");
+    const result = await pool.query(
+      `SELECT id, username, role, active, must_change_password, password_hash
+         FROM prc_private.users WHERE lower(username) = lower($1)`,
+      [username],
+    );
+    const user = result.rows[0];
+    const verified = await verifyPassword(password, user?.password_hash);
+    if (!user || !user.active || !verified) {
+      await recordFailedLogin(limit.key);
+      fail(401, "Nom d’utilisateur ou mot de passe invalide.");
+    }
+    await clearLoginLimit(limit.key);
+    // Keep the working login flow; recheck credentials atomically before issuing
+    // a session so a simultaneous reset/deactivation cannot revive old access.
     const client = await pool.connect();
-    let rejected = false;
+    let session;
     try {
       await client.query("BEGIN");
-      // Serialize credential verification/session creation with reset and disable.
-      const found = await client.query(
-        "SELECT id,username,role,active,must_change_password,password_hash,created_at FROM prc_private.users WHERE lower(username)=lower($1) FOR UPDATE",
-        [username],
+      const current = await client.query(
+        "SELECT id FROM prc_private.users WHERE id=$1 AND active=true AND password_hash=$2 FOR UPDATE",
+        [user.id, user.password_hash],
       );
-      const user = found.rows[0];
-      const verified = await verifyPassword(password, user?.password_hash);
-      if (!user || !user.active || !verified) {
-        rejected = true;
-        fail(401, "Nom d’utilisateur ou mot de passe invalide.");
-      }
-      await clearLoginLimit(limit.key, client);
-      const session = await createTeacherSession(user.id, client);
+      if (!current.rowCount)
+        fail(
+          401,
+          "Les accès ont changé. Reconnectez-vous avec votre mot de passe actuel.",
+        );
+      session = await createTeacherSession(user.id, client);
       await client.query("COMMIT");
-      return send(
-        {
-          user: {
-            id: user.id,
-            username: user.username,
-            role: user.role,
-            active: user.active,
-            mustChangePassword: user.must_change_password,
-            createdAt: user.created_at,
-          },
-          csrfToken: session.csrfToken,
-        },
-        200,
-        cookieHeaders(session.cookie),
-      );
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
     } finally {
       client.release();
-      if (rejected) await recordFailedLogin(limit.key);
     }
+    return send(
+      {
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          active: user.active,
+          mustChangePassword: user.must_change_password,
+          createdAt: new Date().toISOString(),
+        },
+        csrfToken: session.csrfToken,
+      },
+      200,
+      cookieHeaders(session.cookie),
+    );
   }
 
   if (method === "POST" && path === "/api/auth/logout") {
@@ -2218,6 +2228,34 @@ export async function handleApiRequest(request: Request): Promise<Response> {
   } catch (error) {
     if (error instanceof ApiError)
       return send({ error: error.message }, error.status);
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String(error.code)
+        : "UNKNOWN";
+    // Log classifications only: SQL errors and connection strings may contain secrets.
+    console.error("prc_api_error", {
+      code: /^[A-Z0-9_]+$/.test(code) ? code : "UNKNOWN",
+    });
+    const connectionErrors: Record<string, string> = {
+      SELF_SIGNED_CERT_IN_CHAIN:
+        "La connexion sécurisée à Supabase nécessite son certificat d’autorité. Configurez DATABASE_SSL_ROOT_CERT côté serveur.",
+      UNABLE_TO_VERIFY_LEAF_SIGNATURE:
+        "Le certificat Supabase n’est pas reconnu. Configurez son certificat d’autorité côté serveur.",
+      CERT_HAS_EXPIRED:
+        "Le certificat de connexion à la base a expiré. Vérifiez sa configuration.",
+      ENOTFOUND:
+        "Le serveur de base de données est introuvable. Vérifiez l’adresse DATABASE_URL dans Netlify.",
+      EAI_AGAIN:
+        "Le serveur de base de données est temporairement inaccessible. Réessayez.",
+      "28P01":
+        "La connexion à Supabase est refusée. Vérifiez les identifiants de base de données dans Netlify.",
+      "42P01":
+        "La base de données nécessite les migrations de cette version de l’application.",
+      "42703":
+        "Les migrations de cette version doivent être appliquées à la base de données.",
+    };
+    if (connectionErrors[code])
+      return send({ error: connectionErrors[code] }, 503);
     const message = error instanceof Error ? error.message : "Erreur interne.";
     if (message.includes("duplicate key"))
       return send({ error: "Cette valeur existe déjà." }, 409);
