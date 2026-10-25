@@ -34,8 +34,16 @@ function useActions() {
   const refresh = (key: readonly unknown[]) => qc.invalidateQueries({ queryKey: key });
   return {
     login: useMutation(getLoginMutationOptions({ mutation: { onSuccess: () => refresh(getGetCurrentUserQueryKey()) } })),
-    logout: useMutation(getLogoutMutationOptions({ mutation: { onSuccess: () => refresh(getGetCurrentUserQueryKey()) } })),
-    password: useMutation(getChangePasswordMutationOptions()),
+    logout: useMutation(getLogoutMutationOptions({ mutation: { onSuccess: () => {
+      const currentUserKey = getGetCurrentUserQueryKey();
+      qc.setQueryData(currentUserKey, null);
+      qc.removeQueries({ predicate: query => query.queryKey[0] !== currentUserKey[0] });
+    } } })),
+    password: useMutation(getChangePasswordMutationOptions({ mutation: { onSuccess: () => {
+      refresh(getGetCurrentUserQueryKey());
+      refresh(getGetWorkspaceSummaryQueryKey());
+      refresh(getListPrcsQueryKey());
+    } } })),
     createTeacher: useMutation(getCreateTeacherMutationOptions({ mutation: { onSuccess: () => refresh(getListTeachersQueryKey()) } })),
     updateTeacher: useMutation(getUpdateTeacherMutationOptions({ mutation: { onSuccess: () => refresh(getListTeachersQueryKey()) } })),
     createPrc: useMutation(getCreatePrcMutationOptions({ mutation: { onSuccess: () => { refresh(getListPrcsQueryKey()); refresh(getGetWorkspaceSummaryQueryKey()); } } })),
@@ -424,14 +432,14 @@ function ProtectedActivity({ actions }: { actions: AppActions }) {
 function Router() {
   const actions = useActions();
   return <Switch>
-    <Route path="/" component={() => <Home actions={actions} />} />
-    <Route path="/login" component={() => <Login actions={actions} />} />
-    <Route path="/prc/:prcId" component={() => <PrcEditor actions={actions} />} />
-    <Route path="/activity/:launchId" component={() => <ProtectedActivity actions={actions} />} />
-    <Route path="/join/:code" component={() => <Join actions={actions} />} />
-    <Route path="/participant" component={() => <Participant actions={actions} />} />
+    <Route path="/"><Home actions={actions} /></Route>
+    <Route path="/login"><Login actions={actions} /></Route>
+    <Route path="/prc/:prcId"><PrcEditor actions={actions} /></Route>
+    <Route path="/activity/:launchId"><ProtectedActivity actions={actions} /></Route>
+    <Route path="/join/:code"><Join actions={actions} /></Route>
+    <Route path="/participant"><Participant actions={actions} /></Route>
     <Route path="/participant/results" component={ParticipantResults} />
-    <Route path="/admin" component={() => <Admin actions={actions} />} />
+    <Route path="/admin"><Admin actions={actions} /></Route>
     <Route component={NotFound} />
   </Switch>;
 }

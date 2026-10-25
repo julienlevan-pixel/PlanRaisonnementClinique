@@ -37,6 +37,8 @@ node_modules
 /.sass-cache
 /connect.lock
 /coverage
+/artifacts/prc-pharmacie/test-results/
+/artifacts/prc-pharmacie/playwright-report/
 /libpeerconnection.log
 npm-debug.log
 yarn-error.log
