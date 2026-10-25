@@ -5,6 +5,5 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { ScoringRule } from './scoringRule';
 
-export type ReferenceScoring = ScoringRule;
+export type ReferenceScoring = { [key: string]: unknown };

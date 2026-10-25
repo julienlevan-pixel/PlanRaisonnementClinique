@@ -2,10 +2,7 @@ import { rm } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 
-const entry = new URL(
-  "../prc-pharmacie/netlify/functions/api.ts",
-  import.meta.url,
-);
+const entry = new URL("../prc-pharmacie/netlify/functions/api.ts", import.meta.url);
 const output = new URL("../prc-pharmacie/dist/functions/", import.meta.url);
 
 // Netlify's v2 function tracing treats workspace packages as external modules.
@@ -18,11 +15,6 @@ await build({
   platform: "node",
   target: "node24",
   format: "esm",
-  define: {
-    "process.env.PRC_DEPLOY_CONTEXT": JSON.stringify(
-      process.env.CONTEXT ?? "development",
-    ),
-  },
   external: ["pg-native"],
   banner: {
     js: 'import { createRequire as createNodeRequire } from "node:module"; const require = createNodeRequire(import.meta.url);',

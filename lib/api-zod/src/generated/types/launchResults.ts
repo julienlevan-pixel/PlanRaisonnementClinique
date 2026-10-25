@@ -5,19 +5,12 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { CaseSnapshot } from './caseSnapshot';
 import type { Launch } from './launch';
-import type { LaunchParticipantResult } from './launchParticipantResult';
-import type { RevealState } from './revealState';
-import type { VisibleAggregate } from './visibleAggregate';
+import type { LaunchResultsParticipantsItem } from './launchResultsParticipantsItem';
 
 export interface LaunchResults {
   launch: Launch;
-  participants: LaunchParticipantResult[];
+  participants: LaunchResultsParticipantsItem[];
   submittedCount: number;
   participantCount: number;
-  case?: CaseSnapshot;
-  reveals?: RevealState;
-  class?: VisibleAggregate;
-  panel?: VisibleAggregate;
 }

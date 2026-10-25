@@ -5,11 +5,16 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { CaseSnapshot } from './caseSnapshot';
+import type { Diagnostic } from './diagnostic';
+import type { Observation } from './observation';
 
-export type JoinInfo = CaseSnapshot & {
+export interface JoinInfo {
   launchId: string;
   role: string;
+  name: string;
   status: string;
-  isTrial?: boolean;
-};
+  scenario: string;
+  instructions: string;
+  diagnostics: Diagnostic[];
+  observations: Observation[];
+}

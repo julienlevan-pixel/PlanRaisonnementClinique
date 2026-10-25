@@ -17,9 +17,4 @@ export interface ParticipantResponse {
   alternativeChoices: Choice[];
   /** @nullable */
   updatedAt: Date | null;
-  /**
-     * Version persistée de la copie à renvoyer lors de la sauvegarde suivante.
-     * @minimum 0
-     */
-  revision?: number;
 }

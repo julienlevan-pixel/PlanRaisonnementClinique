@@ -12,18 +12,6 @@ export interface ParticipantResponseInput {
   mainDiagnosticId: string | null;
   /** @nullable */
   alternativeDiagnosticId: string | null;
-  /** @maxItems 5 */
   mainChoices: Choice[];
-  /** @maxItems 5 */
   alternativeChoices: Choice[];
-  /**
-     * Révision lue précédemment ; nécessaire dès que la révision persistée dépasse zéro.
-     * @minimum 0
-     */
-  revision?: number;
-  /**
-     * Alias de revision ; revision est prioritaire si les deux sont présents.
-     * @minimum 0
-     */
-  expectedRevision?: number;
 }

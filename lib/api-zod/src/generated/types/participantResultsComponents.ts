@@ -5,6 +5,5 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { VisibleScoreComponents } from './visibleScoreComponents';
 
-export type ParticipantResultsComponents = VisibleScoreComponents;
+export type ParticipantResultsComponents = { [key: string]: unknown };

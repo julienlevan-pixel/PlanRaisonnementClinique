@@ -9,11 +9,6 @@ import type { LaunchInputRole } from './launchInputRole';
 
 export interface LaunchInput {
   role: LaunchInputRole;
-  /**
-     * Compatibilité historique ; le serveur utilise le nom du PRC.
-     * @deprecated
-     * @maxLength 160
-     */
-  name?: string;
-  isTrial?: boolean;
+  /** @maxLength 160 */
+  name: string;
 }
