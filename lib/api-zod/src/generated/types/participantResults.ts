@@ -7,15 +7,34 @@
  */
 import type { JoinInfo } from './joinInfo';
 import type { ParticipantResponse } from './participantResponse';
-import type { ParticipantResultsComponents } from './participantResultsComponents';
-import type { ParticipantResultsPanel } from './participantResultsPanel';
+import type { ParticipantResultsRole } from './participantResultsRole';
+import type { RevealState } from './revealState';
+import type { VisibleAggregate } from './visibleAggregate';
+import type { VisibleReference } from './visibleReference';
+import type { VisibleScoreComponents } from './visibleScoreComponents';
 
 export interface ParticipantResults {
   published: boolean;
   case: JoinInfo;
   response: ParticipantResponse;
-  /** @nullable */
+  /**
+     * Note sur 20 ; null pour les experts
+     * @minimum 0
+     * @maximum 20
+     * @nullable
+     */
   score: number | null;
-  components: ParticipantResultsComponents;
-  panel: ParticipantResultsPanel;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  percentage?: number | null;
+  components: VisibleScoreComponents;
+  role?: ParticipantResultsRole;
+  status?: string;
+  reveals?: RevealState;
+  panel: VisibleAggregate;
+  class?: VisibleAggregate;
+  reference?: VisibleReference | null;
 }

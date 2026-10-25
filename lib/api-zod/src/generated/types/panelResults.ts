@@ -5,12 +5,12 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { PanelResultsDiagnosticsItem } from './panelResultsDiagnosticsItem';
-import type { PanelResultsDistributionsItem } from './panelResultsDistributionsItem';
+import type { DiagnosticCount } from './diagnosticCount';
+import type { DiagnosticDistribution } from './diagnosticDistribution';
 
 export interface PanelResults {
   totalSubmissions: number;
   minimumPanelSize: number;
-  diagnostics: PanelResultsDiagnosticsItem[];
-  distributions: PanelResultsDistributionsItem[];
+  diagnostics: DiagnosticCount[];
+  distributions: DiagnosticDistribution[];
 }

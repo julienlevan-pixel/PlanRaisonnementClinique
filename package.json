@@ -8,10 +8,17 @@
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test": "pnpm --filter @workspace/prc-backend run test",
+    "test:integration": "node scripts/run-local-checks.mjs integration",
+    "test:load": "node scripts/run-local-checks.mjs load",
     "db:migrate": "pnpm --filter @workspace/prc-backend run migrate",
     "admin:init": "pnpm --filter @workspace/prc-backend run init-admin"
   },
   "private": true,
+  "packageManager": "pnpm@10.28.2",
+  "engines": {
+    "node": "24.x",
+    "pnpm": "10.x"
+  },
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.3"
   },

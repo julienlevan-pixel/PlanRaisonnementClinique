@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { Diagnostic } from './diagnostic';
+import type { Launch } from './launch';
 import type { Observation } from './observation';
 import type { Prc } from './prc';
 
@@ -13,4 +14,5 @@ export type PrcDetail = Prc & {
   instructions: string;
   diagnostics: Diagnostic[];
   observations: Observation[];
+  launches?: Launch[];
 };

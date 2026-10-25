@@ -5,5 +5,6 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { DiagnosticDistribution } from './diagnosticDistribution';
 
-export type PanelResultsDistributionsItem = { [key: string]: unknown };
+export type PanelResultsDistributionsItem = DiagnosticDistribution;
