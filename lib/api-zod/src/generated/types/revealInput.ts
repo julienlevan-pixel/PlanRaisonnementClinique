@@ -7,9 +7,11 @@
  */
 
 export interface RevealInput {
-  mainDiagnostic: boolean;
-  mainArguments: boolean;
-  alternativeDiagnostic: boolean;
-  alternativeArguments: boolean;
-  reference: boolean;
+  mainDiagnostic?: boolean;
+  mainArguments?: boolean;
+  alternativeDiagnostic?: boolean;
+  alternativeArguments?: boolean;
+  reference?: boolean;
+  /** Affiche uniquement les principales les plus fréquentes en conservant les égalités. */
+  mainDiagnosticTopOnly?: boolean;
 }

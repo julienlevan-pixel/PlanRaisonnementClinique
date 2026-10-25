@@ -141,7 +141,10 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -151,6 +154,15 @@ export const GetWorkspaceSummaryResponse = zod.object({
 })
 
 
+export const listPrcsQueryQMax = 160;
+
+export const listPrcsQueryArchivedDefault = false;
+
+export const ListPrcsQueryParams = zod.object({
+  "q": zod.coerce.string().max(listPrcsQueryQMax).optional().describe('Recherche sur le nom et le scénario du PRC appartenant au compte courant.'),
+  "archived": zod.coerce.boolean().default(listPrcsQueryArchivedDefault).describe('false pour la bibliothèque active, true pour les archives.')
+})
+
 export const ListPrcsResponseItem = zod.object({
   "id": zod.string(),
   "name": zod.string(),
@@ -158,7 +170,15 @@ export const ListPrcsResponseItem = zod.object({
   "status": zod.string(),
   "version": zod.number().int(),
   "updatedAt": zod.coerce.date(),
-  "launchCount": zod.number().int()
+  "launchCount": zod.number().int(),
+  "archived": zod.boolean().optional(),
+  "isDemo": zod.boolean().optional(),
+  "workflow": zod.object({
+  "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
+  "missing": zod.array(zod.string()),
+  "panelLaunchId": zod.string().nullable(),
+  "referenceStatus": zod.string().nullable()
+}).optional()
 })
 export const ListPrcsResponse = zod.array(ListPrcsResponseItem)
 
@@ -193,7 +213,15 @@ export const CreatePrcResponse = zod.object({
   "status": zod.string(),
   "version": zod.number().int(),
   "updatedAt": zod.coerce.date(),
-  "launchCount": zod.number().int()
+  "launchCount": zod.number().int(),
+  "archived": zod.boolean().optional(),
+  "isDemo": zod.boolean().optional(),
+  "workflow": zod.object({
+  "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
+  "missing": zod.array(zod.string()),
+  "panelLaunchId": zod.string().nullable(),
+  "referenceStatus": zod.string().nullable()
+}).optional()
 })
 
 
@@ -208,7 +236,15 @@ export const GetPrcResponse = zod.object({
   "status": zod.string(),
   "version": zod.number().int(),
   "updatedAt": zod.coerce.date(),
-  "launchCount": zod.number().int()
+  "launchCount": zod.number().int(),
+  "archived": zod.boolean().optional(),
+  "isDemo": zod.boolean().optional(),
+  "workflow": zod.object({
+  "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
+  "missing": zod.array(zod.string()),
+  "panelLaunchId": zod.string().nullable(),
+  "referenceStatus": zod.string().nullable()
+}).optional()
 }).and(zod.object({
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -220,7 +256,21 @@ export const GetPrcResponse = zod.object({
   "text": zod.string(),
   "category": zod.string(),
   "position": zod.number().int()
-}))
+})),
+  "launches": zod.array(zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int()
+})).optional()
 }))
 
 
@@ -258,7 +308,15 @@ export const UpdatePrcResponse = zod.object({
   "status": zod.string(),
   "version": zod.number().int(),
   "updatedAt": zod.coerce.date(),
-  "launchCount": zod.number().int()
+  "launchCount": zod.number().int(),
+  "archived": zod.boolean().optional(),
+  "isDemo": zod.boolean().optional(),
+  "workflow": zod.object({
+  "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
+  "missing": zod.array(zod.string()),
+  "panelLaunchId": zod.string().nullable(),
+  "referenceStatus": zod.string().nullable()
+}).optional()
 }).and(zod.object({
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -270,7 +328,39 @@ export const UpdatePrcResponse = zod.object({
   "text": zod.string(),
   "category": zod.string(),
   "position": zod.number().int()
+})),
+  "launches": zod.array(zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int()
+})).optional()
 }))
+
+
+/**
+ * Archive ou restaure un PRC sans supprimer son historique.
+ */
+export const ArchivePrcParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const ArchivePrcBody = zod.object({
+  "archived": zod.boolean()
+})
+
+export const ArchivePrcResponse = zod.object({
+  "archived": zod.boolean()
+}).and(zod.object({
+  "id": zod.string()
 }))
 
 
@@ -280,18 +370,22 @@ export const CreateLaunchParams = zod.object({
 
 export const createLaunchBodyNameMax = 160;
 
-
+export const createLaunchBodyIsTrialDefault = false;
 
 export const CreateLaunchBody = zod.object({
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string().max(createLaunchBodyNameMax)
+  "name": zod.string().max(createLaunchBodyNameMax).optional().describe('Compatibilité historique ; le serveur utilise le nom du PRC.'),
+  "isTrial": zod.boolean().default(createLaunchBodyIsTrialDefault)
 })
 
 export const CreateLaunchResponse = zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -304,11 +398,36 @@ export const GetLaunchParams = zod.object({
   "launchId": zod.coerce.string()
 })
 
+export const getLaunchResponseTwoReferenceOneDiagnosticsItemMainCountMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDiagnosticsItemMainPercentMin = 0;
+export const getLaunchResponseTwoReferenceOneDiagnosticsItemMainPercentMax = 100;
+
+export const getLaunchResponseTwoReferenceOneDiagnosticsItemAlternativeCountMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDiagnosticsItemAlternativePercentMin = 0;
+export const getLaunchResponseTwoReferenceOneDiagnosticsItemAlternativePercentMax = 100;
+
+export const getLaunchResponseTwoReferenceOneDistributionsItemExpertCountMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDistributionsItemCeilingMin = 0;
+
+
+
 export const GetLaunchResponse = zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -320,9 +439,65 @@ export const GetLaunchResponse = zod.object({
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),
-  "reference": zod.boolean()
+  "reference": zod.boolean(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
 }),
-  "referenceStatus": zod.string().nullable()
+  "referenceStatus": zod.string().nullable(),
+  "reference": zod.union([zod.object({
+  "status": zod.string(),
+  "minimumPanelSize": zod.number().int(),
+  "panelSize": zod.number().int(),
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+}),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getLaunchResponseTwoReferenceOneDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getLaunchResponseTwoReferenceOneDiagnosticsItemMainPercentMin).max(getLaunchResponseTwoReferenceOneDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getLaunchResponseTwoReferenceOneDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getLaunchResponseTwoReferenceOneDiagnosticsItemAlternativePercentMin).max(getLaunchResponseTwoReferenceOneDiagnosticsItemAlternativePercentMax).optional()
+})),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getLaunchResponseTwoReferenceOneDistributionsItemCeilingMin)
+}))
+}),zod.null()]).optional(),
+  "case": zod.object({
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).optional()
 }))
 
 
@@ -351,10 +526,7 @@ export const GetJoinInfoParams = zod.object({
 })
 
 export const GetJoinInfoResponse = zod.object({
-  "launchId": zod.string(),
-  "role": zod.string(),
   "name": zod.string(),
-  "status": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -367,9 +539,17 @@ export const GetJoinInfoResponse = zod.object({
   "category": zod.string(),
   "position": zod.number().int()
 }))
-})
+}).and(zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "isTrial": zod.boolean().optional()
+}))
 
 
+/**
+ * Crée ou reprend une participation sans compte enseignant. Un panel exige une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet la reprise d’un accès étudiant et rend une nouvelle tentative de jonction idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
+ */
 export const JoinLaunchParams = zod.object({
   "launchId": zod.coerce.string()
 })
@@ -380,8 +560,13 @@ export const joinLaunchBodyPseudonymMax = 100;
 
 export const JoinLaunchBody = zod.object({
   "pseudonym": zod.string().min(1).max(joinLaunchBodyPseudonymMax),
-  "invitationToken": zod.string().optional()
+  "invitationToken": zod.string().optional().describe('Secret individuel obligatoire pour rejoindre un panel.'),
+  "joinKey": zod.string().uuid().optional().describe('UUIDv4 aléatoire conservé localement pour reprendre sa participation ; ne pas publier ni journaliser.')
 })
+
+export const joinLaunchResponseResponseRevisionMin = 0;
+
+
 
 export const JoinLaunchResponse = zod.object({
   "participantId": zod.string(),
@@ -398,13 +583,11 @@ export const JoinLaunchResponse = zod.object({
   "observationId": zod.string(),
   "sign": zod.enum(['+', '-'])
 })),
-  "updatedAt": zod.coerce.date().nullable()
+  "updatedAt": zod.coerce.date().nullable(),
+  "revision": zod.number().int().min(joinLaunchResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
   "joinInfo": zod.object({
-  "launchId": zod.string(),
-  "role": zod.string(),
   "name": zod.string(),
-  "status": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -417,8 +600,17 @@ export const JoinLaunchResponse = zod.object({
   "category": zod.string(),
   "position": zod.number().int()
 }))
+}).and(zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "isTrial": zod.boolean().optional()
+}))
 })
-})
+
+
+export const getParticipantResponseResponseResponseRevisionMin = 0;
+
 
 
 export const GetParticipantResponseResponse = zod.object({
@@ -434,13 +626,11 @@ export const GetParticipantResponseResponse = zod.object({
   "observationId": zod.string(),
   "sign": zod.enum(['+', '-'])
 })),
-  "updatedAt": zod.coerce.date().nullable()
+  "updatedAt": zod.coerce.date().nullable(),
+  "revision": zod.number().int().min(getParticipantResponseResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
   "joinInfo": zod.object({
-  "launchId": zod.string(),
-  "role": zod.string(),
   "name": zod.string(),
-  "status": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -453,9 +643,27 @@ export const GetParticipantResponseResponse = zod.object({
   "category": zod.string(),
   "position": zod.number().int()
 }))
-}),
+}).and(zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "isTrial": zod.boolean().optional()
+})),
   "csrfToken": zod.string()
 })
+
+
+/**
+ * Sauvegarde optimiste du brouillon. Envoyer la revision reçue lors du dernier GET ou PUT. Son omission reste acceptée uniquement à la révision initiale zéro. Une copie plus récente ou déjà soumise provoque HTTP 409 et doit être relue ; une sauvegarde ancienne ne l’écrase pas.
+ */
+export const saveParticipantResponseBodyMainChoicesMax = 5;
+
+export const saveParticipantResponseBodyAlternativeChoicesMax = 5;
+
+export const saveParticipantResponseBodyRevisionMin = 0;
+
+export const saveParticipantResponseBodyExpectedRevisionMin = 0;
+
 
 
 export const SaveParticipantResponseBody = zod.object({
@@ -464,12 +672,18 @@ export const SaveParticipantResponseBody = zod.object({
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
   "sign": zod.enum(['+', '-'])
-})),
+})).max(saveParticipantResponseBodyMainChoicesMax),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
   "sign": zod.enum(['+', '-'])
-}))
+})).max(saveParticipantResponseBodyAlternativeChoicesMax),
+  "revision": zod.number().int().min(saveParticipantResponseBodyRevisionMin).optional().describe('Révision lue précédemment ; nécessaire dès que la révision persistée dépasse zéro.'),
+  "expectedRevision": zod.number().int().min(saveParticipantResponseBodyExpectedRevisionMin).optional().describe('Alias de revision ; revision est prioritaire si les deux sont présents.')
 })
+
+export const saveParticipantResponseResponseResponseRevisionMin = 0;
+
+
 
 export const SaveParticipantResponseResponse = zod.object({
   "response": zod.object({
@@ -484,13 +698,11 @@ export const SaveParticipantResponseResponse = zod.object({
   "observationId": zod.string(),
   "sign": zod.enum(['+', '-'])
 })),
-  "updatedAt": zod.coerce.date().nullable()
+  "updatedAt": zod.coerce.date().nullable(),
+  "revision": zod.number().int().min(saveParticipantResponseResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
   "joinInfo": zod.object({
-  "launchId": zod.string(),
-  "role": zod.string(),
   "name": zod.string(),
-  "status": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -503,9 +715,29 @@ export const SaveParticipantResponseResponse = zod.object({
   "category": zod.string(),
   "position": zod.number().int()
 }))
-}),
+}).and(zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "isTrial": zod.boolean().optional()
+})),
   "csrfToken": zod.string()
 })
+
+
+/**
+ * Verrouille la copie et calcule son score une seule fois sur la référence figée. Une nouvelle tentative d’une soumission déjà enregistrée renvoie la même copie avec HTTP 200, y compris après fermeture. Une première soumission qui perd la course avec la fermeture est refusée avec HTTP 409. Envoyer expectedRevision pour confirmer exactement la version relue ; une autre révision persistée provoque HTTP 409 sans verrouiller la copie.
+ */
+export const submitParticipantResponseBodyExpectedRevisionMin = 0;
+
+
+
+export const SubmitParticipantResponseBody = zod.object({
+  "expectedRevision": zod.number().int().min(submitParticipantResponseBodyExpectedRevisionMin).optional().describe('Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.')
+})
+
+export const submitParticipantResponseResponseOneRevisionMin = 0;
+
 
 
 export const SubmitParticipantResponseResponse = zod.object({
@@ -520,7 +752,8 @@ export const SubmitParticipantResponseResponse = zod.object({
   "observationId": zod.string(),
   "sign": zod.enum(['+', '-'])
 })),
-  "updatedAt": zod.coerce.date().nullable()
+  "updatedAt": zod.coerce.date().nullable(),
+  "revision": zod.number().int().min(submitParticipantResponseResponseOneRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }).and(zod.object({
   "submittedAt": zod.coerce.date()
 }))
@@ -534,7 +767,10 @@ export const CloseLaunchResponse = zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -548,18 +784,22 @@ export const RevealLaunchParams = zod.object({
 })
 
 export const RevealLaunchBody = zod.object({
-  "mainDiagnostic": zod.boolean(),
-  "mainArguments": zod.boolean(),
-  "alternativeDiagnostic": zod.boolean(),
-  "alternativeArguments": zod.boolean(),
-  "reference": zod.boolean()
+  "mainDiagnostic": zod.boolean().optional(),
+  "mainArguments": zod.boolean().optional(),
+  "alternativeDiagnostic": zod.boolean().optional(),
+  "alternativeArguments": zod.boolean().optional(),
+  "reference": zod.boolean().optional(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
 })
 
 export const RevealLaunchResponse = zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -572,11 +812,56 @@ export const GetPanelResultsParams = zod.object({
   "launchId": zod.coerce.string()
 })
 
+export const getPanelResultsResponseDiagnosticsItemMainCountMin = 0;
+
+export const getPanelResultsResponseDiagnosticsItemMainPercentMin = 0;
+export const getPanelResultsResponseDiagnosticsItemMainPercentMax = 100;
+
+export const getPanelResultsResponseDiagnosticsItemAlternativeCountMin = 0;
+
+export const getPanelResultsResponseDiagnosticsItemAlternativePercentMin = 0;
+export const getPanelResultsResponseDiagnosticsItemAlternativePercentMax = 100;
+
+export const getPanelResultsResponseDistributionsItemExpertCountMin = 0;
+
+export const getPanelResultsResponseDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getPanelResultsResponseDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getPanelResultsResponseDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getPanelResultsResponseDistributionsItemCeilingMin = 0;
+
+
+
 export const GetPanelResultsResponse = zod.object({
   "totalSubmissions": zod.number().int(),
   "minimumPanelSize": zod.number().int(),
-  "diagnostics": zod.array(zod.record(zod.string(), zod.unknown())),
-  "distributions": zod.array(zod.record(zod.string(), zod.unknown()))
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getPanelResultsResponseDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getPanelResultsResponseDiagnosticsItemMainPercentMin).max(getPanelResultsResponseDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getPanelResultsResponseDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getPanelResultsResponseDiagnosticsItemAlternativePercentMin).max(getPanelResultsResponseDiagnosticsItemAlternativePercentMax).optional()
+})),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getPanelResultsResponseDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getPanelResultsResponseDistributionsItemCeilingMin)
+}))
 })
 
 
@@ -592,14 +877,67 @@ export const GenerateReferenceBody = zod.object({
   "minimumPanelSize": zod.number().int().min(1).max(generateReferenceBodyMinimumPanelSizeMax)
 })
 
+export const generateReferenceResponseDiagnosticsItemMainCountMin = 0;
+
+export const generateReferenceResponseDiagnosticsItemMainPercentMin = 0;
+export const generateReferenceResponseDiagnosticsItemMainPercentMax = 100;
+
+export const generateReferenceResponseDiagnosticsItemAlternativeCountMin = 0;
+
+export const generateReferenceResponseDiagnosticsItemAlternativePercentMin = 0;
+export const generateReferenceResponseDiagnosticsItemAlternativePercentMax = 100;
+
+export const generateReferenceResponseDistributionsItemExpertCountMin = 0;
+
+export const generateReferenceResponseDistributionsItemObservationsItemPositiveMin = 0;
+
+export const generateReferenceResponseDistributionsItemObservationsItemNegativeMin = 0;
+
+export const generateReferenceResponseDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const generateReferenceResponseDistributionsItemCeilingMin = 0;
+
+
+
 export const GenerateReferenceResponse = zod.object({
   "status": zod.string(),
   "minimumPanelSize": zod.number().int(),
   "panelSize": zod.number().int(),
   "explanation": zod.string(),
-  "scoring": zod.record(zod.string(), zod.unknown()),
-  "diagnostics": zod.array(zod.record(zod.string(), zod.unknown())),
-  "distributions": zod.array(zod.record(zod.string(), zod.unknown()))
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+}),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(generateReferenceResponseDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(generateReferenceResponseDiagnosticsItemMainPercentMin).max(generateReferenceResponseDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(generateReferenceResponseDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(generateReferenceResponseDiagnosticsItemAlternativePercentMin).max(generateReferenceResponseDiagnosticsItemAlternativePercentMax).optional()
+})),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(generateReferenceResponseDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(generateReferenceResponseDistributionsItemCeilingMin)
+}))
 })
 
 
@@ -615,14 +953,67 @@ export const ValidateReferenceBody = zod.object({
   "explanation": zod.string().max(validateReferenceBodyExplanationMax)
 })
 
+export const validateReferenceResponseDiagnosticsItemMainCountMin = 0;
+
+export const validateReferenceResponseDiagnosticsItemMainPercentMin = 0;
+export const validateReferenceResponseDiagnosticsItemMainPercentMax = 100;
+
+export const validateReferenceResponseDiagnosticsItemAlternativeCountMin = 0;
+
+export const validateReferenceResponseDiagnosticsItemAlternativePercentMin = 0;
+export const validateReferenceResponseDiagnosticsItemAlternativePercentMax = 100;
+
+export const validateReferenceResponseDistributionsItemExpertCountMin = 0;
+
+export const validateReferenceResponseDistributionsItemObservationsItemPositiveMin = 0;
+
+export const validateReferenceResponseDistributionsItemObservationsItemNegativeMin = 0;
+
+export const validateReferenceResponseDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const validateReferenceResponseDistributionsItemCeilingMin = 0;
+
+
+
 export const ValidateReferenceResponse = zod.object({
   "status": zod.string(),
   "minimumPanelSize": zod.number().int(),
   "panelSize": zod.number().int(),
   "explanation": zod.string(),
-  "scoring": zod.record(zod.string(), zod.unknown()),
-  "diagnostics": zod.array(zod.record(zod.string(), zod.unknown())),
-  "distributions": zod.array(zod.record(zod.string(), zod.unknown()))
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+}),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(validateReferenceResponseDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(validateReferenceResponseDiagnosticsItemMainPercentMin).max(validateReferenceResponseDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(validateReferenceResponseDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(validateReferenceResponseDiagnosticsItemAlternativePercentMin).max(validateReferenceResponseDiagnosticsItemAlternativePercentMax).optional()
+})),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(validateReferenceResponseDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(validateReferenceResponseDistributionsItemCeilingMin)
+}))
 })
 
 
@@ -634,7 +1025,10 @@ export const PublishResultsResponse = zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
@@ -647,31 +1041,622 @@ export const GetLaunchResultsParams = zod.object({
   "launchId": zod.coerce.string()
 })
 
+export const getLaunchResultsResponseClassDiagnosticsItemMainCountMin = 0;
+
+export const getLaunchResultsResponseClassDiagnosticsItemMainPercentMin = 0;
+export const getLaunchResultsResponseClassDiagnosticsItemMainPercentMax = 100;
+
+export const getLaunchResultsResponseClassDiagnosticsItemAlternativeCountMin = 0;
+
+export const getLaunchResultsResponseClassDiagnosticsItemAlternativePercentMin = 0;
+export const getLaunchResultsResponseClassDiagnosticsItemAlternativePercentMax = 100;
+
+export const getLaunchResultsResponseClassDistributionsItemExpertCountMin = 0;
+
+export const getLaunchResultsResponseClassDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getLaunchResultsResponseClassDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchResultsResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getLaunchResultsResponseClassDistributionsItemCeilingMin = 0;
+
+export const getLaunchResultsResponsePanelDiagnosticsItemMainCountMin = 0;
+
+export const getLaunchResultsResponsePanelDiagnosticsItemMainPercentMin = 0;
+export const getLaunchResultsResponsePanelDiagnosticsItemMainPercentMax = 100;
+
+export const getLaunchResultsResponsePanelDiagnosticsItemAlternativeCountMin = 0;
+
+export const getLaunchResultsResponsePanelDiagnosticsItemAlternativePercentMin = 0;
+export const getLaunchResultsResponsePanelDiagnosticsItemAlternativePercentMax = 100;
+
+export const getLaunchResultsResponsePanelDistributionsItemExpertCountMin = 0;
+
+export const getLaunchResultsResponsePanelDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getLaunchResultsResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getLaunchResultsResponsePanelDistributionsItemCeilingMin = 0;
+
+
+
 export const GetLaunchResultsResponse = zod.object({
   "launch": zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
-  "name": zod.string(),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
   "code": zod.string(),
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
   "submissionCount": zod.number().int()
 }),
-  "participants": zod.array(zod.record(zod.string(), zod.unknown())),
+  "participants": zod.array(zod.object({
+  "id": zod.string(),
+  "pseudonym": zod.string(),
+  "role": zod.string(),
+  "state": zod.string(),
+  "submittedAt": zod.coerce.date().nullable(),
+  "score": zod.number().nullable().describe('Note sur 20'),
+  "components": zod.union([zod.object({
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional().describe('Note sur 20.'),
+  "percentage": zod.number().optional().describe('Pourcentage sur 100.'),
+  "main": zod.object({
+  "diagnosis": zod.number(),
+  "justification": zod.number(),
+  "represented": zod.boolean(),
+  "raw": zod.number(),
+  "ceiling": zod.number()
+}).optional(),
+  "alternative": zod.object({
+  "diagnosis": zod.number(),
+  "justification": zod.number(),
+  "represented": zod.boolean(),
+  "raw": zod.number(),
+  "ceiling": zod.number()
+}).optional()
+}).describe('Vide tant que la note privée n’est pas publiée ou si la copie est non soumise.'),zod.null()])
+})),
   "submittedCount": zod.number().int(),
-  "participantCount": zod.number().int()
+  "participantCount": zod.number().int(),
+  "case": zod.object({
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).optional(),
+  "reveals": zod.object({
+  "mainDiagnostic": zod.boolean(),
+  "mainArguments": zod.boolean(),
+  "alternativeDiagnostic": zod.boolean(),
+  "alternativeArguments": zod.boolean(),
+  "reference": zod.boolean(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
+}).optional(),
+  "class": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getLaunchResultsResponseClassDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getLaunchResultsResponseClassDiagnosticsItemMainPercentMin).max(getLaunchResultsResponseClassDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getLaunchResultsResponseClassDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getLaunchResultsResponseClassDiagnosticsItemAlternativePercentMin).max(getLaunchResultsResponseClassDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getLaunchResultsResponseClassDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
 })
+}),zod.null()]).optional()
+}).optional().describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+  "panel": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getLaunchResultsResponsePanelDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getLaunchResultsResponsePanelDiagnosticsItemMainPercentMin).max(getLaunchResultsResponsePanelDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getLaunchResultsResponsePanelDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getLaunchResultsResponsePanelDiagnosticsItemAlternativePercentMin).max(getLaunchResultsResponsePanelDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getLaunchResultsResponsePanelDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).optional().describe('Les champs non révélés sont absents ; objet vide pendant la collecte.')
+})
+
+
+/**
+ * Renvoie uniquement sa copie. Les agrégats suivent les étapes de révélation après fermeture, avant publication éventuelle des notes. Le score privé n’apparaît qu’après publication étudiante. Un brouillon reste non soumis avec score et pourcentage nuls ; les experts ne sont jamais notés.
+ */
+export const getParticipantResultsResponseResponseRevisionMin = 0;
+
+export const getParticipantResultsResponseScoreMin = 0;
+export const getParticipantResultsResponseScoreMax = 20;
+
+export const getParticipantResultsResponsePercentageMin = 0;
+export const getParticipantResultsResponsePercentageMax = 100;
+
+export const getParticipantResultsResponsePanelDiagnosticsItemMainCountMin = 0;
+
+export const getParticipantResultsResponsePanelDiagnosticsItemMainPercentMin = 0;
+export const getParticipantResultsResponsePanelDiagnosticsItemMainPercentMax = 100;
+
+export const getParticipantResultsResponsePanelDiagnosticsItemAlternativeCountMin = 0;
+
+export const getParticipantResultsResponsePanelDiagnosticsItemAlternativePercentMin = 0;
+export const getParticipantResultsResponsePanelDiagnosticsItemAlternativePercentMax = 100;
+
+export const getParticipantResultsResponsePanelDistributionsItemExpertCountMin = 0;
+
+export const getParticipantResultsResponsePanelDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getParticipantResultsResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getParticipantResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getParticipantResultsResponsePanelDistributionsItemCeilingMin = 0;
+
+export const getParticipantResultsResponseClassDiagnosticsItemMainCountMin = 0;
+
+export const getParticipantResultsResponseClassDiagnosticsItemMainPercentMin = 0;
+export const getParticipantResultsResponseClassDiagnosticsItemMainPercentMax = 100;
+
+export const getParticipantResultsResponseClassDiagnosticsItemAlternativeCountMin = 0;
+
+export const getParticipantResultsResponseClassDiagnosticsItemAlternativePercentMin = 0;
+export const getParticipantResultsResponseClassDiagnosticsItemAlternativePercentMax = 100;
+
+export const getParticipantResultsResponseClassDistributionsItemExpertCountMin = 0;
+
+export const getParticipantResultsResponseClassDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getParticipantResultsResponseClassDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getParticipantResultsResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getParticipantResultsResponseClassDistributionsItemCeilingMin = 0;
+
 
 
 export const GetParticipantResultsResponse = zod.object({
   "published": zod.boolean(),
   "case": zod.object({
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).and(zod.object({
   "launchId": zod.string(),
   "role": zod.string(),
-  "name": zod.string(),
   "status": zod.string(),
+  "isTrial": zod.boolean().optional()
+})),
+  "response": zod.object({
+  "state": zod.string(),
+  "mainDiagnosticId": zod.string().nullable(),
+  "alternativeDiagnosticId": zod.string().nullable(),
+  "mainChoices": zod.array(zod.object({
+  "observationId": zod.string(),
+  "sign": zod.enum(['+', '-'])
+})),
+  "alternativeChoices": zod.array(zod.object({
+  "observationId": zod.string(),
+  "sign": zod.enum(['+', '-'])
+})),
+  "updatedAt": zod.coerce.date().nullable(),
+  "revision": zod.number().int().min(getParticipantResultsResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
+}),
+  "score": zod.number().min(getParticipantResultsResponseScoreMin).max(getParticipantResultsResponseScoreMax).nullable().describe('Note sur 20 ; null pour les experts'),
+  "percentage": zod.number().min(getParticipantResultsResponsePercentageMin).max(getParticipantResultsResponsePercentageMax).nullish(),
+  "components": zod.object({
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional().describe('Note sur 20.'),
+  "percentage": zod.number().optional().describe('Pourcentage sur 100.'),
+  "main": zod.object({
+  "diagnosis": zod.number(),
+  "justification": zod.number(),
+  "represented": zod.boolean(),
+  "raw": zod.number(),
+  "ceiling": zod.number()
+}).optional(),
+  "alternative": zod.object({
+  "diagnosis": zod.number(),
+  "justification": zod.number(),
+  "represented": zod.boolean(),
+  "raw": zod.number(),
+  "ceiling": zod.number()
+}).optional()
+}).describe('Vide tant que la note privée n’est pas publiée ou si la copie est non soumise.'),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "status": zod.string().optional(),
+  "reveals": zod.object({
+  "mainDiagnostic": zod.boolean(),
+  "mainArguments": zod.boolean(),
+  "alternativeDiagnostic": zod.boolean(),
+  "alternativeArguments": zod.boolean(),
+  "reference": zod.boolean(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
+}).optional(),
+  "panel": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getParticipantResultsResponsePanelDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getParticipantResultsResponsePanelDiagnosticsItemMainPercentMin).max(getParticipantResultsResponsePanelDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getParticipantResultsResponsePanelDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getParticipantResultsResponsePanelDiagnosticsItemAlternativePercentMin).max(getParticipantResultsResponsePanelDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getParticipantResultsResponsePanelDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+  "class": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getParticipantResultsResponseClassDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getParticipantResultsResponseClassDiagnosticsItemMainPercentMin).max(getParticipantResultsResponseClassDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getParticipantResultsResponseClassDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getParticipantResultsResponseClassDiagnosticsItemAlternativePercentMin).max(getParticipantResultsResponseClassDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getParticipantResultsResponseClassDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).optional().describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+})
+
+
+/**
+ * @summary Cas public fictif Toux, sans réponses ni corrigé
+ */
+export const getDemoCaseResponseTwoObservationsMin = 20;
+export const getDemoCaseResponseTwoObservationsMax = 20;
+
+
+
+export const GetDemoCaseResponse = zod.object({
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).and(zod.object({
+  "demonstrationLabel": zod.string(),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+})).min(getDemoCaseResponseTwoObservationsMin).max(getDemoCaseResponseTwoObservationsMax)
+}))
+
+
+/**
+ * Prépare une démonstration isolée pour l’enseignant connecté. Chaque appel effectue au maximum quatre nouvelles copies ou environ dix secondes de travail. Répéter tant que pending est true ; les appels suivants reprennent les mêmes identifiants et copies. Une préparation concurrente active renvoie HTTP 409. Les scores sont produits par le moteur ordinaire.
+ */
+export const EnsureDemoResponse = zod.object({
+  "prcId": zod.string(),
+  "panelLaunchId": zod.string().nullable(),
+  "studentLaunchId": zod.string().nullable(),
+  "demonstrationLabel": zod.string(),
+  "pending": zod.boolean(),
+  "progress": zod.object({
+  "expertsSubmitted": zod.number().int(),
+  "totalExperts": zod.number().int(),
+  "studentsSubmitted": zod.number().int(),
+  "totalStudents": zod.number().int()
+})
+})
+
+
+/**
+ * Copie le contenu clinique dans un nouveau PRC du propriétaire, sans copies ni références historiques.
+ */
+export const DuplicatePrcParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const DuplicatePrcResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "version": zod.number().int(),
+  "archived": zod.boolean(),
+  "isDemo": zod.boolean()
+})
+
+
+/**
+ * Crée un lancement panel d’essai et une invitation individuelle permettant au professeur de suivre le vrai parcours participant. Les copies d’essai ne peuvent pas générer une référence réelle.
+ */
+export const CreateTrialParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const CreateTrialResponse = zod.object({
+  "launch": zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int()
+}),
+  "code": zod.string(),
+  "invitationUrl": zod.string().describe('Lien individuel secret à ouvrir dans une session participante distincte.')
+})
+
+
+/**
+ * État léger pour le polling, sans questionnaire complet ni copies d’autrui.
+ */
+export const getParticipantActivityStateResponseRevisionMin = 0;
+
+
+
+export const GetParticipantActivityStateResponse = zod.object({
+  "status": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "reveals": zod.object({
+  "mainDiagnostic": zod.boolean(),
+  "mainArguments": zod.boolean(),
+  "alternativeDiagnostic": zod.boolean(),
+  "alternativeArguments": zod.boolean(),
+  "reference": zod.boolean(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
+}),
+  "published": zod.boolean(),
+  "responseState": zod.string(),
+  "revision": zod.number().int().min(getParticipantActivityStateResponseRevisionMin),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * Vue authentifiée du propriétaire, filtrée par les étapes de révélation. Ne contient ni identités de participants ni scores individuels.
+ */
+export const GetLaunchProjectionParams = zod.object({
+  "launchId": zod.coerce.string()
+})
+
+export const getLaunchProjectionResponsePanelDiagnosticsItemMainCountMin = 0;
+
+export const getLaunchProjectionResponsePanelDiagnosticsItemMainPercentMin = 0;
+export const getLaunchProjectionResponsePanelDiagnosticsItemMainPercentMax = 100;
+
+export const getLaunchProjectionResponsePanelDiagnosticsItemAlternativeCountMin = 0;
+
+export const getLaunchProjectionResponsePanelDiagnosticsItemAlternativePercentMin = 0;
+export const getLaunchProjectionResponsePanelDiagnosticsItemAlternativePercentMax = 100;
+
+export const getLaunchProjectionResponsePanelDistributionsItemExpertCountMin = 0;
+
+export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getLaunchProjectionResponsePanelDistributionsItemCeilingMin = 0;
+
+export const getLaunchProjectionResponseClassDiagnosticsItemMainCountMin = 0;
+
+export const getLaunchProjectionResponseClassDiagnosticsItemMainPercentMin = 0;
+export const getLaunchProjectionResponseClassDiagnosticsItemMainPercentMax = 100;
+
+export const getLaunchProjectionResponseClassDiagnosticsItemAlternativeCountMin = 0;
+
+export const getLaunchProjectionResponseClassDiagnosticsItemAlternativePercentMin = 0;
+export const getLaunchProjectionResponseClassDiagnosticsItemAlternativePercentMax = 100;
+
+export const getLaunchProjectionResponseClassDistributionsItemExpertCountMin = 0;
+
+export const getLaunchProjectionResponseClassDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getLaunchProjectionResponseClassDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchProjectionResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getLaunchProjectionResponseClassDistributionsItemCeilingMin = 0;
+
+
+
+export const GetLaunchProjectionResponse = zod.object({
+  "launch": zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int()
+}).and(zod.object({
+  "reveals": zod.object({
+  "mainDiagnostic": zod.boolean(),
+  "mainArguments": zod.boolean(),
+  "alternativeDiagnostic": zod.boolean(),
+  "alternativeArguments": zod.boolean(),
+  "reference": zod.boolean(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
+}).optional()
+})),
+  "case": zod.object({
+  "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
   "diagnostics": zod.array(zod.object({
@@ -685,23 +1670,112 @@ export const GetParticipantResultsResponse = zod.object({
   "position": zod.number().int()
 }))
 }),
-  "response": zod.object({
-  "state": zod.string(),
-  "mainDiagnosticId": zod.string().nullable(),
-  "alternativeDiagnosticId": zod.string().nullable(),
-  "mainChoices": zod.array(zod.object({
-  "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
-})),
-  "alternativeChoices": zod.array(zod.object({
-  "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
-})),
-  "updatedAt": zod.coerce.date().nullable()
+  "role": zod.string(),
+  "status": zod.string(),
+  "reveals": zod.object({
+  "mainDiagnostic": zod.boolean(),
+  "mainArguments": zod.boolean(),
+  "alternativeDiagnostic": zod.boolean(),
+  "alternativeArguments": zod.boolean(),
+  "reference": zod.boolean(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
 }),
-  "score": zod.number().nullable(),
-  "components": zod.record(zod.string(), zod.unknown()),
-  "panel": zod.record(zod.string(), zod.unknown())
+  "panel": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getLaunchProjectionResponsePanelDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getLaunchProjectionResponsePanelDiagnosticsItemMainPercentMin).max(getLaunchProjectionResponsePanelDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getLaunchProjectionResponsePanelDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getLaunchProjectionResponsePanelDiagnosticsItemAlternativePercentMin).max(getLaunchProjectionResponsePanelDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getLaunchProjectionResponsePanelDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
 })
+}),zod.null()]).optional()
+}).describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+  "class": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getLaunchProjectionResponseClassDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getLaunchProjectionResponseClassDiagnosticsItemMainPercentMin).max(getLaunchProjectionResponseClassDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getLaunchProjectionResponseClassDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getLaunchProjectionResponseClassDiagnosticsItemAlternativePercentMin).max(getLaunchProjectionResponseClassDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemNegativeMin),
+  "notSelected": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getLaunchProjectionResponseClassDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()])
+}).describe('Agrégats anonymes sans identités ni notes individuelles.')
 
 
