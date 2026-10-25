@@ -16,3 +16,5 @@ Configurez les variables serveur décrites dans `.env.example` dans Replit Secre
 ## Netlify
 
 Le `netlify.toml` publie le build Vite et route `/api/*` vers la fonction `api`. Configurez dans Netlify `DATABASE_URL`, `SESSION_SECRET`, `APP_BASE_URL`, `ADMIN_INITIAL_USERNAME` et `ADMIN_INITIAL_PASSWORD`. La fonction crée son pool PostgreSQL côté serveur. Exécutez les migrations et l’initialisation de l’administrateur une seule fois pour chaque base, depuis un environnement de confiance.
+
+La compilation Netlify lance aussi `pnpm --filter @workspace/api-server run build:netlify`. Cette étape regroupe la fonction et les sources TypeScript des bibliothèques partagées dans `artifacts/prc-pharmacie/dist/functions/api.mjs`, avant la création de l’archive Netlify. Le dossier de fonctions à déployer est donc `artifacts/prc-pharmacie/dist/functions`, et non le dossier des sources TypeScript.

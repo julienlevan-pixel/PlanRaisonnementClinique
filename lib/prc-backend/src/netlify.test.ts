@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFile } from "node:child_process";
+import { copyFile, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { promisify } from "node:util";
 
 // These HTTP checks do not query PostgreSQL. Allow them to run without secrets.
 process.env.DATABASE_URL ??= "postgresql:///prc_netlify_test";
@@ -60,4 +66,35 @@ test("Netlify returns an authentication error without a session", async () => {
     new Request("https://prc.example/.netlify/functions/api?path=auth/me"),
   );
   assert.equal(response.status, 401);
+});
+
+test("Netlify's compiled function runs without the workspace source tree", async (t) => {
+  const buildScript = fileURLToPath(
+    new URL("../../../artifacts/api-server/build-netlify.mjs", import.meta.url),
+  );
+  await promisify(execFile)(process.execPath, [buildScript]);
+  const directory = await mkdtemp(path.join(tmpdir(), "prc-netlify-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const isolatedFunction = path.join(directory, "api.mjs");
+  await copyFile(
+    new URL("../../../artifacts/prc-pharmacie/dist/functions/api.mjs", import.meta.url),
+    isolatedFunction,
+  );
+  const { default: compiledHandler } = await import(pathToFileURL(isolatedFunction).href);
+  const health = await compiledHandler(
+    new Request("https://prc.example/.netlify/functions/api?path=healthz"),
+  );
+  assert.equal(health.status, 200);
+  assert.deepEqual(await health.json(), { status: "ok" });
+  const login = await compiledHandler(
+    new Request("https://prc.example/.netlify/functions/api?path=auth/login", {
+      method: "POST",
+      headers: {
+        origin: "https://prc.example",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ username: "teacher", password: null }),
+    }),
+  );
+  assert.equal(login.status, 400);
 });
