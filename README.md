@@ -13,6 +13,8 @@ Application en français pour préparer un plan de raisonnement clinique, recuei
 
 Configurez les variables serveur décrites dans `.env.example` dans Replit Secrets. Utilisez l’URL du pooler Supabase en mode transaction. Ne préfixez aucun secret par `VITE_`.
 
+Les tests navigateur de connexion utilisent une API simulée et ne nécessitent aucun secret : installez Chromium avec `pnpm --filter @workspace/prc-pharmacie exec playwright install chromium`, puis lancez `pnpm --filter @workspace/prc-pharmacie run test:e2e`. Un Chromium déjà installé peut être sélectionné avec `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`.
+
 ## Netlify
 
 Le `netlify.toml` publie le build Vite et route `/api/*` vers la fonction `api`. Configurez dans Netlify `DATABASE_URL`, `SESSION_SECRET`, `APP_BASE_URL`, `ADMIN_INITIAL_USERNAME` et `ADMIN_INITIAL_PASSWORD`. La fonction crée son pool PostgreSQL côté serveur. Exécutez les migrations et l’initialisation de l’administrateur une seule fois pour chaque base, depuis un environnement de confiance.
