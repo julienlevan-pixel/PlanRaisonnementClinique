@@ -172,6 +172,7 @@ export function Join({ actions }: { actions: AppActions }) {
     const data = {
       pseudonym,
       invitationToken,
+      code,
       joinKey: joinKeys.current[code],
     };
     actions.join.mutate(
@@ -201,7 +202,6 @@ export function Join({ actions }: { actions: AppActions }) {
       </div>
     );
   const closed = info.data.status !== "open";
-  const missingInvitation = info.data.role === "panel" && !invitationToken;
   let savedJoinKey = joinKeys.current[code];
   try {
     savedJoinKey ||=
@@ -225,11 +225,6 @@ export function Join({ actions }: { actions: AppActions }) {
             La collecte est fermée. Une participation existante reste accessible
             dans le navigateur utilisé pour répondre.
           </p>
-        ) : missingInvitation ? (
-          <p className="form-error" role="alert">
-            Une invitation individuelle du professeur est nécessaire pour
-            contribuer au panel. Le code de groupe seul ne suffit pas.
-          </p>
         ) : (
           <>
             {closed && (
@@ -240,9 +235,9 @@ export function Join({ actions }: { actions: AppActions }) {
               </p>
             )}
             <p className="body-copy">
-              Indiquez le pseudonyme associé à votre réponse. Pour reprendre
-              ensuite votre copie, utilisez ce même navigateur ; le pseudonyme
-              seul ne donne pas accès à une copie.
+              Aucun compte à créer. Indiquez votre nom ou pseudonyme. Pour
+              reprendre ensuite votre copie, utilisez ce même navigateur ; le
+              pseudonyme seul ne donne pas accès à une copie.
             </p>
             {error && (
               <div className="form-error" role="alert">

@@ -328,8 +328,8 @@ paths:
       security: []
       description: >-
         Crée ou reprend une participation sans compte enseignant. Un panel exige
-        une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet
-        la reprise d’un accès étudiant et rend une nouvelle tentative de jonction
+        le code de séance ou une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet
+        la reprise d’une participation et rend une nouvelle tentative de jonction
         idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
       tags: [participants]
       parameters:
@@ -845,7 +845,8 @@ components:
       type: object
       properties:
         pseudonym: { type: string, minLength: 1, maxLength: 100 }
-        invitationToken: { type: string, description: Secret individuel obligatoire pour rejoindre un panel. }
+        invitationToken: { type: string, description: Invitation individuelle facultative pour rejoindre ou reprendre un panel. }
+        code: { type: string, maxLength: 100, description: Code de séance requis pour rejoindre un panel sans invitation individuelle. }
         joinKey:
           type: string
           format: uuid

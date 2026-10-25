@@ -46,7 +46,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.notEqual(response.rows[0].password_hash, owner.password);
   });
 
-  await t.test("panel invitation gates participation and collection leaks no reference", async () => {
+  await t.test("individual panel invitations allow account-free participation without leaking references", async () => {
     await owner.session.call(`/prcs/${prc.id}/launches`, "POST", { role: "students" }, 409);
     panel = await owner.session.call(`/prcs/${prc.id}/launches`, "POST", { role: "panel" }, 201);
     await anonymous.call(`/launches/${panel.id}/join`, "POST", { pseudonym: "Uninvited", role: "panel" }, [400, 403]);
@@ -70,6 +70,36 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await expert.call("/participant/submit", "POST", {});
     await expert.call("/participant/submit", "POST", {});
     await expert.call("/participant/response", "PUT", valid, 409);
+  });
+
+  await t.test("shared panel code admits distinct experts, retries safely and stops admission on close", async () => {
+    const launch = await owner.session.call(`/prcs/${prc.id}/launches`, "POST", { role: "panel" }, 201);
+    const info = await anonymous.call(`/join/${launch.code.toLowerCase()}`);
+    assert.equal(info.launchId, launch.id);
+    await new Session().call(`/launches/${launch.id}/join`, "POST", { pseudonym: "Expert", code: "WRONG" }, 403);
+    await new Session().call(`/launches/${launch.id}/join`, "POST", { pseudonym: "Expert", code: launch.code, invitationToken: "invalid-invitation" }, 403);
+    const expertSession = new Session();
+    const input = { pseudonym: "Même nom", code: launch.code.toLowerCase(), joinKey: randomUUID(), role: "teacher" };
+    const [joined, retry] = await Promise.all([
+      expertSession.call(`/launches/${launch.id}/join`, "POST", input),
+      new Session().call(`/launches/${launch.id}/join`, "POST", input),
+    ]);
+    assert.equal(joined.participantId, retry.participantId);
+    assert.equal(joined.joinInfo.role, "panel");
+    const second = await new Session().call(`/launches/${launch.id}/join`, "POST", { pseudonym: input.pseudonym, code: launch.code, joinKey: randomUUID() });
+    assert.notEqual(second.participantId, joined.participantId);
+    assert.equal((await pool.query("SELECT count(*)::int AS n FROM prc_private.participants WHERE launch_id=$1", [launch.id])).rows[0].n, 2);
+    await expertSession.call("/teachers", "GET", undefined, 401);
+    await expertSession.call(`/launches/${launch.id}/close`, "POST", {}, 401);
+    await expertSession.call(`/launches/${launch.id}/panel-results`, "GET", undefined, 409);
+    assert.deepEqual((await expertSession.call("/participant/results")).panel, {});
+    await save(expertSession, answer(prc));
+    await expertSession.call("/participant/submit", "POST", {});
+    await owner.session.call(`/launches/${launch.id}/close`, "POST", {});
+    await new Session().call(`/launches/${launch.id}/join`, "POST", { pseudonym: "Late", code: launch.code, joinKey: randomUUID() }, 409);
+    const resumed = await new Session().call(`/launches/${launch.id}/join`, "POST", input);
+    assert.equal(resumed.participantId, joined.participantId);
+    assert.equal(resumed.response.state, "submitted");
   });
 
   await t.test("reference retains minorities, excludes drafts and becomes immutable", async () => {

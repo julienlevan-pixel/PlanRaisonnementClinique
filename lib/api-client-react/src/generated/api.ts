@@ -1692,7 +1692,7 @@ export const getJoinLaunchUrl = (launchId: string,) => {
 }
 
 /**
- * Crée ou reprend une participation sans compte enseignant. Un panel exige une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet la reprise d’un accès étudiant et rend une nouvelle tentative de jonction idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
+ * Crée ou reprend une participation sans compte enseignant. Un panel exige le code de séance ou une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet la reprise d’une participation et rend une nouvelle tentative de jonction idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
  */
 export const joinLaunch = async (launchId: string,
     joinInput: JoinInput, options?: Parameters<typeof customFetch>[1]): Promise<ParticipantSession> => {
