@@ -37,6 +37,8 @@ Configurer les valeurs dans l'interface sécurisée Netlify, au scope **Function
 
 `SUPABASE_DATABASE_URL` est un ancien alias prioritaire accepté par le code ; éviter de définir simultanément cet alias et `DATABASE_URL` avec deux bases différentes. Les caractères réservés du mot de passe doivent être encodés dans l'URI. Ne jamais désactiver la vérification TLS pour contourner une erreur de certificat ; utiliser une chaîne de confiance adaptée.
 
+Si Supabase exige son autorité de certification, télécharger le certificat public depuis la section SSL des paramètres Database du projet. Dans Netlify, renseigner `DATABASE_SSL_ROOT_CERT` avec **tout le texte PEM**, de `-----BEGIN CERTIFICATE-----` à `-----END CERTIFICATE-----`, au scope Functions et dans le bon contexte. Le code accepte aussi un chemin de fichier pour les scripts locaux. Ne pas saisir seulement le nom du fichier dans Netlify. Les retours à la ligne réels ou échappés `\n` sont acceptés. Redéployer après enregistrement. Aucun certificat n’est téléchargé depuis une connexion non vérifiée et aucun secret n’est incorporé dans le build Vite.
+
 Les connexions d'exécution utilisent un petit pool par instance et des requêtes paramétrées sans prepared statements nommés. Le pool limite les connexions de chaque instance, pas le nombre total de connexions de toutes les fonctions Netlify : la capacité réelle doit être mesurée sur l'environnement cible.
 
 ## 3. Appliquer explicitement les migrations
