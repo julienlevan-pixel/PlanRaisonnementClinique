@@ -5,12 +5,14 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { JoinInfo } from './joinInfo';
 import type { ParticipantResponse } from './participantResponse';
 import type { ParticipantResultsComponents } from './participantResultsComponents';
 import type { ParticipantResultsPanel } from './participantResultsPanel';
 
 export interface ParticipantResults {
   published: boolean;
+  case: JoinInfo;
   response: ParticipantResponse;
   /** @nullable */
   score: number | null;

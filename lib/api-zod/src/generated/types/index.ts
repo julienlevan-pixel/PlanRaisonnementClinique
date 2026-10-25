@@ -35,6 +35,7 @@ export * from './participantResults';
 export * from './participantResultsComponents';
 export * from './participantResultsPanel';
 export * from './participantSession';
+export * from './participantState';
 export * from './passwordChangeInput';
 export * from './prc';
 export * from './prcDetail';

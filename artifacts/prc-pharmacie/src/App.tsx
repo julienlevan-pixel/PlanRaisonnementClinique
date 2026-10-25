@@ -6,6 +6,7 @@ import {
   ShieldCheck, Stethoscope, Users, X,
 } from 'lucide-react';
 import { Link, Route, Switch, useLocation, useParams, Router as WouterRouter } from 'wouter';
+import { QRCodeSVG } from 'qrcode.react';
 import {
   getChangePasswordMutationOptions, getCloseLaunchMutationOptions, getCreateInvitationMutationOptions,
   getCreateLaunchMutationOptions, getCreatePrcMutationOptions, getCreateTeacherMutationOptions,
@@ -23,6 +24,7 @@ import {
 import type { Choice, ParticipantResponseInput, PrcInput, RevealInput } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
 import './index.css';
+import './participant-matrix.css';
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
 
@@ -56,10 +58,10 @@ function Btn({ children, onClick, kind = 'primary', disabled, type = 'button', c
 }) {
   return <button type={type} onClick={onClick} disabled={disabled} data-testid={`button-${String(children).toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} className={`btn btn-${kind} ${className}`}>{children}</button>;
 }
-function Input({ label, ...props }: { label: string } & InputHTMLAttributes<HTMLInputElement>) {
+function Input({ label, ...props }: { label: string; 'data-testid'?: string } & InputHTMLAttributes<HTMLInputElement>) {
   return <label className="field"><span>{label}</span><input {...props} data-testid={props['data-testid'] || `input-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} /></label>;
 }
-function Area({ label, ...props }: { label: string } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
+function Area({ label, ...props }: { label: string; 'data-testid'?: string } & TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <label className="field"><span>{label}</span><textarea {...props} data-testid={props['data-testid'] || `textarea-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`} /></label>;
 }
 function SectionTitle({ eyebrow, title, aside }: { eyebrow?: string; title: string; aside?: ReactNode }) {
@@ -115,7 +117,7 @@ function Home({ actions }: { actions: AppActions }) {
     const user = current.data.user;
     const create = (e: FormEvent) => {
       e.preventDefault();
-      actions.createPrc.mutate({ data: { name, scenario: '', instructions: '', diagnostics: [], observations: [] } }, {
+      actions.createPrc.mutate({ data: { name, scenario: '', instructions: 'Choisissez un diagnostic principal et une hypothèse alternative, puis justifiez chacune à partir des observations cliniques.', diagnostics: [], observations: [] } }, {
         onSuccess: (p) => { setShowPrcForm(false); setLocation(`/prc/${p.id}`); },
       });
     };
@@ -142,12 +144,12 @@ function Home({ actions }: { actions: AppActions }) {
   return <div className="entry-layout">
     <div className="entry-brand"><Link href="/" className="brand"><span className="brand-mark"><Stethoscope size={20} /></span><span><b>PRC</b><small>PHARMACIE</small></span></Link><div className="entry-visual"><div className="visual-kicker">RAISONNEMENT CLINIQUE</div><div className="visual-line" /><p>Observer.<br />Interpréter.<br /><em>Décider.</em></p><small>Un espace de travail pour enseigner<br />la démarche clinique en pharmacie.</small><div className="visual-foot">FACULTÉ DE PHARMACIE <span>•</span> OUTIL PÉDAGOGIQUE</div></div></div>
     <div className="entry-main"><div className="entry-top"><span>Plateforme pédagogique</span><span className="secure-label"><ShieldCheck size={14} /> Accès sécurisé</span></div><div className="entry-box">
-      <div className="eyebrow">ESPACE ENSEIGNANT</div><h1>Bienvenue sur<br /><span>PRC Pharmacie.</span></h1><p className="entry-desc">Concevez des cas, animez des panels et accompagnez le raisonnement de vos étudiants.</p>
+       <div className="eyebrow">ESPACE ENSEIGNANT</div><h1>Plan de raisonnement<br /><span>clinique (PRC).</span></h1><p className="entry-desc">Concevez des cas, animez des panels et accompagnez le raisonnement de vos étudiants.</p>
       <Btn onClick={login} className="entry-login">Se connecter <ArrowRight size={17} /></Btn>
       <div className="entry-separator"><span>ou</span></div>
       <form className="join-entry" onSubmit={e => { e.preventDefault(); if (code.trim()) setLocation(`/join/${encodeURIComponent(code.trim())}`); }}><label htmlFor="join-input">Vous participez à une activité&nbsp;?</label><div><input id="join-input" value={code} onChange={e => setCode(e.target.value)} placeholder="Saisir le code d’accès" data-testid="input-entry-code" /><button type="submit" data-testid="button-entry-join">Rejoindre</button></div></form>
       <div className="entry-help"><CircleHelp size={15} /> Besoin d’un accès enseignant&nbsp;? Contactez l’administrateur de votre faculté.</div>
-    </div><footer className="entry-footer">PRC Pharmacie <span>·</span> Environnement universitaire</footer></div>
+    </div><footer className="entry-footer">Ce logiciel a été créé par la Faculté de pharmacie de l’Université de Montréal.</footer></div>
   </div>;
 }
 function Metric({ label, value, icon }: { label: string; value?: number; icon: ReactNode }) {
@@ -181,7 +183,9 @@ function PrcEditor({ actions }: { actions: AppActions }) {
   const [, setLocation] = useLocation();
   const isNew = !prcId || prcId === 'new';
   const query = useGetPrc(prcId || '', { query: { queryKey: getGetPrcQueryKey(prcId || ''), enabled: !isNew } });
-  const [form, setForm] = useState<PrcInput>({ name: '', scenario: '', instructions: '', diagnostics: [], observations: [] });
+  const [form, setForm] = useState<PrcInput>({ name: '', scenario: '', instructions: 'Choisissez un diagnostic principal et une hypothèse alternative, puis justifiez chacune à partir des observations cliniques.', diagnostics: [], observations: [] });
+  const [bulkObservations, setBulkObservations] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
   const [initialized, setInitialized] = useState(false);
   useEffect(() => {
     if (query.data && !initialized) {
@@ -192,23 +196,35 @@ function PrcEditor({ actions }: { actions: AppActions }) {
   const update = <K extends keyof PrcInput>(key: K, value: PrcInput[K]) => setForm(prev => ({ ...prev, [key]: value }));
   const save = (e: FormEvent) => {
     e.preventDefault();
-    if (isNew) actions.createPrc.mutate({ data: form }, { onSuccess: p => setLocation(`/prc/${p.id}`) });
-    else actions.updatePrc.mutate({ prcId: prcId!, data: form });
+    setSaveStatus('Enregistrement…');
+    if (isNew) actions.createPrc.mutate({ data: form }, { onSuccess: p => setLocation(`/prc/${p.id}`), onError: err => setSaveStatus(getError(err)) });
+    else actions.updatePrc.mutate({ prcId: prcId!, data: form }, { onSuccess: () => setSaveStatus('Enregistré'), onError: err => setSaveStatus(getError(err)) });
   };
   const launch = (role: 'panel' | 'students') => {
     if (isNew) return;
-    const name = window.prompt(role === 'panel' ? 'Nom du panel de référence' : 'Nom de l’activité étudiante', role === 'panel' ? 'Panel de référence' : 'Activité de raisonnement');
-    if (name?.trim()) actions.createLaunch.mutate({ prcId: prcId!, data: { role, name: name.trim() } }, { onSuccess: l => setLocation(`/activity/${l.id}`) });
+    const name = role === 'panel' ? 'Panel de référence' : 'Activité étudiante';
+    actions.createLaunch.mutate({ prcId: prcId!, data: { role, name } }, { onSuccess: l => setLocation(`/activity/${l.id}`) });
   };
   if (!isNew && query.isLoading) return <AuthenticatedPage actions={actions}><Loading /></AuthenticatedPage>;
   if (!isNew && query.isError) return <AuthenticatedPage actions={actions}><ErrorBox message="Ce cas clinique est introuvable ou inaccessible." retry={() => query.refetch()} /></AuthenticatedPage>;
   const addObservation = () => update('observations', [...form.observations, { id: `obs-${Date.now()}`, text: '', category: '', position: form.observations.length }]);
-  return <AuthenticatedPage actions={actions}><div className="back-heading"><Link href="/" className="back-link"><ArrowLeft size={15} /> Bibliothèque</Link><div className="editor-actions">{!isNew && <><Btn kind="outline" onClick={() => launch('panel')}><Users size={15} /> Lancer un panel</Btn><Btn kind="outline" onClick={() => launch('students')}><Activity size={15} /> Lancer aux étudiants</Btn></>}<Btn onClick={() => document.getElementById('prc-form')?.requestSubmit()} disabled={actions.createPrc.isPending || actions.updatePrc.isPending}><Save size={15} /> Enregistrer</Btn></div></div>
-    <SectionTitle eyebrow={isNew ? 'NOUVEAU CAS' : `CAS CLINIQUE · VERSION ${query.data?.version ?? ''}`} title={isNew ? 'Créer un cas clinique' : 'Édition du cas'} aside={!isNew && <Status value={query.data?.status} />} />
+  const importObservations = () => {
+    const lines = bulkObservations.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+    if (!lines.length) return;
+    const imported = lines.map((line, index) => {
+      const [text, category = ''] = line.split('|').map(part => part.trim());
+      return { id: `obs-${Date.now()}-${index}`, text, category, position: form.observations.length + index };
+    });
+    update('observations', [...form.observations, ...imported]);
+    setBulkObservations('');
+  };
+  const addTwentyObservations = () => update('observations', [...form.observations, ...Array.from({ length: 20 }, (_, index) => ({ id: `obs-${Date.now()}-${index}`, text: '', category: '', position: form.observations.length + index }))]);
+  return <AuthenticatedPage actions={actions}><div className="back-heading"><Link href="/" className="back-link"><ArrowLeft size={15} /> Bibliothèque</Link><div className="editor-actions">{!isNew && <><Btn kind="outline" onClick={() => launch('panel')}><Users size={15} /> Lancer un panel</Btn><Btn kind="outline" onClick={() => launch('students')}><Activity size={15} /> Lancer aux étudiants</Btn></>}<Btn onClick={() => (document.getElementById('prc-form') as HTMLFormElement | null)?.requestSubmit()} disabled={actions.createPrc.isPending || actions.updatePrc.isPending}><Save size={15} /> Enregistrer</Btn></div></div>
+     <SectionTitle eyebrow={isNew ? 'NOUVEAU CAS' : 'CAS CLINIQUE'} title={isNew ? 'Créer un cas clinique' : 'Édition du cas'} aside={!isNew && <Status value={query.data?.status} />} />{saveStatus && <div className="save-status" role="status">{saveStatus}</div>}
     <form id="prc-form" onSubmit={save} className="editor-layout"><div className="editor-main">
       <section className="panel-card editor-card"><div className="editor-section-head"><span className="step-number">01</span><div><h2>Présentation du cas</h2><p>Le contexte et les données cliniques visibles par les participants.</p></div></div><Input label="Titre du cas" maxLength={160} value={form.name} onChange={e => update('name', e.target.value)} required placeholder="Ex. Un essoufflement inhabituel" /><Area label="Scénario clinique" maxLength={20000} rows={9} value={form.scenario} onChange={e => update('scenario', e.target.value)} placeholder="Présentez la situation du patient, son contexte et les éléments initiaux…" /><Area label="Consignes aux participants" maxLength={5000} rows={4} value={form.instructions} onChange={e => update('instructions', e.target.value)} placeholder="Précisez les attendus et le déroulé de l’activité." /></section>
       <section className="panel-card editor-card"><div className="editor-section-head"><span className="step-number">02</span><div><h2>Diagnostics envisagés</h2><p>Les hypothèses proposées à la sélection.</p></div></div><div className="editable-list">{form.diagnostics.map((diag, i) => <div className="editable-row" key={i}><span className="list-number">{String(i + 1).padStart(2, '0')}</span><input value={diag} maxLength={240} onChange={e => update('diagnostics', form.diagnostics.map((d, j) => j === i ? e.target.value : d))} aria-label={`Diagnostic ${i + 1}`} data-testid={`input-diagnostic-${i}`} /><button type="button" aria-label="Supprimer le diagnostic" onClick={() => update('diagnostics', form.diagnostics.filter((_, j) => j !== i))}><X size={16} /></button></div>)}</div><button type="button" className="add-row" onClick={() => update('diagnostics', [...form.diagnostics, ''])}><Plus size={15} /> Ajouter un diagnostic</button></section>
-      <section className="panel-card editor-card"><div className="editor-section-head"><span className="step-number">03</span><div><h2>Observations cliniques</h2><p>Informations à mettre en relation avec les hypothèses.</p></div></div>{form.observations.length ? <div className="observations-editor">{form.observations.map((o, i) => <div className="observation-edit" key={o.id}><div className="obs-topline"><span>Observation {String(i + 1).padStart(2, '0')}</span><button type="button" onClick={() => update('observations', form.observations.filter((_, j) => j !== i))} aria-label="Supprimer l’observation"><X size={15} /></button></div><Area label="Élément clinique" value={o.text} onChange={e => update('observations', form.observations.map((x, j) => j === i ? { ...x, text: e.target.value } : x))} rows={2} placeholder="Ex. Antécédent d’hypertension artérielle" /><Input label="Catégorie" value={o.category} onChange={e => update('observations', form.observations.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} placeholder="Ex. Antécédents" /></div>)}</div> : <div className="inline-empty">Aucune observation ajoutée pour le moment.</div>}<button type="button" className="add-row" onClick={addObservation}><Plus size={15} /> Ajouter une observation</button></section>
+      <section className="panel-card editor-card"><div className="editor-section-head"><span className="step-number">03</span><div><h2>Observations cliniques</h2><p>Informations à mettre en relation avec les hypothèses.</p></div></div><Area label="Coller plusieurs observations (une par ligne, catégorie facultative après |)" value={bulkObservations} onChange={e => setBulkObservations(e.target.value)} rows={4} placeholder={'Ex. Douleur thoracique | Symptômes\\nAntécédent familial | Antécédents'} /><div className="editor-actions"><Btn kind="outline" onClick={importObservations} disabled={!bulkObservations.trim()}>Importer les lignes</Btn><Btn kind="quiet" onClick={addTwentyObservations}>Créer 20 lignes</Btn></div>{form.observations.length ? <div className="observations-editor">{form.observations.map((o, i) => <div className="observation-edit" key={o.id}><div className="obs-topline"><span>Observation {String(i + 1).padStart(2, '0')}</span><div className="obs-order"><button type="button" disabled={i === 0} aria-label="Monter l’observation" onClick={() => update('observations', form.observations.map((item, j) => j === i - 1 ? { ...item, position: i } : j === i ? { ...item, position: i - 1 } : item).sort((a, b) => a.position - b.position))}>↑</button><button type="button" disabled={i === form.observations.length - 1} aria-label="Descendre l’observation" onClick={() => update('observations', form.observations.map((item, j) => j === i + 1 ? { ...item, position: i } : j === i ? { ...item, position: i + 1 } : item).sort((a, b) => a.position - b.position))}>↓</button><button type="button" onClick={() => update('observations', form.observations.filter((_, j) => j !== i))} aria-label="Supprimer l’observation"><X size={15} /></button></div></div><Area label="Élément clinique" value={o.text} onChange={e => update('observations', form.observations.map((x, j) => j === i ? { ...x, text: e.target.value } : x))} rows={2} placeholder="Ex. Antécédent d’hypertension artérielle" /><Input label="Catégorie" value={o.category} onChange={e => update('observations', form.observations.map((x, j) => j === i ? { ...x, category: e.target.value } : x))} placeholder="Ex. Antécédents" /></div>)}</div> : <div className="inline-empty">Aucune observation ajoutée pour le moment.</div>}<button type="button" className="add-row" onClick={addObservation}><Plus size={15} /> Ajouter une observation</button></section>
     </div><aside className="editor-rail"><div className="rail-card"><div className="eyebrow">AVANT DE LANCER</div><h3>Vérifiez votre cas</h3><p>Un scénario lisible, des hypothèses distinctes et des observations suffisamment discriminantes facilitent la discussion clinique.</p><div className="checklist"><CheckLine ok={!!form.name} text="Titre renseigné" /><CheckLine ok={!!form.scenario} text="Scénario rédigé" /><CheckLine ok={form.diagnostics.length > 0} text="Au moins un diagnostic" /><CheckLine ok={form.observations.length > 0} text="Observations disponibles" /></div></div><div className="rail-card muted-rail"><BookOpen size={18} /><b>Structure du cas</b><span>Les versions sont enregistrées à chaque modification du contenu.</span></div></aside></form>
   </AuthenticatedPage>;
 }
@@ -216,9 +232,9 @@ function CheckLine({ ok, text }: { ok: boolean; text: string }) { return <div cl
 
 function ActivityPage({ actions }: { actions: AppActions }) {
   const { launchId = '' } = useParams<{ launchId: string }>();
-  const launch = useGetLaunch(launchId, { query: { queryKey: getGetLaunchQueryKey(launchId), enabled: !!launchId } });
-  const panel = useGetPanelResults(launchId, { query: { queryKey: getGetPanelResultsQueryKey(launchId), enabled: !!launch.data && launch.data.role === 'panel' } });
-  const results = useGetLaunchResults(launchId, { query: { queryKey: getGetLaunchResultsQueryKey(launchId), enabled: !!launch.data } });
+  const launch = useGetLaunch(launchId, { query: { queryKey: getGetLaunchQueryKey(launchId), enabled: !!launchId, refetchInterval: 5000, refetchIntervalInBackground: false } });
+  const panel = useGetPanelResults(launchId, { query: { queryKey: getGetPanelResultsQueryKey(launchId), enabled: !!launch.data && launch.data.role === 'panel', refetchInterval: 5000, refetchIntervalInBackground: false } });
+  const results = useGetLaunchResults(launchId, { query: { queryKey: getGetLaunchResultsQueryKey(launchId), enabled: !!launch.data, refetchInterval: 5000, refetchIntervalInBackground: false } });
   const [invitation, setInvitation] = useState<{ url: string; code: string } | null>(null);
   const [explanation, setExplanation] = useState('');
   const [minimum, setMinimum] = useState('5');
@@ -226,6 +242,7 @@ function ActivityPage({ actions }: { actions: AppActions }) {
   if (launch.isLoading) return <AuthenticatedPage actions={actions}><Loading label="Ouverture de l’activité…" /></AuthenticatedPage>;
   if (launch.isError || !launch.data) return <AuthenticatedPage actions={actions}><ErrorBox message="L’activité n’est pas accessible." retry={() => launch.refetch()} /></AuthenticatedPage>;
   const l = launch.data;
+  const accessUrl = new URL(`/join/${encodeURIComponent(l.code)}`, window.location.origin).toString();
   const invite = () => { const name = window.prompt('Nom du lien d’invitation', 'Groupe invité'); if (name?.trim()) actions.invitation.mutate({ launchId, data: { name: name.trim() } }, { onSuccess: setInvitation }); };
   const revealUpdate = (key: keyof RevealInput, value: boolean) => { const next = { ...reveal, [key]: value }; setReveal(next); actions.reveal.mutate({ launchId, data: next }); };
   const data = l.role === 'panel' ? panel.data : results.data;
@@ -234,7 +251,8 @@ function ActivityPage({ actions }: { actions: AppActions }) {
     <div className="back-heading"><Link href="/" className="back-link"><ArrowLeft size={15} /> Tableau de bord</Link><div className="editor-actions">{l.status !== 'closed' && <Btn kind="outline" onClick={invite}><Users size={15} /> Créer une invitation</Btn>}{l.status !== 'closed' && <Btn kind="danger" onClick={() => { if (window.confirm('Clore cette activité ? Les participants ne pourront plus modifier leur réponse.')) actions.closeLaunch.mutate({ launchId }); }}>Clore l’activité</Btn>}</div></div>
     <SectionTitle eyebrow={l.role === 'panel' ? 'PANEL DE RÉFÉRENCE' : 'ACTIVITÉ ÉTUDIANTE'} title={l.name} aside={<Status value={l.status} />} />
     <div className="activity-info"><div><span>CODE D’ACCÈS</span><b className="mono">{l.code}</b></div><div><span>PARTICIPANTS</span><b>{l.participantCount}</b></div><div><span>RÉPONSES</span><b>{l.submissionCount}</b></div><div><span>CRÉÉE LE</span><b>{dateLabel(l.createdAt)}</b></div></div>
-    {invitation && <div className="invitation-banner"><div><b>Invitation créée · {invitation.code}</b><p>Partagez ce lien avec les participants concernés.</p><a href={invitation.url}>{invitation.url}</a></div><Btn kind="quiet" onClick={() => setInvitation(null)}><X size={16} /></Btn></div>}
+    {l.role === 'students' && <div className="access-card"><QRCodeSVG value={accessUrl} size={132} level="M" title="Code QR pour rejoindre l’activité étudiante" /><div><div className="eyebrow">ACCÈS ÉTUDIANT</div><b>Code : {l.code}</b><p>Partagez ce lien ou le code affiché ci-dessus.</p><a href={accessUrl}>{accessUrl}</a><Btn kind="outline" onClick={() => navigator.clipboard.writeText(accessUrl)}>Copier le lien</Btn></div></div>}
+    {invitation && <div className="invitation-banner"><QRCodeSVG value={new URL(invitation.url, window.location.origin).toString()} size={108} level="M" title="Code QR pour cette invitation individuelle" /><div><b>Invitation créée · {invitation.code}</b><p>Ce lien et son code QR sont propres à cette invitation individuelle.</p><a href={invitation.url}>{new URL(invitation.url, window.location.origin).toString()}</a><Btn kind="outline" onClick={() => navigator.clipboard.writeText(new URL(invitation.url, window.location.origin).toString())}>Copier l’invitation</Btn></div><Btn kind="quiet" onClick={() => setInvitation(null)}><X size={16} /></Btn></div>}
     <div className="activity-grid"><section className="panel-card"><div className="panel-heading"><div><div className="eyebrow">SYNTHÈSE DES RÉPONSES</div><h2>{l.role === 'panel' ? 'Résultats du panel' : 'Participation'}</h2></div><span className="count">{participants ?? '—'} réponse{participants === 1 ? '' : 's'}</span></div>{!data ? <Loading label="Actualisation des réponses…" /> : <ResultsSummary data={data} />}</section>
       <section className="panel-card"><div className="panel-heading"><div><div className="eyebrow">ANIMATION</div><h2>Déroulé de la restitution</h2></div></div><p className="body-copy">Choisissez les éléments à afficher progressivement aux participants. La restitution collective préserve la confidentialité des réponses individuelles.</p><div className="reveal-list">{([['mainDiagnostic', 'Diagnostic principal'], ['mainArguments', 'Arguments du diagnostic principal'], ['alternativeDiagnostic', 'Diagnostic alternatif'], ['alternativeArguments', 'Arguments du diagnostic alternatif'], ['reference', 'Référence pédagogique']] as [keyof RevealInput,string][]).map(([key,label]) => <label className="toggle-line" key={key}><span><b>{label}</b><small>Rendre visible pendant la restitution</small></span><input type="checkbox" checked={reveal[key] || l.reveals[key as keyof typeof l.reveals]} onChange={e => revealUpdate(key, e.target.checked)} data-testid={`toggle-reveal-${key}`} /></label>)}</div></section></div>
     {l.role === 'panel' && <section className="panel-card reference-card"><div className="panel-heading"><div><div className="eyebrow">RÉFÉRENCE PÉDAGOGIQUE</div><h2>Construire le référentiel du panel</h2></div><Status value={l.referenceStatus} /></div><p className="body-copy">Une référence ne peut être établie qu’à partir d’un panel de taille minimale. Les résultats restent agrégés.</p><div className="reference-controls"><Input label="Taille minimale du panel" type="number" min={1} max={100} value={minimum} onChange={e => setMinimum(e.target.value)} /><Btn kind="outline" disabled={actions.generateReference.isPending} onClick={() => actions.generateReference.mutate({ launchId, data: { minimumPanelSize: Number(minimum) } })}>Générer la référence</Btn><Area label="Justification pédagogique" rows={3} value={explanation} onChange={e => setExplanation(e.target.value)} placeholder="Expliquez les choix retenus et les points de discussion…" /><Btn kind="outline" disabled={!explanation || actions.validateReference.isPending} onClick={() => actions.validateReference.mutate({ launchId, data: { explanation } })}>Valider la référence</Btn></div></section>}
@@ -254,7 +272,8 @@ function Join({ actions }: { actions: AppActions }) {
   const [error, setError] = useState('');
   const submit = (e: FormEvent) => {
     e.preventDefault(); setError('');
-    actions.join.mutate({ launchId: info.data?.launchId || code, data: { pseudonym } }, { onSuccess: () => setLocation('/participant'), onError: err => setError(getError(err)) });
+    const invitationToken = new URLSearchParams(window.location.search).get('invite') || undefined;
+    actions.join.mutate({ launchId: info.data?.launchId || code, data: { pseudonym, invitationToken } }, { onSuccess: () => setLocation('/participant'), onError: err => setError(getError(err)) });
   };
   if (info.isLoading) return <div className="participant-layout"><Loading label="Vérification du code d’accès…" /></div>;
   if (info.isError || !info.data) return <div className="participant-layout"><ErrorBox message="Ce code est invalide ou l’activité n’accepte plus de participants." retry={() => info.refetch()} /><Link href="/" className="back-link"><ArrowLeft size={15} /> Accueil</Link></div>;
@@ -262,12 +281,15 @@ function Join({ actions }: { actions: AppActions }) {
 }
 
 function Participant({ actions }: { actions: AppActions }) {
-  const responseQuery = useGetParticipantResponse({ query: { queryKey: getGetParticipantResponseQueryKey() } });
+  const responseQuery = useGetParticipantResponse({ query: { queryKey: getGetParticipantResponseQueryKey(), refetchInterval: 15000, refetchIntervalInBackground: false } });
   const [mainId, setMainId] = useState<string | null>(null);
   const [altId, setAltId] = useState<string | null>(null);
   const [mainChoices, setMainChoices] = useState<Choice[]>([]);
   const [altChoices, setAltChoices] = useState<Choice[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [choiceError, setChoiceError] = useState('');
+  const [saveStatus, setSaveStatus] = useState('');
   const [, setLocation] = useLocation();
   const joinInfo = responseQuery.data?.joinInfo;
   useEffect(() => {
@@ -279,27 +301,92 @@ function Participant({ actions }: { actions: AppActions }) {
       setAltChoices(responseQuery.data.response.alternativeChoices || []);
     }
   }, [responseQuery.data, loaded]);
+  useEffect(() => {
+    if (!loaded || !dirty || responseQuery.data?.response.state === 'submitted') return;
+    const snapshot: ParticipantResponseInput = { mainDiagnosticId: mainId, alternativeDiagnosticId: altId, mainChoices, alternativeChoices: altChoices };
+    const timer = window.setTimeout(() => {
+      setSaveStatus('Enregistrement…');
+      actions.saveResponse.mutate({ data: snapshot }, {
+        onSuccess: () => { setDirty(false); setSaveStatus('Enregistré'); },
+        onError: () => setSaveStatus('Enregistrement impossible. Réessayez.'),
+      });
+    }, 650);
+    return () => window.clearTimeout(timer);
+  }, [loaded, dirty, mainId, altId, mainChoices, altChoices, responseQuery.data?.response.state]);
   if (responseQuery.isLoading) return <div className="participant-layout"><Loading label="Ouverture de votre activité…" /></div>;
   if (responseQuery.isError || !joinInfo) return <div className="participant-layout"><ErrorBox message="Aucune activité participante n’est associée à cette session. Rejoignez d’abord une activité avec son code." /><Link href="/" className="back-link"><ArrowLeft size={15} /> Retour à l’accueil</Link></div>;
   const draft: ParticipantResponseInput = { mainDiagnosticId: mainId, alternativeDiagnosticId: altId, mainChoices, alternativeChoices: altChoices };
+  const submitted = responseQuery.data?.response.state === 'submitted';
   const selectSign = (id: string, sign: '+' | '-', choices: Choice[], set: (v: Choice[]) => void) => {
-    const found = choices.some(c => c.observationId === id);
-    set(found ? choices.map(c => c.observationId === id ? { observationId: id, sign } : c) : [...choices, { observationId: id, sign }]);
+    if (submitted) return;
+    const existing = choices.find(c => c.observationId === id);
+    if (existing?.sign === sign) set(choices.filter(c => c.observationId !== id));
+    else if (existing) set(choices.map(c => c.observationId === id ? { observationId: id, sign } : c));
+    else if (choices.length >= 5) {
+      setChoiceError('Cinq observations au maximum par hypothèse.');
+      return;
+    } else set([...choices, { observationId: id, sign }]);
+    setDirty(true);
+    setChoiceError('');
+  };
+  const changeDiagnosis = (role: 'main' | 'alt', value: string | null) => {
+    if (role === 'main') {
+      setMainId(value);
+      setMainChoices([]);
+    } else {
+      setAltId(value);
+      setAltChoices([]);
+    }
+    setChoiceError('');
+    setDirty(true);
+  };
+  const canSubmit = !!mainId && !!altId && mainId !== altId && mainChoices.length > 0 && altChoices.length > 0 && (joinInfo.role !== 'panel' || (mainChoices.length === 5 && altChoices.length === 5));
+  const transmit = async () => {
+    if (!canSubmit || !window.confirm('Transmettre votre réponse ? Elle sera verrouillée et ne pourra plus être modifiée.')) return;
+    try {
+      await actions.saveResponse.mutateAsync({ data: draft });
+      setDirty(false);
+      await actions.submitResponse.mutateAsync();
+      setLocation('/participant/results');
+    } catch (error) {
+      setSaveStatus(getError(error));
+    }
   };
   return <div className="participant-layout"><div className="participant-top"><Link href="/" className="brand"><span className="brand-mark"><Stethoscope size={20} /></span><span><b>PRC</b><small>PHARMACIE</small></span></Link><span className="secure-label"><ShieldCheck size={14} /> Réponse privée</span></div><div className="participant-content"><div className="participant-kicker"><span>CAS CLINIQUE</span><span className="step-pill">01 / 02</span></div><h1>{joinInfo.name}</h1><section className="scenario-card"><div className="eyebrow">SITUATION CLINIQUE</div><p>{joinInfo.scenario}</p>{joinInfo.instructions && <div className="instructions"><b>Consignes</b><p>{joinInfo.instructions}</p></div>}</section>
       <div className="participant-step-head"><span className="step-number">01</span><div><h2>Formuler vos hypothèses</h2><p>Sélectionnez un diagnostic principal et, si pertinent, une alternative.</p></div></div>
-      <div className="diagnostic-grid"><DiagnosticSelect label="Diagnostic principal" options={joinInfo.diagnostics} value={mainId} onChange={setMainId} /><DiagnosticSelect label="Diagnostic alternatif" options={joinInfo.diagnostics} value={altId} onChange={setAltId} /></div>
-      <div className="participant-step-head"><span className="step-number">02</span><div><h2>Mettre en relation les observations</h2><p>Pour chaque élément, indiquez s’il soutient ou affaiblit votre hypothèse.</p></div></div>
-      <ObservationChoices title="Pour le diagnostic principal" observations={joinInfo.observations} choices={mainChoices} setChoices={setMainChoices} selectSign={selectSign} />
-      {altId && <ObservationChoices title="Pour le diagnostic alternatif" observations={joinInfo.observations} choices={altChoices} setChoices={setAltChoices} selectSign={selectSign} />}
-      <div className="participant-actions"><span>{responseQuery.data.response.state === 'submitted' ? 'Réponse transmise' : 'Votre réponse est enregistrée à la demande.'}</span><Btn kind="outline" disabled={actions.saveResponse.isPending} onClick={() => actions.saveResponse.mutate({ data: draft })}><Save size={15} /> Enregistrer</Btn><Btn disabled={actions.submitResponse.isPending} onClick={() => { if (!mainId) return; actions.submitResponse.mutate({ data: draft }, { onSuccess: () => setLocation('/participant/results') }); }}>Transmettre ma réponse <ArrowRight size={15} /></Btn></div>
+       <div className="diagnostic-grid"><DiagnosticSelect label="Diagnostic principal" options={joinInfo.diagnostics} value={mainId} onChange={v => changeDiagnosis('main', v)} /><DiagnosticSelect label="Diagnostic alternatif" options={joinInfo.diagnostics} value={altId} onChange={v => changeDiagnosis('alt', v)} /></div>
+       <div className="participant-step-head"><span className="step-number">02</span><div><h2>Mettre en relation les observations</h2><p>{joinInfo.role === 'panel' ? 'Choisissez exactement cinq observations pour chaque hypothèse.' : 'Choisissez de une à cinq observations pour chaque hypothèse.'}</p></div></div>
+       <ObservationMatrix observations={joinInfo.observations} mainChoices={mainChoices} alternativeChoices={altChoices} setMainChoices={setMainChoices} setAlternativeChoices={setAltChoices} selectSign={selectSign} disabled={submitted} hasAlternative={!!altId} />
+       {choiceError && <div className="form-error" role="alert">{choiceError}</div>}
+        <div className="participant-actions"><span>{submitted ? 'Réponse transmise et verrouillée' : saveStatus || (dirty ? 'Modifications en attente…' : 'Vos modifications sont enregistrées automatiquement.')}</span><Btn kind="outline" disabled={actions.saveResponse.isPending || submitted} onClick={() => actions.saveResponse.mutate({ data: draft }, { onSuccess: () => { setDirty(false); setSaveStatus('Enregistré'); }, onError: err => setSaveStatus(getError(err)) })}><Save size={15} /> Enregistrer</Btn><Btn disabled={!canSubmit || actions.submitResponse.isPending || actions.saveResponse.isPending || submitted} onClick={transmit}>Transmettre ma réponse <ArrowRight size={15} /></Btn></div>
     </div><footer className="entry-footer">PRC Pharmacie · Activité pédagogique privée</footer></div>;
 }
 function DiagnosticSelect({ label, options, value, onChange }: { label: string; options: { id: string; label: string }[]; value: string | null; onChange: (v: string | null) => void }) {
   return <label className="diagnostic-select"><span>{label}</span><select value={value || ''} onChange={e => onChange(e.target.value || null)}><option value="">Choisir une hypothèse</option>{options.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}</select><ChevronDown size={16} /></label>;
 }
-function ObservationChoices({ title, observations, choices, setChoices, selectSign }: { title: string; observations: { id: string; text: string; category: string }[]; choices: Choice[]; setChoices: (v: Choice[]) => void; selectSign: (id: string, sign: '+' | '-', choices: Choice[], set: (v: Choice[]) => void) => void }) {
-  return <section className="observation-choices"><div className="obs-choice-title">{title}</div>{observations.map(o => { const val = choices.find(c => c.observationId === o.id)?.sign; return <div className="observation-choice" key={o.id}><div><small>{o.category}</small><b>{o.text}</b></div><button type="button" aria-label="Observation favorable" className={val === '+' ? 'sign-choice active positive' : 'sign-choice'} onClick={() => selectSign(o.id, '+', choices, setChoices)} data-testid={`choice-positive-${o.id}`}>+</button><button type="button" aria-label="Observation défavorable" className={val === '-' ? 'sign-choice active negative' : 'sign-choice'} onClick={() => selectSign(o.id, '-', choices, setChoices)} data-testid={`choice-negative-${o.id}`}>−</button></div>; })}{observations.length === 0 && <div className="inline-empty">Aucune observation clinique n’a été associée à ce cas.</div>}</section>;
+function ObservationMatrix({ observations, mainChoices, alternativeChoices, setMainChoices, setAlternativeChoices, selectSign, disabled, hasAlternative }: {
+  observations: { id: string; text: string; category: string }[];
+  mainChoices: Choice[];
+  alternativeChoices: Choice[];
+  setMainChoices: (value: Choice[]) => void;
+  setAlternativeChoices: (value: Choice[]) => void;
+  selectSign: (id: string, sign: '+' | '-', choices: Choice[], set: (v: Choice[]) => void) => void;
+  disabled: boolean;
+  hasAlternative: boolean;
+}) {
+  const cell = (observationId: string, role: 'main' | 'alternative', sign: '+' | '-', choices: Choice[]) => {
+    const selected = choices.find(choice => choice.observationId === observationId)?.sign === sign;
+    return <button
+      type="button"
+      disabled={disabled}
+      aria-label={`${role === 'main' ? 'Hypothèse principale' : 'Hypothèse alternative'} : ${sign === '+' ? 'soutient' : 'affaiblit'} ${observationId}`}
+      aria-pressed={selected}
+      className={`sign-choice ${selected ? `active ${sign === '+' ? 'positive' : 'negative'}` : ''}`}
+      onClick={() => selectSign(observationId, sign, choices, role === 'main' ? setMainChoices : setAlternativeChoices)}
+      data-testid={`choice-${role}-${sign === '+' ? 'positive' : 'negative'}-${observationId}`}
+    >{sign}</button>;
+  };
+  return <section className="observation-choices matrix-wrap"><div className="obs-choice-title">{`Observations sélectionnées · principal ${mainChoices.length}/5${hasAlternative ? ` · alternatif ${alternativeChoices.length}/5` : ''}`}</div>{observations.length ? <div className="observation-matrix"><div className="matrix-head"><span>Observation clinique</span><span>Hypothèse principale</span>{hasAlternative && <span>Hypothèse alternative</span>}</div>{observations.map(o => <div className="matrix-row" key={o.id}><div className="matrix-observation"><small>{o.category}</small><b>{o.text}</b></div><div className="matrix-signs">{cell(o.id, 'main', '+', mainChoices)}{cell(o.id, 'main', '-', mainChoices)}</div>{hasAlternative && <div className="matrix-signs">{cell(o.id, 'alternative', '+', alternativeChoices)}{cell(o.id, 'alternative', '-', alternativeChoices)}</div>}</div>)}</div> : <div className="inline-empty">Aucune observation clinique n’a été associée à ce cas.</div>}</section>;
 }
 function ParticipantResults() {
   const results = useGetParticipantResults({ query: { queryKey: getGetParticipantResultsQueryKey() } });

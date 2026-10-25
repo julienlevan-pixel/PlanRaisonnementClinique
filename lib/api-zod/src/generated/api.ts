@@ -422,6 +422,7 @@ export const JoinLaunchResponse = zod.object({
 
 
 export const GetParticipantResponseResponse = zod.object({
+  "response": zod.object({
   "state": zod.string(),
   "mainDiagnosticId": zod.string().nullable(),
   "alternativeDiagnosticId": zod.string().nullable(),
@@ -434,6 +435,26 @@ export const GetParticipantResponseResponse = zod.object({
   "sign": zod.enum(['+', '-'])
 })),
   "updatedAt": zod.coerce.date().nullable()
+}),
+  "joinInfo": zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}),
+  "csrfToken": zod.string()
 })
 
 
@@ -451,6 +472,7 @@ export const SaveParticipantResponseBody = zod.object({
 })
 
 export const SaveParticipantResponseResponse = zod.object({
+  "response": zod.object({
   "state": zod.string(),
   "mainDiagnosticId": zod.string().nullable(),
   "alternativeDiagnosticId": zod.string().nullable(),
@@ -463,6 +485,26 @@ export const SaveParticipantResponseResponse = zod.object({
   "sign": zod.enum(['+', '-'])
 })),
   "updatedAt": zod.coerce.date().nullable()
+}),
+  "joinInfo": zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}),
+  "csrfToken": zod.string()
 })
 
 
@@ -625,6 +667,24 @@ export const GetLaunchResultsResponse = zod.object({
 
 export const GetParticipantResultsResponse = zod.object({
   "published": zod.boolean(),
+  "case": zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "name": zod.string(),
+  "status": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}),
   "response": zod.object({
   "state": zod.string(),
   "mainDiagnosticId": zod.string().nullable(),

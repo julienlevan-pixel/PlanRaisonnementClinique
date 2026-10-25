@@ -12,6 +12,8 @@ export interface PanelDistribution {
   expertCount: number;
   observations: Array<{
     observationId: string;
+    label?: string;
+    category?: string;
     positive: number;
     negative: number;
     notSelected: number;

@@ -1034,12 +1034,16 @@ async function handle(request: Request): Promise<Response> {
   }
 
   if (path === "/api/participant/response" && method === "GET") {
-    const { participant } = await participantContext(request);
+    const { participant, launch } = await participantContext(request);
     const result = await pool.query(
       "SELECT * FROM prc_private.responses WHERE participant_id = $1",
       [participant.id],
     );
-    return send(mapResponse(result.rows[0]));
+    return send({
+      response: mapResponse(result.rows[0]),
+      joinInfo: caseForJoin(launch),
+      csrfToken: participant.csrfToken,
+    });
   }
 
   if (path === "/api/participant/response" && method === "PUT") {
@@ -1076,7 +1080,11 @@ async function handle(request: Request): Promise<Response> {
       );
       if (!result.rows[0]) fail(409, "Cette copie est déjà soumise.");
       await client.query("COMMIT");
-      return send(mapResponse(result.rows[0]));
+      return send({
+        response: mapResponse(result.rows[0]),
+        joinInfo: caseForJoin(launch),
+        csrfToken: participant.csrfToken,
+      });
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -1412,6 +1420,7 @@ async function handle(request: Request): Promise<Response> {
     if (!published) {
       return send({
         published: false,
+        case: caseForJoin(launch),
         response: mapResponse(responseRow),
         score: null,
         components: {},
@@ -1421,27 +1430,48 @@ async function handle(request: Request): Promise<Response> {
     let panel: JsonRecord = {};
     if (launch.reference_id) {
       const reference = await pool.query(
-        "SELECT snapshot FROM prc_private.references WHERE id = $1",
+        "SELECT snapshot, explanation FROM prc_private.references WHERE id = $1",
         [launch.reference_id],
       );
       const snapshot = reference.rows[0]?.snapshot as PanelSnapshot | undefined;
       if (snapshot) {
-        const visible: PanelDistribution[] = snapshot.distributions.filter((row) => {
-          if (row.role === "main") return launch.reveals.mainDiagnostic || launch.reveals.mainArguments;
-          return launch.reveals.alternativeDiagnostic || launch.reveals.alternativeArguments;
+        const diagnostics = snapshot.diagnostics.map((row) => {
+          const visible: JsonRecord = { diagnosticId: row.diagnosticId, label: row.label };
+          if (launch.reveals.mainDiagnostic) {
+            visible.mainCount = row.mainCount;
+            visible.mainPercent = row.mainPercent;
+          }
+          if (launch.reveals.alternativeDiagnostic) {
+            visible.alternativeCount = row.alternativeCount;
+            visible.alternativePercent = row.alternativePercent;
+          }
+          return visible;
         });
+        const visibleDistributions: PanelDistribution[] = snapshot.distributions.filter(
+          (row) =>
+            row.role === "main"
+              ? launch.reveals.mainArguments
+              : launch.reveals.alternativeArguments,
+        );
         panel = {
           totalSubmissions: snapshot.totalSubmissions,
           diagnostics: launch.reveals.mainDiagnostic || launch.reveals.alternativeDiagnostic
-            ? snapshot.diagnostics
+            ? diagnostics
             : [],
-          distributions: visible,
+          distributions: visibleDistributions,
           referenceVisible: launch.reveals.reference,
+          reference: launch.reveals.reference
+            ? {
+                explanation: reference.rows[0]?.explanation ?? "",
+                scoring: (snapshot as PanelSnapshot & { scoring?: JsonRecord }).scoring ?? {},
+              }
+            : null,
         };
       }
     }
     return send({
       published: true,
+      case: caseForJoin(launch),
       response: mapResponse(responseRow),
       score: responseRow.score == null ? 0 : Number(responseRow.score),
       components: responseRow.score_components ?? {},

@@ -788,9 +788,10 @@ components:
       type: object
       properties:
         published: { type: boolean }
+        case: { $ref: "#/components/schemas/JoinInfo" }
         response: { $ref: "#/components/schemas/ParticipantResponse" }
         score: { type: ["number", "null"] }
         components: { type: object, additionalProperties: true }
         panel: { type: object, additionalProperties: true }
-      required: [published, response, score, components, panel]
+      required: [published, case, response, score, components, panel]
 

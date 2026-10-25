@@ -38,10 +38,10 @@ import type {
   LoginInput,
   Ok,
   PanelResults,
-  ParticipantResponse,
   ParticipantResponseInput,
   ParticipantResults,
   ParticipantSession,
+  ParticipantState,
   PasswordChangeInput,
   Prc,
   PrcDetail,
@@ -1670,9 +1670,9 @@ export const getGetParticipantResponseUrl = () => {
   return `/api/participant/response`
 }
 
-export const getParticipantResponse = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParticipantResponse> => {
+export const getParticipantResponse = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParticipantState> => {
 
-  return customFetch<ParticipantResponse>(getGetParticipantResponseUrl(),
+  return customFetch<ParticipantState>(getGetParticipantResponseUrl(),
   {
     ...options,
     method: 'GET'
@@ -1765,7 +1765,7 @@ export const getSaveParticipantResponseUrl = () => {
   return `/api/participant/response`
 }
 
-export const saveParticipantResponse = async (participantResponseInput: ParticipantResponseInput, options?: Parameters<typeof customFetch>[1]): Promise<ParticipantResponse> => {
+export const saveParticipantResponse = async (participantResponseInput: ParticipantResponseInput, options?: Parameters<typeof customFetch>[1]): Promise<ParticipantState> => {
 
     const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
@@ -1781,7 +1781,7 @@ export const saveParticipantResponse = async (participantResponseInput: Particip
     }
     return headers;
   };
-return customFetch<ParticipantResponse>(getSaveParticipantResponseUrl(),
+return customFetch<ParticipantState>(getSaveParticipantResponseUrl(),
   {
     ...options,
     method: 'PUT',

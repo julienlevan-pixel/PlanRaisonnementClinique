@@ -242,6 +242,12 @@ export interface ParticipantSession {
   joinInfo: JoinInfo;
 }
 
+export interface ParticipantState {
+  response: ParticipantResponse;
+  joinInfo: JoinInfo;
+  csrfToken: string;
+}
+
 export interface ParticipantResponseInput {
   /** @nullable */
   mainDiagnosticId: string | null;
@@ -326,6 +332,7 @@ export type ParticipantResultsPanel = { [key: string]: unknown };
 
 export interface ParticipantResults {
   published: boolean;
+  case: JoinInfo;
   response: ParticipantResponse;
   /** @nullable */
   score: number | null;
