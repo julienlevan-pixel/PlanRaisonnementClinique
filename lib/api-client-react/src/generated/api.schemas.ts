@@ -80,6 +80,25 @@ export interface PasswordChangeInput {
   newPassword: string;
 }
 
+export type PrcWorkflowStep = typeof PrcWorkflowStep[keyof typeof PrcWorkflowStep];
+
+
+export const PrcWorkflowStep = {
+  prepare: 'prepare',
+  panel: 'panel',
+  reference: 'reference',
+  students: 'students',
+} as const;
+
+export interface PrcWorkflow {
+  step: PrcWorkflowStep;
+  missing: string[];
+  /** @nullable */
+  panelLaunchId: string | null;
+  /** @nullable */
+  referenceStatus: string | null;
+}
+
 export interface Prc {
   id: string;
   name: string;
@@ -88,6 +107,9 @@ export interface Prc {
   version: number;
   updatedAt: string;
   launchCount: number;
+  archived?: boolean;
+  isDemo?: boolean;
+  workflow?: PrcWorkflow;
 }
 
 export interface Diagnostic {
@@ -102,10 +124,35 @@ export interface Observation {
   position: number;
 }
 
+export type LaunchRole = typeof LaunchRole[keyof typeof LaunchRole];
+
+
+export const LaunchRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export interface Launch {
+  id: string;
+  prcId: string;
+  role: LaunchRole;
+  /** Nom du PRC figé lors du lancement. */
+  name: string;
+  prcName?: string;
+  caseVersion?: number;
+  isTrial?: boolean;
+  code: string;
+  status: string;
+  createdAt: string;
+  participantCount: number;
+  submissionCount: number;
+}
+
 export type PrcDetail = Prc & {
   instructions: string;
   diagnostics: Diagnostic[];
   observations: Observation[];
+  launches?: Launch[];
 };
 
 export interface ObservationInput {
@@ -127,38 +174,108 @@ export interface PrcInput {
   observations: ObservationInput[];
 }
 
-export type LaunchRole = typeof LaunchRole[keyof typeof LaunchRole];
-
-
-export const LaunchRole = {
-  panel: 'panel',
-  students: 'students',
-} as const;
-
-export interface Launch {
-  id: string;
-  prcId: string;
-  role: LaunchRole;
-  name: string;
-  code: string;
-  status: string;
-  createdAt: string;
-  participantCount: number;
-  submissionCount: number;
-}
-
 export interface RevealState {
   mainDiagnostic: boolean;
   mainArguments: boolean;
   alternativeDiagnostic: boolean;
   alternativeArguments: boolean;
   reference: boolean;
+  /** Affiche uniquement les principales les plus fréquentes en conservant les égalités. */
+  mainDiagnosticTopOnly?: boolean;
+}
+
+export interface ScoringRule {
+  version?: string;
+  mainDiagnosis?: number;
+  mainJustification?: number;
+  alternativeDiagnosis?: number;
+  alternativeJustification?: number;
+  total?: number;
+  description?: string;
+  [key: string]: unknown;
+ }
+
+export interface DiagnosticCount {
+  diagnosticId: string;
+  label: string;
+  /** @minimum 0 */
+  mainCount?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  mainPercent?: number;
+  /** @minimum 0 */
+  alternativeCount?: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  alternativePercent?: number;
+  [key: string]: unknown;
+ }
+
+export type DiagnosticDistributionRole = typeof DiagnosticDistributionRole[keyof typeof DiagnosticDistributionRole];
+
+
+export const DiagnosticDistributionRole = {
+  main: 'main',
+  alternative: 'alternative',
+} as const;
+
+export interface ObservationDistribution {
+  observationId: string;
+  label?: string;
+  category?: string;
+  /** @minimum 0 */
+  positive: number;
+  /** @minimum 0 */
+  negative: number;
+  /** @minimum 0 */
+  notSelected: number;
+  positivePercent?: number;
+  negativePercent?: number;
+  notSelectedPercent?: number;
+}
+
+export interface DiagnosticDistribution {
+  diagnosticId: string;
+  role: DiagnosticDistributionRole;
+  /**
+     * Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.
+     * @minimum 0
+     */
+  expertCount: number;
+  observations: ObservationDistribution[];
+  /** @minimum 0 */
+  ceiling: number;
+  [key: string]: unknown;
+ }
+
+export interface Reference {
+  status: string;
+  minimumPanelSize: number;
+  panelSize: number;
+  explanation: string;
+  scoring: ScoringRule;
+  diagnostics: DiagnosticCount[];
+  distributions: DiagnosticDistribution[];
+}
+
+export interface CaseSnapshot {
+  name: string;
+  scenario: string;
+  instructions: string;
+  diagnostics: Diagnostic[];
+  observations: Observation[];
 }
 
 export type LaunchDetail = Launch & ({
   reveals: RevealState;
   /** @nullable */
   referenceStatus: string | null;
+  reference?: Reference | null;
+  case?: CaseSnapshot;
 });
 
 export type LaunchInputRole = typeof LaunchInputRole[keyof typeof LaunchInputRole];
@@ -171,8 +288,13 @@ export const LaunchInputRole = {
 
 export interface LaunchInput {
   role: LaunchInputRole;
-  /** @maxLength 160 */
-  name: string;
+  /**
+     * Compatibilité historique ; le serveur utilise le nom du PRC.
+     * @deprecated
+     * @maxLength 160
+     */
+  name?: string;
+  isTrial?: boolean;
 }
 
 export interface InvitationInput {
@@ -190,16 +312,12 @@ export interface Invitation {
   code: string;
 }
 
-export interface JoinInfo {
+export type JoinInfo = CaseSnapshot & {
   launchId: string;
   role: string;
-  name: string;
   status: string;
-  scenario: string;
-  instructions: string;
-  diagnostics: Diagnostic[];
-  observations: Observation[];
-}
+  isTrial?: boolean;
+};
 
 export interface JoinInput {
   /**
@@ -207,7 +325,10 @@ export interface JoinInput {
      * @maxLength 100
      */
   pseudonym: string;
+  /** Secret individuel obligatoire pour rejoindre un panel. */
   invitationToken?: string;
+  /** UUIDv4 aléatoire conservé localement pour reprendre sa participation ; ne pas publier ni journaliser. */
+  joinKey?: string;
 }
 
 export type ChoiceSign = typeof ChoiceSign[keyof typeof ChoiceSign];
@@ -233,6 +354,11 @@ export interface ParticipantResponse {
   alternativeChoices: Choice[];
   /** @nullable */
   updatedAt: string | null;
+  /**
+     * Version persistée de la copie à renvoyer lors de la sauvegarde suivante.
+     * @minimum 0
+     */
+  revision?: number;
 }
 
 export interface ParticipantSession {
@@ -253,8 +379,20 @@ export interface ParticipantResponseInput {
   mainDiagnosticId: string | null;
   /** @nullable */
   alternativeDiagnosticId: string | null;
+  /** @maxItems 5 */
   mainChoices: Choice[];
+  /** @maxItems 5 */
   alternativeChoices: Choice[];
+  /**
+     * Révision lue précédemment ; nécessaire dès que la révision persistée dépasse zéro.
+     * @minimum 0
+     */
+  revision?: number;
+  /**
+     * Alias de revision ; revision est prioritaire si les deux sont présents.
+     * @minimum 0
+     */
+  expectedRevision?: number;
 }
 
 export type Submission = ParticipantResponse & {
@@ -262,22 +400,20 @@ export type Submission = ParticipantResponse & {
 };
 
 export interface RevealInput {
-  mainDiagnostic: boolean;
-  mainArguments: boolean;
-  alternativeDiagnostic: boolean;
-  alternativeArguments: boolean;
-  reference: boolean;
+  mainDiagnostic?: boolean;
+  mainArguments?: boolean;
+  alternativeDiagnostic?: boolean;
+  alternativeArguments?: boolean;
+  reference?: boolean;
+  /** Affiche uniquement les principales les plus fréquentes en conservant les égalités. */
+  mainDiagnosticTopOnly?: boolean;
 }
-
-export type PanelResultsDiagnosticsItem = { [key: string]: unknown };
-
-export type PanelResultsDistributionsItem = { [key: string]: unknown };
 
 export interface PanelResults {
   totalSubmissions: number;
   minimumPanelSize: number;
-  diagnostics: PanelResultsDiagnosticsItem[];
-  distributions: PanelResultsDistributionsItem[];
+  diagnostics: DiagnosticCount[];
+  distributions: DiagnosticDistribution[];
 }
 
 export interface ReferenceGenerateInput {
@@ -293,22 +429,6 @@ export interface ReferenceValidateInput {
   explanation: string;
 }
 
-export type ReferenceScoring = { [key: string]: unknown };
-
-export type ReferenceDiagnosticsItem = { [key: string]: unknown };
-
-export type ReferenceDistributionsItem = { [key: string]: unknown };
-
-export interface Reference {
-  status: string;
-  minimumPanelSize: number;
-  panelSize: number;
-  explanation: string;
-  scoring: ReferenceScoring;
-  diagnostics: ReferenceDiagnosticsItem[];
-  distributions: ReferenceDistributionsItem[];
-}
-
 export interface WorkspaceSummary {
   prcCount: number;
   activeLaunchCount: number;
@@ -317,26 +437,235 @@ export interface WorkspaceSummary {
   recentLaunches: Launch[];
 }
 
-export type LaunchResultsParticipantsItem = { [key: string]: unknown };
+export interface ScoreComponent {
+  diagnosis: number;
+  justification: number;
+  represented: boolean;
+  raw: number;
+  ceiling: number;
+}
+
+/**
+ * Vide tant que la note privée n’est pas publiée ou si la copie est non soumise.
+ */
+export interface VisibleScoreComponents {
+  mainDiagnosis?: number;
+  mainJustification?: number;
+  alternativeDiagnosis?: number;
+  alternativeJustification?: number;
+  /** Note sur 20. */
+  total?: number;
+  /** Pourcentage sur 100. */
+  percentage?: number;
+  main?: ScoreComponent;
+  alternative?: ScoreComponent;
+  [key: string]: unknown;
+ }
+
+export interface LaunchParticipantResult {
+  id: string;
+  pseudonym: string;
+  role: string;
+  state: string;
+  /** @nullable */
+  submittedAt: string | null;
+  /**
+     * Note sur 20
+     * @nullable
+     */
+  score: number | null;
+  components: VisibleScoreComponents | null;
+  [key: string]: unknown;
+ }
+
+export interface VisibleReference {
+  explanation: string;
+  scoring: ScoringRule;
+}
+
+/**
+ * Les champs non révélés sont absents ; objet vide pendant la collecte.
+ */
+export interface VisibleAggregate {
+  totalSubmissions?: number;
+  minimumPanelSize?: number;
+  diagnostics?: DiagnosticCount[];
+  distributions?: DiagnosticDistribution[];
+  referenceVisible?: boolean;
+  reference?: VisibleReference | null;
+  [key: string]: unknown;
+ }
 
 export interface LaunchResults {
   launch: Launch;
-  participants: LaunchResultsParticipantsItem[];
+  participants: LaunchParticipantResult[];
   submittedCount: number;
   participantCount: number;
+  case?: CaseSnapshot;
+  reveals?: RevealState;
+  class?: VisibleAggregate;
+  panel?: VisibleAggregate;
 }
 
-export type ParticipantResultsComponents = { [key: string]: unknown };
+export type ParticipantResultsRole = typeof ParticipantResultsRole[keyof typeof ParticipantResultsRole];
 
-export type ParticipantResultsPanel = { [key: string]: unknown };
+
+export const ParticipantResultsRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
 
 export interface ParticipantResults {
   published: boolean;
   case: JoinInfo;
   response: ParticipantResponse;
-  /** @nullable */
+  /**
+     * Note sur 20 ; null pour les experts
+     * @minimum 0
+     * @maximum 20
+     * @nullable
+     */
   score: number | null;
-  components: ParticipantResultsComponents;
-  panel: ParticipantResultsPanel;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  percentage?: number | null;
+  components: VisibleScoreComponents;
+  role?: ParticipantResultsRole;
+  status?: string;
+  reveals?: RevealState;
+  panel: VisibleAggregate;
+  class?: VisibleAggregate;
+  reference?: VisibleReference | null;
 }
+
+export interface ErrorResponse {
+  error: string;
+}
+
+export interface ArchiveInput {
+  archived: boolean;
+}
+
+export type ArchiveResult = ArchiveInput & {
+  id: string;
+};
+
+export interface DuplicatePrcResult {
+  id: string;
+  name: string;
+  version: number;
+  archived: boolean;
+  isDemo: boolean;
+}
+
+export interface TrialResult {
+  launch: Launch;
+  code: string;
+  /** Lien individuel secret à ouvrir dans une session participante distincte. */
+  invitationUrl: string;
+}
+
+export type ParticipantActivityStateRole = typeof ParticipantActivityStateRole[keyof typeof ParticipantActivityStateRole];
+
+
+export const ParticipantActivityStateRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export interface ParticipantActivityState {
+  status: string;
+  role: ParticipantActivityStateRole;
+  reveals: RevealState;
+  published: boolean;
+  responseState: string;
+  /** @minimum 0 */
+  revision: number;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export type ProjectionLaunch = Launch & {
+  reveals?: RevealState;
+};
+
+/**
+ * Agrégats anonymes sans identités ni notes individuelles.
+ */
+export interface Projection {
+  launch: ProjectionLaunch;
+  case: CaseSnapshot;
+  role: string;
+  status: string;
+  reveals: RevealState;
+  panel: VisibleAggregate;
+  class: VisibleAggregate;
+  reference: VisibleReference | null;
+}
+
+export type DemoCase = CaseSnapshot & {
+  demonstrationLabel: string;
+  /**
+     * @minItems 20
+     * @maxItems 20
+     */
+  observations?: Observation[];
+};
+
+export type DemoSetupResultProgress = {
+  expertsSubmitted: number;
+  totalExperts: number;
+  studentsSubmitted: number;
+  totalStudents: number;
+};
+
+export interface DemoSetupResult {
+  prcId: string;
+  /** @nullable */
+  panelLaunchId: string | null;
+  /** @nullable */
+  studentLaunchId: string | null;
+  demonstrationLabel: string;
+  pending: boolean;
+  progress: DemoSetupResultProgress;
+}
+
+export type LaunchResultsParticipantsItem = LaunchParticipantResult;
+
+export type PanelResultsDiagnosticsItem = DiagnosticCount;
+
+export type PanelResultsDistributionsItem = DiagnosticDistribution;
+
+export type ReferenceDiagnosticsItem = DiagnosticCount;
+
+export type ReferenceDistributionsItem = DiagnosticDistribution;
+
+export type ReferenceScoring = ScoringRule;
+
+export type ParticipantResultsComponents = VisibleScoreComponents;
+
+export type ParticipantResultsPanel = VisibleAggregate;
+
+export interface SubmissionInput {
+  /**
+     * Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.
+     * @minimum 0
+     */
+  expectedRevision?: number;
+}
+
+export type ListPrcsParams = {
+/**
+ * Recherche sur le nom et le scénario du PRC appartenant au compte courant.
+ * @maxLength 160
+ */
+q?: string;
+/**
+ * false pour la bibliothèque active, true pour les archives.
+ */
+archived?: boolean;
+};
 

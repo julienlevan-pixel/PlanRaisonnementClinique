@@ -5,5 +5,6 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { DiagnosticCount } from './diagnosticCount';
 
-export type ReferenceDiagnosticsItem = { [key: string]: unknown };
+export type ReferenceDiagnosticsItem = DiagnosticCount;

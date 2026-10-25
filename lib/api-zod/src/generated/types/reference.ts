@@ -5,16 +5,16 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { ReferenceDiagnosticsItem } from './referenceDiagnosticsItem';
-import type { ReferenceDistributionsItem } from './referenceDistributionsItem';
-import type { ReferenceScoring } from './referenceScoring';
+import type { DiagnosticCount } from './diagnosticCount';
+import type { DiagnosticDistribution } from './diagnosticDistribution';
+import type { ScoringRule } from './scoringRule';
 
 export interface Reference {
   status: string;
   minimumPanelSize: number;
   panelSize: number;
   explanation: string;
-  scoring: ReferenceScoring;
-  diagnostics: ReferenceDiagnosticsItem[];
-  distributions: ReferenceDistributionsItem[];
+  scoring: ScoringRule;
+  diagnostics: DiagnosticCount[];
+  distributions: DiagnosticDistribution[];
 }

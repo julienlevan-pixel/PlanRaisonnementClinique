@@ -7,14 +7,17 @@
 .matrix-head,
 .matrix-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(108px, .8fr) minmax(108px, .8fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(108px, 0.8fr) minmax(
+      108px,
+      0.8fr
+    );
   align-items: center;
 }
 .matrix-head {
-  background: hsl(var(--muted) / .65);
+  background: hsl(var(--muted) / 0.65);
   color: hsl(var(--muted-foreground));
   font: 8px var(--app-font-mono);
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
 }
 .matrix-head > span,
 .matrix-row > div {
@@ -45,7 +48,7 @@
 }
 .sign-choice:disabled {
   cursor: not-allowed;
-  opacity: .6;
+  opacity: 0.6;
 }
 .obs-order {
   display: flex;
@@ -63,13 +66,16 @@
   cursor: pointer;
 }
 .obs-order button:disabled {
-  opacity: .4;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 @media (max-width: 640px) {
   .matrix-head,
   .matrix-row {
-    grid-template-columns: minmax(0, 1.4fr) minmax(90px, .7fr) minmax(90px, .7fr);
+    grid-template-columns: minmax(0, 1.4fr) minmax(90px, 0.7fr) minmax(
+        90px,
+        0.7fr
+      );
   }
   .matrix-head > span,
   .matrix-row > div {
@@ -77,5 +83,176 @@
   }
   .matrix-head {
     font-size: 7px;
+  }
+}
+
+.prc-matrix-scroll {
+  overflow: auto;
+  max-height: 75vh;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  scroll-margin-top: 20px;
+  background: hsl(var(--card));
+}
+.prc-response-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 660px;
+  table-layout: fixed;
+  font-size: 14px;
+}
+.prc-response-table caption {
+  text-align: left;
+  padding: 12px;
+  font-weight: 600;
+  background: hsl(var(--card));
+}
+.prc-response-table th,
+.prc-response-table td {
+  padding: 13px;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: top;
+}
+.prc-response-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: hsl(var(--muted));
+  box-shadow: 0 1px 0 hsl(var(--border));
+  width: 30%;
+}
+.prc-response-table thead th:first-child {
+  width: 40%;
+}
+.prc-response-table tbody th {
+  text-align: left;
+  font-weight: 500;
+  line-height: 1.6;
+}
+.prc-response-table tbody th small {
+  display: block;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  margin-bottom: 6px;
+}
+.prc-response-table tbody th span {
+  display: block;
+}
+.prc-response-table .matrix-signs {
+  border-left: 0;
+  padding: 0;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.prc-response-table .sign-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: auto;
+  min-width: 78px;
+  height: auto;
+  min-height: 55px;
+  padding: 8px;
+  font-size: 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background: hsl(var(--card));
+  cursor: pointer;
+}
+.prc-response-table .sign-choice span {
+  font-size: 11px;
+  white-space: nowrap;
+}
+.prc-response-table .sign-choice.active {
+  box-shadow: inset 0 0 0 2px currentColor;
+  font-weight: 700;
+}
+.prc-response-table .sign-choice.positive {
+  color: #176239;
+  background: #e7f5ec;
+}
+.prc-response-table .sign-choice.negative {
+  color: #9a3225;
+  background: #fff0ed;
+}
+.prc-response-table .sign-choice:focus-visible,
+.prc-response-table select:focus-visible {
+  outline: 3px solid #2268b1;
+  outline-offset: 3px;
+}
+.matrix-counter {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.prc-response-table .diagnostic-select {
+  margin: 0;
+}
+.prc-response-table .diagnostic-select select {
+  min-width: 0;
+  width: 100%;
+  font-size: 13px;
+}
+.prc-response-table .diagnostic-select > span {
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .prc-response-table {
+    min-width: 610px;
+    font-size: 13px;
+  }
+  .prc-response-table th,
+  .prc-response-table td {
+    padding: 9px;
+  }
+  .prc-response-table thead th:first-child {
+    width: 38%;
+  }
+  .prc-response-table .sign-choice {
+    min-width: 73px;
+  }
+  .prc-matrix-scroll {
+    max-height: 72vh;
+  }
+}
+@media (max-width: 640px) {
+  .prc-response-table {
+    min-width: 0;
+    width: 100%;
+    font-size: 12px;
+  }
+  .prc-response-table thead th:first-child {
+    width: 36%;
+  }
+  .prc-response-table thead th {
+    width: 32%;
+    padding: 8px 5px;
+  }
+  .prc-response-table tbody th,
+  .prc-response-table tbody td {
+    padding: 9px 5px;
+  }
+  .prc-response-table .sign-choice {
+    min-width: 0;
+    width: 100%;
+    min-height: 48px;
+    padding: 6px 3px;
+  }
+  .prc-response-table .sign-choice span {
+    font-size: 10px;
+  }
+  .prc-response-table .matrix-counter {
+    font-size: 12px;
+  }
+  .prc-response-table .diagnostic-select > span {
+    font-size: 11px;
+  }
+  .prc-response-table .diagnostic-select select {
+    font-size: 12px;
+    padding-left: 5px;
+    padding-right: 15px;
   }
 }
