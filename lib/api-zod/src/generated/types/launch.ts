@@ -11,7 +11,11 @@ export interface Launch {
   id: string;
   prcId: string;
   role: LaunchRole;
+  /** Nom du PRC figé lors du lancement. */
   name: string;
+  prcName?: string;
+  caseVersion?: number;
+  isTrial?: boolean;
   code: string;
   status: string;
   createdAt: Date;

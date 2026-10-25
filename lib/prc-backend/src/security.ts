@@ -82,9 +82,13 @@ export async function verifyPassword(
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
-export function cookieHeader(rawToken: string, maxAge: number): string {
+export function cookieHeader(
+  rawToken: string,
+  maxAge: number,
+  name = SESSION_COOKIE,
+): string {
   const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
-  return `${SESSION_COOKIE}=${rawToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
+  return `${name}=${rawToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`;
 }
 
 export function expiredCookieHeader(): string {
@@ -92,24 +96,37 @@ export function expiredCookieHeader(): string {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`;
 }
 
-export function readSessionCookie(request: Request): string | null {
+export function readSessionCookie(
+  request: Request,
+  name = SESSION_COOKIE,
+): string | null {
   const cookie = request.headers.get("cookie");
   if (!cookie) return null;
   const entry = cookie
     .split(";")
     .map((part) => part.trim())
-    .find((part) => part.startsWith(`${SESSION_COOKIE}=`));
-  return entry ? decodeURIComponent(entry.slice(SESSION_COOKIE.length + 1)) : null;
+    .find((part) => part.startsWith(`${name}=`));
+  if (!entry) return null;
+  try {
+    return decodeURIComponent(entry.slice(name.length + 1));
+  } catch {
+    return null;
+  }
 }
 
-export async function createTeacherSession(userId: string): Promise<{
+export async function createTeacherSession(
+  userId: string,
+  executor: {
+    query: (text: string, values?: unknown[]) => Promise<unknown>;
+  } = pool,
+): Promise<{
   rawToken: string;
   csrfToken: string;
   cookie: string;
 }> {
   const rawToken = token();
   const csrfToken = token();
-  await pool.query(
+  await executor.query(
     `INSERT INTO prc_private.sessions(token_hash, user_id, csrf_token, expires_at)
      VALUES ($1, $2, $3, now() + interval '12 hours')`,
     [hashToken(rawToken), userId, csrfToken],
@@ -121,14 +138,19 @@ export async function createTeacherSession(userId: string): Promise<{
   };
 }
 
-export async function createParticipantSession(participantId: string): Promise<{
+export async function createParticipantSession(
+  participantId: string,
+  executor: {
+    query: (text: string, values?: unknown[]) => Promise<unknown>;
+  } = pool,
+): Promise<{
   rawToken: string;
   csrfToken: string;
   cookie: string;
 }> {
   const rawToken = token();
   const csrfToken = token();
-  await pool.query(
+  await executor.query(
     `INSERT INTO prc_private.sessions(token_hash, participant_id, csrf_token, expires_at)
      VALUES ($1, $2, $3, now() + interval '12 hours')`,
     [hashToken(rawToken), participantId, csrfToken],
@@ -136,14 +158,25 @@ export async function createParticipantSession(participantId: string): Promise<{
   return {
     rawToken,
     csrfToken,
-    cookie: cookieHeader(rawToken, PARTICIPANT_SESSION_SECONDS),
+    cookie: cookieHeader(
+      rawToken,
+      PARTICIPANT_SESSION_SECONDS,
+      "prc_participant_session",
+    ),
   };
 }
 
 export async function getPrincipal(
   request: Request,
 ): Promise<Principal | null> {
-  const rawToken = readSessionCookie(request);
+  const participantPath = new URL(request.url).pathname.startsWith(
+    "/api/participant",
+  );
+  const rawToken = participantPath
+    ? (readSessionCookie(request, "prc_participant_session") ??
+      readSessionCookie(request))
+    : (readSessionCookie(request) ??
+      readSessionCookie(request, "prc_participant_session"));
   if (!rawToken) return null;
   const result = await pool.query(
     `SELECT s.token_hash, s.csrf_token, s.user_id, s.participant_id,
@@ -192,7 +225,8 @@ export async function enforceLoginLimit(
     [key],
   );
   return {
-    allowed: !result.rows[0]?.blocked_until ||
+    allowed:
+      !result.rows[0]?.blocked_until ||
       new Date(result.rows[0].blocked_until).getTime() <= Date.now(),
     key,
   };
@@ -220,8 +254,15 @@ export async function recordFailedLogin(key: string): Promise<void> {
   );
 }
 
-export async function clearLoginLimit(key: string): Promise<void> {
-  await pool.query(`DELETE FROM prc_private.login_attempts WHERE id = $1`, [key]);
+export async function clearLoginLimit(
+  key: string,
+  executor: {
+    query: (text: string, values?: unknown[]) => Promise<unknown>;
+  } = pool,
+): Promise<void> {
+  await executor.query(`DELETE FROM prc_private.login_attempts WHERE id = $1`, [
+    key,
+  ]);
 }
 
 export function sameOriginMutationAllowed(request: Request): boolean {

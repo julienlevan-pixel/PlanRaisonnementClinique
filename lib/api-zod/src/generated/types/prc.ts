@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { PrcWorkflow } from './prcWorkflow';
 
 export interface Prc {
   id: string;
@@ -14,4 +15,7 @@ export interface Prc {
   version: number;
   updatedAt: Date;
   launchCount: number;
+  archived?: boolean;
+  isDemo?: boolean;
+  workflow?: PrcWorkflow;
 }
