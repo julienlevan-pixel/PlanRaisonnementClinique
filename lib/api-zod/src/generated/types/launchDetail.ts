@@ -5,15 +5,11 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { CaseSnapshot } from './caseSnapshot';
 import type { Launch } from './launch';
-import type { Reference } from './reference';
 import type { RevealState } from './revealState';
 
 export type LaunchDetail = Launch & ({
   reveals: RevealState;
   /** @nullable */
   referenceStatus: string | null;
-  reference?: Reference | null;
-  case?: CaseSnapshot;
 });

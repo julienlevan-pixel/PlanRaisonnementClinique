@@ -13,14 +13,10 @@ tags:
   - name: prcs
   - name: activities
   - name: participants
-  - name: demonstrations
-security:
-  - teacherSession: []
 paths:
   /healthz:
     get:
       operationId: healthCheck
-      security: []
       tags: [health]
       summary: Health check
       description: Returns server health status
@@ -45,7 +41,6 @@ paths:
   /auth/login:
     post:
       operationId: login
-      security: []
       tags: [auth]
       requestBody:
         required: true
@@ -153,15 +148,6 @@ paths:
   /prcs:
     get:
       operationId: listPrcs
-      parameters:
-        - in: query
-          name: q
-          description: Recherche sur le nom et le scénario du PRC appartenant au compte courant.
-          schema: { type: string, maxLength: 160 }
-        - in: query
-          name: archived
-          description: false pour la bibliothèque active, true pour les archives.
-          schema: { type: boolean, default: false }
       tags: [prcs]
       responses:
         "200":
@@ -225,26 +211,6 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PrcDetail"
-    patch:
-      operationId: archivePrc
-      tags: [prcs]
-      description: Archive ou restaure un PRC sans supprimer son historique.
-      parameters:
-        - in: path
-          name: prcId
-          required: true
-          schema: { type: string }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ArchiveInput" }
-      responses:
-        "200":
-          description: Statut d’archivage enregistré
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ArchiveResult" }
   /prcs/{prcId}/launches:
     post:
       operationId: createLaunch
@@ -308,7 +274,6 @@ paths:
   /join/{code}:
     get:
       operationId: getJoinInfo
-      security: []
       tags: [participants]
       parameters:
         - in: path
@@ -325,12 +290,6 @@ paths:
   /launches/{launchId}/join:
     post:
       operationId: joinLaunch
-      security: []
-      description: >-
-        Crée ou reprend une participation sans compte enseignant. Un panel exige
-        une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet
-        la reprise d’un accès étudiant et rend une nouvelle tentative de jonction
-        idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
       tags: [participants]
       parameters:
         - in: path
@@ -353,8 +312,6 @@ paths:
   /participant/response:
     get:
       operationId: getParticipantResponse
-      security:
-        - participantSession: []
       tags: [participants]
       responses:
         "200":
@@ -365,13 +322,6 @@ paths:
                 $ref: "#/components/schemas/ParticipantState"
     put:
       operationId: saveParticipantResponse
-      description: >-
-        Sauvegarde optimiste du brouillon. Envoyer la revision reçue lors du
-        dernier GET ou PUT. Son omission reste acceptée uniquement à la révision
-        initiale zéro. Une copie plus récente ou déjà soumise provoque HTTP 409
-        et doit être relue ; une sauvegarde ancienne ne l’écrase pas.
-      security:
-        - participantSession: []
       tags: [participants]
       requestBody:
         required: true
@@ -389,24 +339,8 @@ paths:
   /participant/submit:
     post:
       operationId: submitParticipantResponse
-      description: >-
-        Verrouille la copie et calcule son score une seule fois sur la référence
-        figée. Une nouvelle tentative d’une soumission déjà enregistrée renvoie
-        la même copie avec HTTP 200, y compris après fermeture. Une première
-        soumission qui perd la course avec la fermeture est refusée avec HTTP 409.
-        Envoyer expectedRevision pour confirmer exactement la version relue ; une
-        autre révision persistée provoque HTTP 409 sans verrouiller la copie.
-      security:
-        - participantSession: []
       tags: [participants]
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/SubmissionInput" }
       responses:
-        "409":
-          $ref: "#/components/responses/Error"
         "200":
           description: Final locked submission
           content:
@@ -546,13 +480,6 @@ paths:
   /participant/results:
     get:
       operationId: getParticipantResults
-      description: >-
-        Renvoie uniquement sa copie. Les agrégats suivent les étapes de révélation
-        après fermeture, avant publication éventuelle des notes. Le score privé
-        n’apparaît qu’après publication étudiante. Un brouillon reste non soumis
-        avec score et pourcentage nuls ; les experts ne sont jamais notés.
-      security:
-        - participantSession: []
       tags: [participants]
       responses:
         "200":
@@ -561,120 +488,7 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ParticipantResults"
-  /demo-case:
-    get:
-      operationId: getDemoCase
-      tags: [demonstrations]
-      security: []
-      summary: Cas public fictif Toux, sans réponses ni corrigé
-      responses:
-        "200":
-          description: Vingt observations pour un essai local sans création de copie
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DemoCase" }
-  /demo:
-    post:
-      operationId: ensureDemo
-      tags: [demonstrations]
-      description: >-
-        Prépare une démonstration isolée pour l’enseignant connecté. Chaque appel
-        effectue au maximum quatre nouvelles copies ou environ dix secondes de
-        travail. Répéter tant que pending est true ; les appels suivants reprennent
-        les mêmes identifiants et copies. Une préparation concurrente active
-        renvoie HTTP 409. Les scores sont produits par le moteur ordinaire.
-      responses:
-        "200":
-          description: Progression persistée ou démonstration terminée
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DemoSetupResult" }
-        "409":
-          $ref: "#/components/responses/Error"
-  /prcs/{prcId}/duplicate:
-    post:
-      operationId: duplicatePrc
-      tags: [prcs]
-      description: Copie le contenu clinique dans un nouveau PRC du propriétaire, sans copies ni références historiques.
-      parameters:
-        - in: path
-          name: prcId
-          required: true
-          schema: { type: string }
-      responses:
-        "201":
-          description: Nouveau brouillon indépendant
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/DuplicatePrcResult" }
-  /prcs/{prcId}/trial:
-    post:
-      operationId: createTrial
-      tags: [activities]
-      description: >-
-        Crée un lancement panel d’essai et une invitation individuelle permettant
-        au professeur de suivre le vrai parcours participant. Les copies d’essai
-        ne peuvent pas générer une référence réelle.
-      parameters:
-        - in: path
-          name: prcId
-          required: true
-          schema: { type: string }
-      responses:
-        "201":
-          description: Accès au lancement d’essai isolé
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TrialResult" }
-  /participant/state:
-    get:
-      operationId: getParticipantActivityState
-      tags: [participants]
-      security:
-        - participantSession: []
-      description: État léger pour le polling, sans questionnaire complet ni copies d’autrui.
-      responses:
-        "200":
-          description: État persistant du lancement et de sa propre copie
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ParticipantActivityState" }
-  /launches/{launchId}/projection:
-    get:
-      operationId: getLaunchProjection
-      tags: [activities]
-      description: >-
-        Vue authentifiée du propriétaire, filtrée par les étapes de révélation.
-        Ne contient ni identités de participants ni scores individuels.
-      parameters:
-        - in: path
-          name: launchId
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Cas et agrégats anonymes pour la projection
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Projection" }
 components:
-  securitySchemes:
-    teacherSession:
-      type: apiKey
-      in: cookie
-      name: prc_session
-      description: Session opaque enseignante HttpOnly, Secure en production.
-    participantSession:
-      type: apiKey
-      in: cookie
-      name: prc_participant_session
-      description: Session opaque participante, sans privilèges enseignants.
-  responses:
-    Error:
-      description: Erreur JSON de validation, d’autorisation, de conflit ou de service indisponible
-      content:
-        application/json:
-          schema: { $ref: "#/components/schemas/ErrorResponse" }
   schemas:
     HealthStatus:
       type: object
@@ -733,9 +547,6 @@ components:
         version: { type: integer }
         updatedAt: { type: string, format: date-time }
         launchCount: { type: integer }
-        archived: { type: boolean }
-        isDemo: { type: boolean }
-        workflow: { $ref: "#/components/schemas/PrcWorkflow" }
       required: [id, name, scenario, status, version, updatedAt, launchCount]
     PrcDetail:
       allOf:
@@ -743,9 +554,12 @@ components:
         - type: object
           properties:
             instructions: { type: string }
-            diagnostics: { type: array, items: { $ref: "#/components/schemas/Diagnostic" } }
-            observations: { type: array, items: { $ref: "#/components/schemas/Observation" } }
-            launches: { type: array, items: { $ref: "#/components/schemas/Launch" } }
+            diagnostics:
+              type: array
+              items: { $ref: "#/components/schemas/Diagnostic" }
+            observations:
+              type: array
+              items: { $ref: "#/components/schemas/Observation" }
           required: [instructions, diagnostics, observations]
     PrcInput:
       type: object
@@ -788,10 +602,7 @@ components:
         id: { type: string }
         prcId: { type: string }
         role: { type: string, enum: [panel, students] }
-        name: { type: string, description: Nom du PRC figé lors du lancement. }
-        prcName: { type: string }
-        caseVersion: { type: integer }
-        isTrial: { type: boolean }
+        name: { type: string }
         code: { type: string }
         status: { type: string }
         createdAt: { type: string, format: date-time }
@@ -805,19 +616,13 @@ components:
           properties:
             reveals: { $ref: "#/components/schemas/RevealState" }
             referenceStatus: { type: ["string", "null"] }
-            reference:
-              anyOf:
-                - $ref: "#/components/schemas/Reference"
-                - type: "null"
-            case: { $ref: "#/components/schemas/CaseSnapshot" }
           required: [reveals, referenceStatus]
     LaunchInput:
       type: object
       properties:
         role: { type: string, enum: [panel, students] }
-        name: { type: string, maxLength: 160, deprecated: true, description: Compatibilité historique ; le serveur utilise le nom du PRC. }
-        isTrial: { type: boolean, default: false }
-      required: [role]
+        name: { type: string, maxLength: 160 }
+      required: [role, name]
     InvitationInput:
       type: object
       properties:
@@ -832,24 +637,26 @@ components:
         code: { type: string }
       required: [id, name, url, code]
     JoinInfo:
-      allOf:
-        - $ref: "#/components/schemas/CaseSnapshot"
-        - type: object
-          properties:
-            launchId: { type: string }
-            role: { type: string }
-            status: { type: string }
-            isTrial: { type: boolean }
-          required: [launchId, role, status]
+      type: object
+      properties:
+        launchId: { type: string }
+        role: { type: string }
+        name: { type: string }
+        status: { type: string }
+        scenario: { type: string }
+        instructions: { type: string }
+        diagnostics:
+          type: array
+          items: { $ref: "#/components/schemas/Diagnostic" }
+        observations:
+          type: array
+          items: { $ref: "#/components/schemas/Observation" }
+      required: [launchId, role, name, status, scenario, instructions, diagnostics, observations]
     JoinInput:
       type: object
       properties:
         pseudonym: { type: string, minLength: 1, maxLength: 100 }
-        invitationToken: { type: string, description: Secret individuel obligatoire pour rejoindre un panel. }
-        joinKey:
-          type: string
-          format: uuid
-          description: UUIDv4 aléatoire conservé localement pour reprendre sa participation ; ne pas publier ni journaliser.
+        invitationToken: { type: string }
       required: [pseudonym]
     ParticipantSession:
       type: object
@@ -865,10 +672,13 @@ components:
         state: { type: string }
         mainDiagnosticId: { type: ["string", "null"] }
         alternativeDiagnosticId: { type: ["string", "null"] }
-        mainChoices: { type: array, items: { $ref: "#/components/schemas/Choice" } }
-        alternativeChoices: { type: array, items: { $ref: "#/components/schemas/Choice" } }
+        mainChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
+        alternativeChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
         updatedAt: { type: ["string", "null"], format: date-time }
-        revision: { type: integer, minimum: 0, description: Version persistée de la copie à renvoyer lors de la sauvegarde suivante. }
       required: [state, mainDiagnosticId, alternativeDiagnosticId, mainChoices, alternativeChoices, updatedAt]
     ParticipantState:
       type: object
@@ -882,10 +692,12 @@ components:
       properties:
         mainDiagnosticId: { type: ["string", "null"] }
         alternativeDiagnosticId: { type: ["string", "null"] }
-        mainChoices: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Choice" } }
-        alternativeChoices: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Choice" } }
-        revision: { type: integer, minimum: 0, description: Révision lue précédemment ; nécessaire dès que la révision persistée dépasse zéro. }
-        expectedRevision: { type: integer, minimum: 0, description: Alias de revision ; revision est prioritaire si les deux sont présents. }
+        mainChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
+        alternativeChoices:
+          type: array
+          items: { $ref: "#/components/schemas/Choice" }
       required: [mainDiagnosticId, alternativeDiagnosticId, mainChoices, alternativeChoices]
     Choice:
       type: object
@@ -908,7 +720,6 @@ components:
         alternativeDiagnostic: { type: boolean }
         alternativeArguments: { type: boolean }
         reference: { type: boolean }
-        mainDiagnosticTopOnly: { type: boolean, description: Affiche uniquement les principales les plus fréquentes en conservant les égalités. }
       required: [mainDiagnostic, mainArguments, alternativeDiagnostic, alternativeArguments, reference]
     RevealInput:
       type: object
@@ -918,14 +729,18 @@ components:
         alternativeDiagnostic: { type: boolean }
         alternativeArguments: { type: boolean }
         reference: { type: boolean }
-        mainDiagnosticTopOnly: { type: boolean, description: Affiche uniquement les principales les plus fréquentes en conservant les égalités. }
+      required: [mainDiagnostic, mainArguments, alternativeDiagnostic, alternativeArguments, reference]
     PanelResults:
       type: object
       properties:
         totalSubmissions: { type: integer }
         minimumPanelSize: { type: integer }
-        diagnostics: { type: array, items: { $ref: "#/components/schemas/DiagnosticCount" } }
-        distributions: { type: array, items: { $ref: "#/components/schemas/DiagnosticDistribution" } }
+        diagnostics:
+          type: array
+          items: { type: object, additionalProperties: true }
+        distributions:
+          type: array
+          items: { type: object, additionalProperties: true }
       required: [totalSubmissions, minimumPanelSize, diagnostics, distributions]
     ReferenceGenerateInput:
       type: object
@@ -944,9 +759,9 @@ components:
         minimumPanelSize: { type: integer }
         panelSize: { type: integer }
         explanation: { type: string }
-        scoring: { $ref: "#/components/schemas/ScoringRule" }
-        diagnostics: { type: array, items: { $ref: "#/components/schemas/DiagnosticCount" } }
-        distributions: { type: array, items: { $ref: "#/components/schemas/DiagnosticDistribution" } }
+        scoring: { type: object, additionalProperties: true }
+        diagnostics: { type: array, items: { type: object, additionalProperties: true } }
+        distributions: { type: array, items: { type: object, additionalProperties: true } }
       required: [status, minimumPanelSize, panelSize, explanation, scoring, diagnostics, distributions]
     WorkspaceSummary:
       type: object
@@ -963,13 +778,11 @@ components:
       type: object
       properties:
         launch: { $ref: "#/components/schemas/Launch" }
-        participants: { type: array, items: { $ref: "#/components/schemas/LaunchParticipantResult" } }
+        participants:
+          type: array
+          items: { type: object, additionalProperties: true }
         submittedCount: { type: integer }
         participantCount: { type: integer }
-        case: { $ref: "#/components/schemas/CaseSnapshot" }
-        reveals: { $ref: "#/components/schemas/RevealState" }
-        class: { $ref: "#/components/schemas/VisibleAggregate" }
-        panel: { $ref: "#/components/schemas/VisibleAggregate" }
       required: [launch, participants, submittedCount, participantCount]
     ParticipantResults:
       type: object
@@ -977,260 +790,8 @@ components:
         published: { type: boolean }
         case: { $ref: "#/components/schemas/JoinInfo" }
         response: { $ref: "#/components/schemas/ParticipantResponse" }
-        score: { type: ["number", "null"], minimum: 0, maximum: 20, description: Note sur 20 ; null pour les experts, avant publication et pour une copie non soumise. }
-        percentage: { type: ["number", "null"], minimum: 0, maximum: 100 }
-        components: { $ref: "#/components/schemas/VisibleScoreComponents" }
-        role: { type: string, enum: [panel, students] }
-        status: { type: string }
-        reveals: { $ref: "#/components/schemas/RevealState" }
-        panel: { $ref: "#/components/schemas/VisibleAggregate" }
-        class: { $ref: "#/components/schemas/VisibleAggregate" }
-        reference:
-          anyOf:
-            - $ref: "#/components/schemas/VisibleReference"
-            - type: "null"
+        score: { type: ["number", "null"] }
+        components: { type: object, additionalProperties: true }
+        panel: { type: object, additionalProperties: true }
       required: [published, case, response, score, components, panel]
-    ErrorResponse:
-      type: object
-      properties:
-        error: { type: string }
-      required: [error]
-    CaseSnapshot:
-      type: object
-      properties:
-        name: { type: string }
-        scenario: { type: string }
-        instructions: { type: string }
-        diagnostics: { type: array, items: { $ref: "#/components/schemas/Diagnostic" } }
-        observations: { type: array, items: { $ref: "#/components/schemas/Observation" } }
-      required: [name, scenario, instructions, diagnostics, observations]
-    PrcWorkflow:
-      type: object
-      properties:
-        step: { type: string, enum: [prepare, panel, reference, students] }
-        missing: { type: array, items: { type: string } }
-        panelLaunchId: { type: ["string", "null"] }
-        referenceStatus: { type: ["string", "null"] }
-      required: [step, missing, panelLaunchId, referenceStatus]
-    ArchiveInput:
-      type: object
-      properties:
-        archived: { type: boolean }
-      required: [archived]
-    ArchiveResult:
-      allOf:
-        - $ref: "#/components/schemas/ArchiveInput"
-        - type: object
-          properties:
-            id: { type: string }
-          required: [id]
-    DuplicatePrcResult:
-      type: object
-      properties:
-        id: { type: string }
-        name: { type: string }
-        version: { type: integer }
-        archived: { type: boolean }
-        isDemo: { type: boolean }
-      required: [id, name, version, archived, isDemo]
-    TrialResult:
-      type: object
-      properties:
-        launch: { $ref: "#/components/schemas/Launch" }
-        code: { type: string }
-        invitationUrl: { type: string, description: Lien individuel secret à ouvrir dans une session participante distincte. }
-      required: [launch, code, invitationUrl]
-    ParticipantActivityState:
-      type: object
-      properties:
-        status: { type: string }
-        role: { type: string, enum: [panel, students] }
-        reveals: { $ref: "#/components/schemas/RevealState" }
-        published: { type: boolean }
-        responseState: { type: string }
-        revision: { type: integer, minimum: 0 }
-        updatedAt: { type: ["string", "null"], format: date-time }
-      required: [status, role, reveals, published, responseState, revision, updatedAt]
-    DiagnosticCount:
-      type: object
-      additionalProperties: true
-      properties:
-        diagnosticId: { type: string }
-        label: { type: string }
-        mainCount: { type: integer, minimum: 0 }
-        mainPercent: { type: number, minimum: 0, maximum: 100 }
-        alternativeCount: { type: integer, minimum: 0 }
-        alternativePercent: { type: number, minimum: 0, maximum: 100 }
-      required: [diagnosticId, label]
-    ObservationDistribution:
-      type: object
-      properties:
-        observationId: { type: string }
-        label: { type: string }
-        category: { type: string }
-        positive: { type: integer, minimum: 0 }
-        negative: { type: integer, minimum: 0 }
-        notSelected: { type: integer, minimum: 0 }
-        positivePercent: { type: number }
-        negativePercent: { type: number }
-        notSelectedPercent: { type: number }
-      required: [observationId, positive, negative, notSelected]
-    DiagnosticDistribution:
-      type: object
-      additionalProperties: true
-      properties:
-        diagnosticId: { type: string }
-        role: { type: string, enum: [main, alternative] }
-        expertCount: { type: integer, minimum: 0, description: Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe. }
-        observations: { type: array, items: { $ref: "#/components/schemas/ObservationDistribution" } }
-        ceiling: { type: number, minimum: 0 }
-      required: [diagnosticId, role, expertCount, observations, ceiling]
-    ScoringRule:
-      type: object
-      additionalProperties: true
-      properties:
-        version: { type: string }
-        mainDiagnosis: { type: number }
-        mainJustification: { type: number }
-        alternativeDiagnosis: { type: number }
-        alternativeJustification: { type: number }
-        total: { type: number }
-        description: { type: string }
-    ScoreComponent:
-      type: object
-      properties:
-        diagnosis: { type: number }
-        justification: { type: number }
-        represented: { type: boolean }
-        raw: { type: number }
-        ceiling: { type: number }
-      required: [diagnosis, justification, represented, raw, ceiling]
-    VisibleScoreComponents:
-      type: object
-      description: Vide tant que la note privée n’est pas publiée ou si la copie est non soumise.
-      additionalProperties: true
-      properties:
-        mainDiagnosis: { type: number }
-        mainJustification: { type: number }
-        alternativeDiagnosis: { type: number }
-        alternativeJustification: { type: number }
-        total: { type: number, description: Note sur 20. }
-        percentage: { type: number, description: Pourcentage sur 100. }
-        main: { $ref: "#/components/schemas/ScoreComponent" }
-        alternative: { $ref: "#/components/schemas/ScoreComponent" }
-    VisibleReference:
-      type: object
-      properties:
-        explanation: { type: string }
-        scoring: { $ref: "#/components/schemas/ScoringRule" }
-      required: [explanation, scoring]
-    VisibleAggregate:
-      type: object
-      description: Les champs non révélés sont absents ; objet vide pendant la collecte.
-      additionalProperties: true
-      properties:
-        totalSubmissions: { type: integer }
-        minimumPanelSize: { type: integer }
-        diagnostics: { type: array, items: { $ref: "#/components/schemas/DiagnosticCount" } }
-        distributions: { type: array, items: { $ref: "#/components/schemas/DiagnosticDistribution" } }
-        referenceVisible: { type: boolean }
-        reference:
-          anyOf:
-            - $ref: "#/components/schemas/VisibleReference"
-            - type: "null"
-    LaunchParticipantResult:
-      type: object
-      additionalProperties: true
-      properties:
-        id: { type: string }
-        pseudonym: { type: string }
-        role: { type: string }
-        state: { type: string }
-        submittedAt: { type: ["string", "null"], format: date-time }
-        score: { type: ["number", "null"], description: Note sur 20, null si aucune note. }
-        components:
-          anyOf:
-            - $ref: "#/components/schemas/VisibleScoreComponents"
-            - type: "null"
-      required: [id, pseudonym, role, state, submittedAt, score, components]
-    Projection:
-      type: object
-      description: Agrégats anonymes sans identités ni notes individuelles.
-      properties:
-        launch:
-          allOf:
-            - $ref: "#/components/schemas/Launch"
-            - type: object
-              properties:
-                reveals: { $ref: "#/components/schemas/RevealState" }
-        case: { $ref: "#/components/schemas/CaseSnapshot" }
-        role: { type: string }
-        status: { type: string }
-        reveals: { $ref: "#/components/schemas/RevealState" }
-        panel: { $ref: "#/components/schemas/VisibleAggregate" }
-        class: { $ref: "#/components/schemas/VisibleAggregate" }
-        reference:
-          anyOf:
-            - $ref: "#/components/schemas/VisibleReference"
-            - type: "null"
-      required: [launch, case, role, status, reveals, panel, class, reference]
-    DemoCase:
-      allOf:
-        - $ref: "#/components/schemas/CaseSnapshot"
-        - type: object
-          properties:
-            demonstrationLabel: { type: string }
-            observations:
-              type: array
-              minItems: 20
-              maxItems: 20
-              items: { $ref: "#/components/schemas/Observation" }
-          required: [demonstrationLabel]
-    DemoSetupResult:
-      type: object
-      properties:
-        prcId: { type: string }
-        panelLaunchId: { type: ["string", "null"] }
-        studentLaunchId: { type: ["string", "null"] }
-        demonstrationLabel: { type: string }
-        pending: { type: boolean }
-        progress:
-          type: object
-          properties:
-            expertsSubmitted: { type: integer }
-            totalExperts: { type: integer }
-            studentsSubmitted: { type: integer }
-            totalStudents: { type: integer }
-          required: [expertsSubmitted, totalExperts, studentsSubmitted, totalStudents]
-      required: [prcId, panelLaunchId, studentLaunchId, demonstrationLabel, pending, progress]
-    LaunchResultsParticipantsItem:
-      allOf:
-        - $ref: "#/components/schemas/LaunchParticipantResult"
-    PanelResultsDiagnosticsItem:
-      allOf:
-        - $ref: "#/components/schemas/DiagnosticCount"
-    PanelResultsDistributionsItem:
-      allOf:
-        - $ref: "#/components/schemas/DiagnosticDistribution"
-    ReferenceDiagnosticsItem:
-      allOf:
-        - $ref: "#/components/schemas/DiagnosticCount"
-    ReferenceDistributionsItem:
-      allOf:
-        - $ref: "#/components/schemas/DiagnosticDistribution"
-    ReferenceScoring:
-      allOf:
-        - $ref: "#/components/schemas/ScoringRule"
-    ParticipantResultsComponents:
-      allOf:
-        - $ref: "#/components/schemas/VisibleScoreComponents"
-    ParticipantResultsPanel:
-      allOf:
-        - $ref: "#/components/schemas/VisibleAggregate"
-    SubmissionInput:
-      type: object
-      properties:
-        expectedRevision:
-          type: integer
-          minimum: 0
-          description: Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.
+

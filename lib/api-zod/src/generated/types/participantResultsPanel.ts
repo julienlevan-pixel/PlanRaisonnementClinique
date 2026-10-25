@@ -5,6 +5,5 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { VisibleAggregate } from './visibleAggregate';
 
-export type ParticipantResultsPanel = VisibleAggregate;
+export type ParticipantResultsPanel = { [key: string]: unknown };

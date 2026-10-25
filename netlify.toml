@@ -2,12 +2,6 @@
   command = "pnpm --filter @workspace/prc-pharmacie run build && pnpm --filter @workspace/api-server run build:netlify"
   publish = "artifacts/prc-pharmacie/dist/public"
 
-[build.environment]
-  NODE_VERSION = "24"
-  PNPM_VERSION = "10.28.2"
-  PORT = "5173"
-  BASE_PATH = "/"
-
 [functions]
   directory = "artifacts/prc-pharmacie/dist/functions"
   node_bundler = "esbuild"
