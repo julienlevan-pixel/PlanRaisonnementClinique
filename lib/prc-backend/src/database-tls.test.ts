@@ -1,11 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import tls from "node:tls";
 import { databaseConnectionOptions } from "../../db/src/connection.js";
+
+test("invalid certificate configuration returns JSON 503 instead of crashing the function", () => {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "--import",
+      "tsx",
+      "--input-type=module",
+      "-e",
+      `
+    const {handleApiRequest} = await import(${JSON.stringify(new URL("./handler.ts", import.meta.url).href)});
+    const response = await handleApiRequest(new Request('https://prc.test/api/healthz'));
+    console.log(JSON.stringify({status:response.status,body:await response.json()}));
+  `,
+    ],
+    {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        SUPABASE_DATABASE_URL: "",
+        DATABASE_URL: "postgresql://aws-0-us-east-1.pooler.supabase.com/test",
+        DATABASE_SSL_ROOT_CERT: "invalid-test-certificate",
+        PRC_DEPLOY_CONTEXT: "production",
+      },
+    },
+  );
+  // Use a hostname URI so the Supabase certificate configuration is selected.
+  assert.equal(result.status, 0, result.stderr);
+  const output = JSON.parse(result.stdout.trim());
+  assert.equal(output.status, 503);
+  assert.match(output.body.error, /DATABASE_SSL_ROOT_CERT/);
+});
 
 test("Supabase accepts PEM or a file without letting URL parameters bypass verification", async () => {
   const directory = mkdtempSync(path.join(tmpdir(), "prc-ca-"));

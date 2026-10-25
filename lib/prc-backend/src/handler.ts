@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { pool } from "@workspace/db";
+import { pool, databaseConfigurationError } from "@workspace/db";
 import {
   clearLoginLimit,
   createParticipantSession,
@@ -2214,7 +2214,8 @@ async function submittedIds(launchId: string): Promise<string[]> {
 
 export async function handleApiRequest(request: Request): Promise<Response> {
   try {
-    const deploymentError = deploymentDatabaseError();
+    const deploymentError =
+      deploymentDatabaseError() || databaseConfigurationError;
     if (deploymentError) return send({ error: deploymentError }, 503);
     const url = new URL(request.url);
     const path = url.pathname.startsWith("/api/")
