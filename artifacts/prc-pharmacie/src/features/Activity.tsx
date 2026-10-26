@@ -664,8 +664,9 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           </label>
           {l.role === "panel" && (
             <p>
-              Les experts accèdent aux résultats du panel uniquement après
-              activation de « Corrigé et explications ». Aucune note ne leur est
+              Les experts voient les tableaux anonymes du panel dès qu’ils
+              soumettent leur copie. « Corrigé et explications » ajoute la
+              référence validée et votre commentaire. Aucune note ne leur est
               attribuée.
             </p>
           )}
@@ -785,7 +786,7 @@ export function ScoringRule({ scoring }: { scoring?: any }) {
   return (
     <details className="scoring-rule" open>
       <summary>
-        Barème pédagogique proposé — {scoring?.version || "V1"} · /20
+        Barème pédagogique proposé — {scoring?.version || "V2"} · /20
       </summary>
       <p>
         Hypothèse principale : diagnostic 2 points + justification 8 points.
@@ -794,10 +795,21 @@ export function ScoringRule({ scoring }: { scoring?: any }) {
       <p>
         Un diagnostic est crédité lorsqu’au moins un expert l’a retenu dans le
         même rôle. La justification vaut <b>8 × R / C</b> : R est la somme des
-        effectifs experts pour les données et signes choisis ; C est la somme
-        des cinq plus grands maxima +/−, une valeur par donnée. Le nombre de
-        choix de l’étudiant ne réduit pas C.
+        {scoring?.version === "V1"
+          ? "effectifs experts"
+          : "points attribués par les experts"}{" "}
+        pour les données et signes choisis ; C est la somme des cinq plus grands
+        maxima +/−, une valeur par donnée. Le nombre de choix de l’étudiant ne
+        réduit pas C.
       </p>
+      {scoring?.version !== "V1" && (
+        <p>
+          Les experts attribuent de 1 à 3 points à chacune des cinq données
+          retenues par hypothèse. Les anciennes réponses sans pondération
+          comptent pour un point. Les étudiants choisissent uniquement les
+          signes +/−.
+        </p>
+      )}
       <p>
         Les désaccords et choix minoritaires sont conservés. Une hypothèse non
         représentée reçoit zéro dans ce rôle ; un choix non crédité n’est pas

@@ -60,6 +60,8 @@ type CountRow = {
   label?: string;
   positive: number;
   negative: number;
+  positivePoints?: number;
+  negativePoints?: number;
   notSelected: number;
 };
 type Distribution = {
@@ -84,6 +86,7 @@ type ParticipantResult = {
   percentage?: number | null;
   components: Record<string, any>;
   panel: Aggregate;
+  expertPanel?: Aggregate;
   class?: Aggregate;
   role?: "panel" | "students";
   status?: string;
@@ -516,7 +519,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       next = choices.filter((choice) => choice.observationId !== id);
     else if (found)
       next = choices.map((choice) =>
-        choice.observationId === id ? { observationId: id, sign } : choice,
+        choice.observationId === id ? { ...choice, sign } : choice,
       );
     else if (choices.length >= 5) {
       setNotice(
@@ -564,6 +567,19 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
               : `Sélectionnez au moins une observation signée pour l’hypothèse ${name}.`,
           target: `participant-${role}-counter`,
         });
+      if (joinInfo.role === "panel") {
+        const unrated = choices.find(
+          (choice) =>
+            !Number.isInteger(choice.points) ||
+            Number(choice.points) < 1 ||
+            Number(choice.points) > 3,
+        );
+        if (unrated)
+          missing.push({
+            message: `Attribuez de 1 à 3 points à chaque donnée choisie pour l’hypothèse ${name}.`,
+            target: `participant-${role}-points-${unrated.observationId}`,
+          });
+      }
     }
     setValidation(missing);
     if (missing.length) {
@@ -752,7 +768,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         )}
         <p className="body-copy">
           {joinInfo.role === "panel"
-            ? "Choisissez exactement cinq données par hypothèse."
+            ? "Choisissez exactement cinq données par hypothèse et attribuez à chacune de 1 à 3 points : 1 = peu discriminante, 2 = modérément discriminante, 3 = très discriminante."
             : "Choisissez de une à cinq données par hypothèse."}{" "}
           Une même donnée peut soutenir une hypothèse et affaiblir l’autre.
           Cliquez à nouveau sur un signe retenu pour retirer ce choix.
@@ -773,6 +789,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
             selectSign(id, sign, choices, set, role ?? "main")
           }
           disabled={locked}
+          expertPoints={joinInfo.role === "panel"}
           hasAlternative
         />
         <div className="participant-actions">
@@ -860,6 +877,7 @@ export function ObservationMatrix({
   mainDiagnosticId,
   alternativeDiagnosticId,
   onDiagnosisChange,
+  expertPoints = false,
 }: {
   observations: { id: string; text: string; category: string }[];
   mainChoices: Choice[];
@@ -879,7 +897,47 @@ export function ObservationMatrix({
   mainDiagnosticId?: string | null;
   alternativeDiagnosticId?: string | null;
   onDiagnosisChange?: (role: Role, value: string | null) => void;
+  expertPoints?: boolean;
 }) {
+  const points = (
+    observation: { id: string; text: string },
+    role: Role,
+    choices: Choice[],
+  ) => {
+    const selected = choices.find(
+      (choice) => choice.observationId === observation.id,
+    );
+    if (!expertPoints || !selected) return null;
+    return (
+      <label className="expert-points">
+        <span>Pouvoir discriminant</span>
+        <select
+          id={`participant-${role}-points-${observation.id}`}
+          aria-label={`Points ${role === "main" ? "hypothèse principale" : "hypothèse alternative"} — ${observation.text}`}
+          disabled={disabled}
+          value={selected.points ?? ""}
+          onChange={(event) => {
+            const next = choices.map((choice) =>
+              choice.observationId === observation.id
+                ? {
+                    ...choice,
+                    points: event.target.value
+                      ? Number(event.target.value)
+                      : undefined,
+                  }
+                : choice,
+            );
+            (role === "main" ? setMainChoices : setAlternativeChoices)(next);
+          }}
+        >
+          <option value="">Attribuer des points</option>
+          <option value="1">1 · Peu discriminante</option>
+          <option value="2">2 · Modérément discriminante</option>
+          <option value="3">3 · Très discriminante</option>
+        </select>
+      </label>
+    );
+  };
   const cell = (
     observation: { id: string; text: string },
     role: Role,
@@ -984,6 +1042,7 @@ export function ObservationMatrix({
                   {cell(observation, "main", "+", mainChoices)}
                   {cell(observation, "main", "-", mainChoices)}
                 </div>
+                {points(observation, "main", mainChoices)}
               </td>
               {hasAlternative && (
                 <td>
@@ -991,6 +1050,7 @@ export function ObservationMatrix({
                     {cell(observation, "alternative", "+", alternativeChoices)}
                     {cell(observation, "alternative", "-", alternativeChoices)}
                   </div>
+                  {points(observation, "alternative", alternativeChoices)}
                 </td>
               )}
             </tr>
@@ -1010,7 +1070,17 @@ export function ParticipantResults() {
     queryKey: ["/api/participant/results"],
     queryFn: () => api<ParticipantResult>("/api/participant/results"),
     retry: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: (query) =>
+      online &&
+      visible &&
+      query.state.data?.role === "panel" &&
+      query.state.data.response.state === "submitted" &&
+      query.state.data.status === "open"
+        ? 15000
+        : false,
+    refetchIntervalInBackground: false,
   });
   const waiting =
     results.data?.role === "panel"
@@ -1019,7 +1089,14 @@ export function ParticipantResults() {
   const state = useQuery({
     queryKey: ["/api/participant/state"],
     queryFn: () => api<ActivityState>("/api/participant/state"),
-    enabled: !!results.data && online && visible && waiting,
+    enabled:
+      !!results.data &&
+      (results.data.role !== "panel" ||
+        results.data.response.state !== "submitted" ||
+        results.data.status !== "open") &&
+      online &&
+      visible &&
+      waiting,
     refetchInterval: online && visible && waiting ? 15000 : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
@@ -1121,15 +1198,16 @@ export function ParticipantResults() {
               ))}
             </div>
             <p>
-              Barème V1 proposé : une référence pédagogique issue du panel, et
-              non une norme clinique universelle.
+              Barème pédagogique proposé : une référence issue du panel, et non
+              une norme clinique universelle.
             </p>
           </section>
         ) : role === "panel" ? (
           <p className="body-copy">
             Les experts ne reçoivent pas de note sur la référence produite par
-            leurs propres réponses. La synthèse devient accessible après
-            fermeture du panel et révélation par le professeur.
+            leurs propres réponses. Après soumission, les tableaux du panel sont
+            accessibles automatiquement, sans attendre la fermeture de la
+            séance.
           </p>
         ) : submitted ? (
           <p className="body-copy">
@@ -1153,6 +1231,9 @@ export function ParticipantResults() {
             />
           ))}
         </section>
+        {role === "panel" && submitted && data.expertPanel && (
+          <ExpertComparison data={data} panel={data.expertPanel} />
+        )}
         <AggregateSummary
           title="Référence du panel révélée"
           data={data.panel}
@@ -1171,10 +1252,10 @@ export function ParticipantResults() {
                 "Aucune explication complémentaire."}
             </p>
             <details>
-              <summary>Comprendre le barème V1 proposé</summary>
+              <summary>Comprendre le barème pédagogique</summary>
               <p>
                 {data.panel.reference.scoring?.description ||
-                  "Chaque rôle comporte 2 points de diagnostic et 8 de justification. La justification est calculée avec les effectifs experts concordants et le plafond fixé dans la référence, indépendamment du nombre de choix de l’étudiant."}
+                  "Chaque rôle comporte 2 points de diagnostic et 8 de justification. La justification utilise les points experts concordants et le plafond fixé dans la référence. Les anciennes références sans pondération utilisent les effectifs. L’étudiant n’attribue pas de points."}
               </p>
             </details>
           </section>
@@ -1246,6 +1327,14 @@ function OwnHypothesis({
             <li key={choice.observationId}>
               <b>{choice.sign === "+" ? "+ En faveur" : "− En défaveur"}</b> —{" "}
               {observation?.text || "Observation"}
+              {data.case.role === "panel" && (
+                <span className="expert-choice-count">
+                  {choice.points ?? 1} point(s)
+                  {choice.points === undefined
+                    ? " · ancienne réponse non pondérée"
+                    : ""}
+                </span>
+              )}
               {corrected && counts && (
                 <span className="expert-choice-count">
                   {choice.sign === "+" ? counts.positive : counts.negative} /{" "}
@@ -1274,6 +1363,149 @@ function OwnHypothesis({
     </article>
   );
 }
+function ExpertComparison({
+  data,
+  panel,
+}: {
+  data: ParticipantResult;
+  panel: Aggregate;
+}) {
+  return (
+    <section
+      className="expert-comparison"
+      aria-label="Comparaison avec le panel"
+    >
+      <h2>Vos choix et ceux du panel</h2>
+      <p>
+        {panel.totalSubmissions ?? 0} réponse(s) définitive(s), vous compris.
+        Les brouillons sont exclus. Les totaux se mettent à jour au fil des
+        soumissions, en séance ou à distance.
+      </p>
+      <p>
+        Pour chaque diagnostic, les choix en hypothèse principale et alternative
+        sont réunis. Les points en faveur et en défaveur restent séparés ; ils
+        ne s’annulent pas.
+      </p>
+      {data.case.diagnostics.map((diagnostic, index) => {
+        const distributions =
+          panel.distributions?.filter(
+            (row) => row.diagnosticId === diagnostic.id,
+          ) ?? [];
+        const n = distributions.reduce((sum, row) => sum + row.expertCount, 0);
+        const ownRole =
+          data.response.mainDiagnosticId === diagnostic.id
+            ? "main"
+            : data.response.alternativeDiagnosticId === diagnostic.id
+              ? "alternative"
+              : null;
+        const own =
+          ownRole === "main"
+            ? data.response.mainChoices
+            : ownRole === "alternative"
+              ? data.response.alternativeChoices
+              : [];
+        const rows = data.case.observations.map((observation) => {
+          const counts = distributions.flatMap((row) =>
+            row.observations.filter(
+              (item) => item.observationId === observation.id,
+            ),
+          );
+          const positive = counts.reduce((sum, row) => sum + row.positive, 0);
+          const negative = counts.reduce((sum, row) => sum + row.negative, 0);
+          const positivePoints = counts.reduce(
+            (sum, row) => sum + (row.positivePoints ?? row.positive),
+            0,
+          );
+          const negativePoints = counts.reduce(
+            (sum, row) => sum + (row.negativePoints ?? row.negative),
+            0,
+          );
+          return {
+            observation,
+            positive,
+            negative,
+            positivePoints,
+            negativePoints,
+            total: positivePoints + negativePoints,
+          };
+        });
+        const maximum = Math.max(0, ...rows.map((row) => row.total));
+        return (
+          <article key={diagnostic.id} className="expert-diagnostic">
+            <h3>
+              Hypothèse {index + 1} · {diagnostic.label}
+            </h3>
+            <p>
+              {n} expert(s) ont retenu ce diagnostic.
+              {ownRole
+                ? ` Votre hypothèse ${ownRole === "main" ? "principale" : "alternative"}.`
+                : " Vous n’avez pas retenu ce diagnostic."}
+            </p>
+            <div
+              className="participant-count-scroll"
+              role="region"
+              aria-label={`Tableau ${diagnostic.label}`}
+              tabIndex={0}
+            >
+              <table className="participant-count-table expert-comparison-table">
+                <caption>
+                  {diagnostic.label} · {data.case.observations.length} données
+                  cliniques · panel, vous compris
+                </caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Donnée clinique</th>
+                    <th scope="col">Votre choix et vos points</th>
+                    <th scope="col">
+                      Panel en faveur (+)<small>Réponses · points</small>
+                    </th>
+                    <th scope="col">
+                      Panel en défaveur (−)<small>Réponses · points</small>
+                    </th>
+                    <th scope="col">Total des points du panel</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => {
+                    const choice = own.find(
+                      (item) => item.observationId === row.observation.id,
+                    );
+                    return (
+                      <tr
+                        key={row.observation.id}
+                        className={choice ? "expert-own-selection" : undefined}
+                      >
+                        <th scope="row">{row.observation.text}</th>
+                        <td>
+                          {choice
+                            ? `${choice.sign === "+" ? "+ En faveur" : "− En défaveur"} · ${choice.points ?? 1} point(s)`
+                            : "Non choisie"}
+                        </td>
+                        <td>
+                          {row.positive} / {n} · {row.positivePoints} pt
+                        </td>
+                        <td>
+                          {row.negative} / {n} · {row.negativePoints} pt
+                        </td>
+                        <td>
+                          <b>{row.total} pt</b>
+                          {maximum > 0 && row.total === maximum && (
+                            <small>Plus fort total pour ce diagnostic</small>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </article>
+        );
+      })}
+    </section>
+  );
+}
+
 function CountTable({
   observations,
   count,

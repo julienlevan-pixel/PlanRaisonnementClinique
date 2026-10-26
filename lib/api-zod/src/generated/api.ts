@@ -414,6 +414,10 @@ export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemPo
 
 export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNegativeMin = 0;
 
+export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNegativePointsMin = 0;
+
 export const getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNotSelectedMin = 0;
 
 export const getLaunchResponseTwoReferenceOneDistributionsItemCeilingMin = 0;
@@ -475,6 +479,8 @@ export const GetLaunchResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getLaunchResponseTwoReferenceOneDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -567,6 +573,10 @@ export const JoinLaunchBody = zod.object({
   "joinKey": zod.string().uuid().optional().describe('UUIDv4 aléatoire conservé localement pour reprendre sa participation ; ne pas publier ni journaliser.')
 })
 
+export const joinLaunchResponseResponseMainChoicesItemPointsMax = 3;
+
+export const joinLaunchResponseResponseAlternativeChoicesItemPointsMax = 3;
+
 export const joinLaunchResponseResponseRevisionMin = 0;
 
 
@@ -580,11 +590,13 @@ export const JoinLaunchResponse = zod.object({
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(joinLaunchResponseResponseMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(joinLaunchResponseResponseAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "updatedAt": zod.coerce.date().nullable(),
   "revision": zod.number().int().min(joinLaunchResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
@@ -612,6 +624,10 @@ export const JoinLaunchResponse = zod.object({
 })
 
 
+export const getParticipantResponseResponseResponseMainChoicesItemPointsMax = 3;
+
+export const getParticipantResponseResponseResponseAlternativeChoicesItemPointsMax = 3;
+
 export const getParticipantResponseResponseResponseRevisionMin = 0;
 
 
@@ -623,11 +639,13 @@ export const GetParticipantResponseResponse = zod.object({
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(getParticipantResponseResponseResponseMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(getParticipantResponseResponseResponseAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "updatedAt": zod.coerce.date().nullable(),
   "revision": zod.number().int().min(getParticipantResponseResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
@@ -659,7 +677,11 @@ export const GetParticipantResponseResponse = zod.object({
 /**
  * Sauvegarde optimiste du brouillon. Envoyer la revision reçue lors du dernier GET ou PUT. Son omission reste acceptée uniquement à la révision initiale zéro. Une copie plus récente ou déjà soumise provoque HTTP 409 et doit être relue ; une sauvegarde ancienne ne l’écrase pas.
  */
+export const saveParticipantResponseBodyMainChoicesItemPointsMax = 3;
+
 export const saveParticipantResponseBodyMainChoicesMax = 5;
+
+export const saveParticipantResponseBodyAlternativeChoicesItemPointsMax = 3;
 
 export const saveParticipantResponseBodyAlternativeChoicesMax = 5;
 
@@ -674,15 +696,21 @@ export const SaveParticipantResponseBody = zod.object({
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(saveParticipantResponseBodyMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })).max(saveParticipantResponseBodyMainChoicesMax),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(saveParticipantResponseBodyAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })).max(saveParticipantResponseBodyAlternativeChoicesMax),
   "revision": zod.number().int().min(saveParticipantResponseBodyRevisionMin).optional().describe('Révision lue précédemment ; nécessaire dès que la révision persistée dépasse zéro.'),
   "expectedRevision": zod.number().int().min(saveParticipantResponseBodyExpectedRevisionMin).optional().describe('Alias de revision ; revision est prioritaire si les deux sont présents.')
 })
+
+export const saveParticipantResponseResponseResponseMainChoicesItemPointsMax = 3;
+
+export const saveParticipantResponseResponseResponseAlternativeChoicesItemPointsMax = 3;
 
 export const saveParticipantResponseResponseResponseRevisionMin = 0;
 
@@ -695,11 +723,13 @@ export const SaveParticipantResponseResponse = zod.object({
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(saveParticipantResponseResponseResponseMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(saveParticipantResponseResponseResponseAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "updatedAt": zod.coerce.date().nullable(),
   "revision": zod.number().int().min(saveParticipantResponseResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
@@ -739,6 +769,10 @@ export const SubmitParticipantResponseBody = zod.object({
   "expectedRevision": zod.number().int().min(submitParticipantResponseBodyExpectedRevisionMin).optional().describe('Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.')
 })
 
+export const submitParticipantResponseResponseOneMainChoicesItemPointsMax = 3;
+
+export const submitParticipantResponseResponseOneAlternativeChoicesItemPointsMax = 3;
+
 export const submitParticipantResponseResponseOneRevisionMin = 0;
 
 
@@ -749,11 +783,13 @@ export const SubmitParticipantResponseResponse = zod.object({
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(submitParticipantResponseResponseOneMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(submitParticipantResponseResponseOneAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "updatedAt": zod.coerce.date().nullable(),
   "revision": zod.number().int().min(submitParticipantResponseResponseOneRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
@@ -831,6 +867,10 @@ export const getPanelResultsResponseDistributionsItemObservationsItemPositiveMin
 
 export const getPanelResultsResponseDistributionsItemObservationsItemNegativeMin = 0;
 
+export const getPanelResultsResponseDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getPanelResultsResponseDistributionsItemObservationsItemNegativePointsMin = 0;
+
 export const getPanelResultsResponseDistributionsItemObservationsItemNotSelectedMin = 0;
 
 export const getPanelResultsResponseDistributionsItemCeilingMin = 0;
@@ -858,6 +898,8 @@ export const GetPanelResultsResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getPanelResultsResponseDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -895,6 +937,10 @@ export const generateReferenceResponseDistributionsItemExpertCountMin = 0;
 export const generateReferenceResponseDistributionsItemObservationsItemPositiveMin = 0;
 
 export const generateReferenceResponseDistributionsItemObservationsItemNegativeMin = 0;
+
+export const generateReferenceResponseDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const generateReferenceResponseDistributionsItemObservationsItemNegativePointsMin = 0;
 
 export const generateReferenceResponseDistributionsItemObservationsItemNotSelectedMin = 0;
 
@@ -934,6 +980,8 @@ export const GenerateReferenceResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(generateReferenceResponseDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -971,6 +1019,10 @@ export const validateReferenceResponseDistributionsItemExpertCountMin = 0;
 export const validateReferenceResponseDistributionsItemObservationsItemPositiveMin = 0;
 
 export const validateReferenceResponseDistributionsItemObservationsItemNegativeMin = 0;
+
+export const validateReferenceResponseDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const validateReferenceResponseDistributionsItemObservationsItemNegativePointsMin = 0;
 
 export const validateReferenceResponseDistributionsItemObservationsItemNotSelectedMin = 0;
 
@@ -1010,6 +1062,8 @@ export const ValidateReferenceResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(validateReferenceResponseDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1060,6 +1114,10 @@ export const getLaunchResultsResponseClassDistributionsItemObservationsItemPosit
 
 export const getLaunchResultsResponseClassDistributionsItemObservationsItemNegativeMin = 0;
 
+export const getLaunchResultsResponseClassDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getLaunchResultsResponseClassDistributionsItemObservationsItemNegativePointsMin = 0;
+
 export const getLaunchResultsResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
 
 export const getLaunchResultsResponseClassDistributionsItemCeilingMin = 0;
@@ -1079,6 +1137,10 @@ export const getLaunchResultsResponsePanelDistributionsItemExpertCountMin = 0;
 export const getLaunchResultsResponsePanelDistributionsItemObservationsItemPositiveMin = 0;
 
 export const getLaunchResultsResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchResultsResponsePanelDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getLaunchResultsResponsePanelDistributionsItemObservationsItemNegativePointsMin = 0;
 
 export const getLaunchResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
 
@@ -1177,6 +1239,8 @@ export const GetLaunchResultsResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getLaunchResultsResponseClassDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1197,7 +1261,7 @@ export const GetLaunchResultsResponse = zod.object({
   "description": zod.string().optional()
 })
 }),zod.null()]).optional()
-}).optional().describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+}).optional().describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
   "panel": zod.object({
   "totalSubmissions": zod.number().int().optional(),
   "minimumPanelSize": zod.number().int().optional(),
@@ -1219,6 +1283,8 @@ export const GetLaunchResultsResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getLaunchResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1239,13 +1305,17 @@ export const GetLaunchResultsResponse = zod.object({
   "description": zod.string().optional()
 })
 }),zod.null()]).optional()
-}).optional().describe('Les champs non révélés sont absents ; objet vide pendant la collecte.')
+}).optional().describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.')
 })
 
 
 /**
- * Renvoie uniquement sa copie. Les agrégats suivent les étapes de révélation après fermeture, avant publication éventuelle des notes. Le score privé n’apparaît qu’après publication étudiante. Un brouillon reste non soumis avec score et pourcentage nuls ; les experts ne sont jamais notés.
+ * Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel contient immédiatement les agrégats anonymes du panel, même pendant la collecte. Les autres agrégats suivent les étapes de révélation après fermeture. Le score privé n’apparaît qu’après publication étudiante. Un brouillon reste non soumis avec score et pourcentage nuls ; les experts ne sont jamais notés.
  */
+export const getParticipantResultsResponseResponseMainChoicesItemPointsMax = 3;
+
+export const getParticipantResultsResponseResponseAlternativeChoicesItemPointsMax = 3;
+
 export const getParticipantResultsResponseResponseRevisionMin = 0;
 
 export const getParticipantResultsResponseScoreMin = 0;
@@ -1270,9 +1340,37 @@ export const getParticipantResultsResponsePanelDistributionsItemObservationsItem
 
 export const getParticipantResultsResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
 
+export const getParticipantResultsResponsePanelDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getParticipantResultsResponsePanelDistributionsItemObservationsItemNegativePointsMin = 0;
+
 export const getParticipantResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
 
 export const getParticipantResultsResponsePanelDistributionsItemCeilingMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDiagnosticsItemMainCountMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDiagnosticsItemMainPercentMin = 0;
+export const getParticipantResultsResponseExpertPanelOneDiagnosticsItemMainPercentMax = 100;
+
+export const getParticipantResultsResponseExpertPanelOneDiagnosticsItemAlternativeCountMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDiagnosticsItemAlternativePercentMin = 0;
+export const getParticipantResultsResponseExpertPanelOneDiagnosticsItemAlternativePercentMax = 100;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemExpertCountMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemNegativePointsMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getParticipantResultsResponseExpertPanelOneDistributionsItemCeilingMin = 0;
 
 export const getParticipantResultsResponseClassDiagnosticsItemMainCountMin = 0;
 
@@ -1289,6 +1387,10 @@ export const getParticipantResultsResponseClassDistributionsItemExpertCountMin =
 export const getParticipantResultsResponseClassDistributionsItemObservationsItemPositiveMin = 0;
 
 export const getParticipantResultsResponseClassDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getParticipantResultsResponseClassDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getParticipantResultsResponseClassDistributionsItemObservationsItemNegativePointsMin = 0;
 
 export const getParticipantResultsResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
 
@@ -1324,11 +1426,13 @@ export const GetParticipantResultsResponse = zod.object({
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(getParticipantResultsResponseResponseMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "alternativeChoices": zod.array(zod.object({
   "observationId": zod.string(),
-  "sign": zod.enum(['+', '-'])
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(getParticipantResultsResponseResponseAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
 })),
   "updatedAt": zod.coerce.date().nullable(),
   "revision": zod.number().int().min(getParticipantResultsResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
@@ -1388,6 +1492,8 @@ export const GetParticipantResultsResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getParticipantResultsResponsePanelDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1408,7 +1514,51 @@ export const GetParticipantResultsResponse = zod.object({
   "description": zod.string().optional()
 })
 }),zod.null()]).optional()
-}).describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+}).describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
+  "expertPanel": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getParticipantResultsResponseExpertPanelOneDiagnosticsItemMainPercentMin).max(getParticipantResultsResponseExpertPanelOneDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getParticipantResultsResponseExpertPanelOneDiagnosticsItemAlternativePercentMin).max(getParticipantResultsResponseExpertPanelOneDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
+  "notSelected": zod.number().int().min(getParticipantResultsResponseExpertPanelOneDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getParticipantResultsResponseExpertPanelOneDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.').optional().describe('Agrégats anonymes des réponses définitives du panel, vous compris ; accessibles uniquement à un expert ayant soumis sa copie, même pendant la collecte.'),
   "class": zod.object({
   "totalSubmissions": zod.number().int().optional(),
   "minimumPanelSize": zod.number().int().optional(),
@@ -1430,6 +1580,8 @@ export const GetParticipantResultsResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getParticipantResultsResponseClassDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1450,7 +1602,7 @@ export const GetParticipantResultsResponse = zod.object({
   "description": zod.string().optional()
 })
 }),zod.null()]).optional()
-}).optional().describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+}).optional().describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
   "reference": zod.union([zod.object({
   "explanation": zod.string(),
   "scoring": zod.object({
@@ -1608,6 +1760,10 @@ export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemPo
 
 export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
 
+export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemNegativePointsMin = 0;
+
 export const getLaunchProjectionResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
 
 export const getLaunchProjectionResponsePanelDistributionsItemCeilingMin = 0;
@@ -1627,6 +1783,10 @@ export const getLaunchProjectionResponseClassDistributionsItemExpertCountMin = 0
 export const getLaunchProjectionResponseClassDistributionsItemObservationsItemPositiveMin = 0;
 
 export const getLaunchProjectionResponseClassDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getLaunchProjectionResponseClassDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getLaunchProjectionResponseClassDistributionsItemObservationsItemNegativePointsMin = 0;
 
 export const getLaunchProjectionResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
 
@@ -1704,6 +1864,8 @@ export const GetLaunchProjectionResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getLaunchProjectionResponsePanelDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1724,7 +1886,7 @@ export const GetLaunchProjectionResponse = zod.object({
   "description": zod.string().optional()
 })
 }),zod.null()]).optional()
-}).describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+}).describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
   "class": zod.object({
   "totalSubmissions": zod.number().int().optional(),
   "minimumPanelSize": zod.number().int().optional(),
@@ -1746,6 +1908,8 @@ export const GetLaunchProjectionResponse = zod.object({
   "category": zod.string().optional(),
   "positive": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemPositiveMin),
   "negative": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
   "notSelected": zod.number().int().min(getLaunchProjectionResponseClassDistributionsItemObservationsItemNotSelectedMin),
   "positivePercent": zod.number().optional(),
   "negativePercent": zod.number().optional(),
@@ -1766,7 +1930,7 @@ export const GetLaunchProjectionResponse = zod.object({
   "description": zod.string().optional()
 })
 }),zod.null()]).optional()
-}).describe('Les champs non révélés sont absents ; objet vide pendant la collecte.'),
+}).describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
   "reference": zod.union([zod.object({
   "explanation": zod.string(),
   "scoring": zod.object({

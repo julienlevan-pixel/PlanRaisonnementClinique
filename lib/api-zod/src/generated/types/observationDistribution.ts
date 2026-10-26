@@ -14,6 +14,16 @@ export interface ObservationDistribution {
   positive: number;
   /** @minimum 0 */
   negative: number;
+  /**
+     * Somme des points experts pour le signe positif.
+     * @minimum 0
+     */
+  positivePoints?: number;
+  /**
+     * Somme des points experts pour le signe négatif.
+     * @minimum 0
+     */
+  negativePoints?: number;
   /** @minimum 0 */
   notSelected: number;
   positivePercent?: number;

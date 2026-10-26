@@ -10,4 +10,10 @@ import type { ChoiceSign } from './choiceSign';
 export interface Choice {
   observationId: string;
   sign: ChoiceSign;
+  /**
+     * Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.
+     * @minimum 1
+     * @maximum 3
+     */
+  points?: number;
 }

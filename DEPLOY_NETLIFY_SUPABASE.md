@@ -86,7 +86,13 @@ Dans le tableau de bord du projet Netlify, ouvrir **Project configuration → Ac
 
 Vérifier en navigation privée que l’accueil et un lien `/join/CODE` s’ouvrent sans écran Netlify. Le professeur continue à utiliser sa connexion PRC pour créer, fermer ou consulter une séance. Ne pas communiquer son compte aux experts.
 
-Pour un panel en séance : ouvrir l’activité, afficher le QR commun ou copier son lien. L’expert scanne le QR ou saisit le code sur l’accueil, indique son nom ou pseudonyme et rejoint directement le cas. Le code de séance est vérifié côté serveur ; les nouvelles participations sont refusées après fermeture. Une nouvelle tentative dans le même navigateur reprend la même participation, sans utiliser le nom comme preuve d’identité. Les invitations individuelles restent disponibles pour retrouver une copie depuis un autre navigateur. Les réponses des autres experts restent masquées pendant la collecte.
+Pour un panel en séance : ouvrir l’activité, afficher le QR commun ou copier son lien. L’expert scanne le QR ou saisit le code sur l’accueil, indique son nom ou pseudonyme et rejoint directement le cas. Le code de séance est vérifié côté serveur ; les nouvelles participations sont refusées après fermeture. Une nouvelle tentative dans le même navigateur reprend la même participation, sans utiliser le nom comme preuve d’identité. Les invitations individuelles restent disponibles pour retrouver une copie depuis un autre navigateur.
+
+L’expert retient deux hypothèses distinctes, cinq données signées par hypothèse, et attribue **1 à 3 points à chacune** (1 peu discriminante, 2 modérément, 3 très discriminante). Toutes les valeurs sont contrôlées côté serveur. Les brouillons peuvent être incomplets ; la soumission définitive exige les dix pondérations. Les étudiants ne pondèrent pas leurs choix.
+
+Après soumission, un tableau par diagnostic présente toutes les données, les choix/points de l’expert et les effectifs/points anonymes cumulés du panel, **lui compris**. Les choix principaux et alternatifs sont réunis pour cette comparaison, avec les directions + et − séparées. Les brouillons et les identités des autres experts ne sont jamais exposés. Ces tableaux apparaissent automatiquement, y compris pendant une collecte asynchrone, et sont actualisés toutes les 15 secondes tant que la séance est ouverte et la page visible et connectée. Un expert non soumis n’accède pas à ces agrégats ; la projection et la restitution étudiante conservent leurs règles de révélation.
+
+Les nouveaux corrigés V2 utilisent les **sommes de points directionnels** pour la justification : R additionne les points concordants ; C additionne les cinq meilleurs maxima directionnels, une valeur par donnée ; la justification vaut 8 × R/C par rôle. Les deux diagnostics restent à 2 points chacun, pour une note totale sur 20. Les réponses historiques sans pondération valent un point par donnée. Les corrigés déjà validés, leurs plafonds et les notes enregistrées sont conservés. Les points sont stockés dans les choix JSON existants : aucune migration SQL.
 
 Ce changement utilise les tables existantes et ne nécessite aucune migration SQL. Le réglage Netlify doit être effectué séparément de la fusion du code.
 
@@ -98,7 +104,7 @@ Après `Published`, vérifier dans des sessions de navigateur distinctes :
 2. L'accueil et un lien direct vers un PRC fonctionnent après actualisation.
 3. Un mauvais mot de passe affiche une erreur ; le bon ouvre le tableau de bord ; le changement initial et la déconnexion fonctionnent.
 4. Le cookie enseignant est HttpOnly, Secure en production et SameSite ; un participant ne reçoit aucun droit enseignant. Un essai enseignant conserve sa session enseignante.
-5. Les liens et QR emploient le domaine attendu ; le panel accepte son code commun ou une invitation individuelle, sans compte Netlify ; aucune distribution n'est envoyée pendant la collecte.
+5. Les liens et QR emploient le domaine attendu ; le panel accepte son code commun ou une invitation individuelle, sans compte Netlify. Après soumission uniquement, un expert voit les tableaux anonymes actualisés, même pendant la collecte. Un étudiant et un expert en brouillon n’y ont pas accès.
 6. Panel → fermeture → référence validée → groupe étudiant → soumission → révélations → publication privée fonctionne. Une copie non soumise reste sans note.
 7. La projection ne révèle ni identité ni score individuel ; les enseignants ne voient pas les PRC d'autrui.
 

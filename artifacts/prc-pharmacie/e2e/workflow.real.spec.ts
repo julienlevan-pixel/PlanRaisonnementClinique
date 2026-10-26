@@ -31,6 +31,7 @@ async function answerAndSubmit(page: Page, pseudonym: string) {
   }
   await expect(page.locator('#participant-main-counter')).toContainText('5/5');
   await expect(page.locator('#participant-alternative-counter')).toContainText('5/5');
+  for (const selector of await page.getByRole('combobox', { name: /^Points hypothèse/ }).all()) await selector.selectOption('3');
   await confirmClick(page, 'Vérifier et transmettre');
   await expect(page).toHaveURL(/\/participant\/results$/);
   await expect(page.getByText('Votre soumission définitive est enregistrée et verrouillée.', { exact: false })).toBeVisible();
@@ -63,7 +64,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
     await test.step('teacher changes the initial password and creates a real twenty-observation PRC', async () => {
       await login(teacher, teacherName, teacherInitial);
       await changeInitialPassword(teacher, teacherInitial, teacherPassword);
-      await teacher.getByRole('button', { name: 'Nouveau PRC', exact: true }).click();
+      await teacher.getByRole('button', { name: 'Nouveau PRC', exact: true }).first().click();
       await teacher.getByLabel('Nom du PRC', { exact: true }).fill('Circuit navigateur — données fictives');
       await teacher.getByRole('button', { name: 'Créer le brouillon', exact: true }).click();
       await expect(teacher).toHaveURL(/\/prc\/[0-9a-f-]+$/);
@@ -95,6 +96,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await answerAndSubmit(expert, 'Expert navigateur fictif');
       await expert.reload();
       await expect(expert.getByRole('heading', { name: 'Votre réponse définitive', exact: true })).toBeVisible();
+      await expect(expert.locator('.expert-diagnostic')).toHaveCount(2);
+      for (const table of await expert.locator('.expert-comparison-table').all()) await expect(table.locator('tbody tr')).toHaveCount(20);
       await expect(expert.getByRole('heading', { name: 'Votre résultat', exact: true })).not.toBeVisible();
       expect((await expert.request.get('/api/teachers')).status()).toBe(401);
     });
@@ -129,7 +132,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await teacher.reload();
       await confirmClick(teacher, 'Fermer la collecte');
       for (const stage of ['mainDiagnostic', 'mainArguments', 'alternativeDiagnostic', 'alternativeArguments', 'reference']) {
-        await teacher.getByTestId(`toggle-reveal-${stage}`).check();
+        await teacher.getByTestId(`toggle-reveal-${stage}`).click();
         await expect(teacher.getByTestId(`toggle-reveal-${stage}`)).toBeChecked();
       }
       await teacher.reload();

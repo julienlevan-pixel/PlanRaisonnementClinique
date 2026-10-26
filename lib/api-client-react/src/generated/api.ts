@@ -2618,7 +2618,7 @@ export const getGetParticipantResultsUrl = () => {
 }
 
 /**
- * Renvoie uniquement sa copie. Les agrégats suivent les étapes de révélation après fermeture, avant publication éventuelle des notes. Le score privé n’apparaît qu’après publication étudiante. Un brouillon reste non soumis avec score et pourcentage nuls ; les experts ne sont jamais notés.
+ * Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel contient immédiatement les agrégats anonymes du panel, même pendant la collecte. Les autres agrégats suivent les étapes de révélation après fermeture. Le score privé n’apparaît qu’après publication étudiante. Un brouillon reste non soumis avec score et pourcentage nuls ; les experts ne sont jamais notés.
  */
 export const getParticipantResults = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParticipantResults> => {
 

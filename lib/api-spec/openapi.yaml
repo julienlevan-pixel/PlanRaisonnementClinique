@@ -547,8 +547,9 @@ paths:
     get:
       operationId: getParticipantResults
       description: >-
-        Renvoie uniquement sa copie. Les agrégats suivent les étapes de révélation
-        après fermeture, avant publication éventuelle des notes. Le score privé
+        Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel
+        contient immédiatement les agrégats anonymes du panel, même pendant la collecte.
+        Les autres agrégats suivent les étapes de révélation après fermeture. Le score privé
         n’apparaît qu’après publication étudiante. Un brouillon reste non soumis
         avec score et pourcentage nuls ; les experts ne sont jamais notés.
       security:
@@ -893,6 +894,7 @@ components:
       properties:
         observationId: { type: string }
         sign: { type: string, enum: ["+", "-"] }
+        points: { type: integer, minimum: 1, maximum: 3, description: Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants. }
       required: [observationId, sign]
     Submission:
       allOf:
@@ -985,6 +987,10 @@ components:
         status: { type: string }
         reveals: { $ref: "#/components/schemas/RevealState" }
         panel: { $ref: "#/components/schemas/VisibleAggregate" }
+        expertPanel:
+          allOf:
+            - $ref: "#/components/schemas/VisibleAggregate"
+          description: Agrégats anonymes des réponses définitives du panel, vous compris ; accessibles uniquement à un expert ayant soumis sa copie, même pendant la collecte.
         class: { $ref: "#/components/schemas/VisibleAggregate" }
         reference:
           anyOf:
@@ -1071,6 +1077,8 @@ components:
         category: { type: string }
         positive: { type: integer, minimum: 0 }
         negative: { type: integer, minimum: 0 }
+        positivePoints: { type: integer, minimum: 0, description: Somme des points experts pour le signe positif. }
+        negativePoints: { type: integer, minimum: 0, description: Somme des points experts pour le signe négatif. }
         notSelected: { type: integer, minimum: 0 }
         positivePercent: { type: number }
         negativePercent: { type: number }
@@ -1127,7 +1135,7 @@ components:
       required: [explanation, scoring]
     VisibleAggregate:
       type: object
-      description: Les champs non révélés sont absents ; objet vide pendant la collecte.
+      description: Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.
       additionalProperties: true
       properties:
         totalSubmissions: { type: integer }
