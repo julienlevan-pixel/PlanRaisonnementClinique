@@ -134,6 +134,78 @@ test('archives and restores a PRC while retaining its history', async ({ page })
   await expect(page.getByRole('heading', { name: data.name })).toBeVisible();
 });
 
+for (const archived of [false, true]) {
+  test(`confirms permanent deletion of an ${archived ? 'archived' : 'active'} PRC and lets the teacher cancel`, async ({ page }) => {
+    await authenticate(page);
+    const data = { ...fixture(), archived, launchCount: 2, workflow: { step: 'students', missing: [], panelLaunchId: null, referenceStatus: 'validated' } };
+    let deleted = false;
+    let deletions = 0;
+    await page.route('**/api/prcs?*', route => {
+      const matches = (new URL(route.request().url()).searchParams.get('archived') === 'true') === archived;
+      return route.fulfill({ json: !deleted && matches ? [data] : [] });
+    });
+    await page.route(`**/api/prcs/${id}`, route => {
+      expect(route.request().method()).toBe('DELETE');
+      expect(route.request().postDataJSON()).toEqual({ confirm: true });
+      deletions++;
+      deleted = true;
+      return route.fulfill({ json: { id, deleted: true } });
+    });
+    await page.goto('/prcs');
+    if (archived) await page.getByRole('button', { name: 'Archives', exact: true }).click();
+    await page.getByText('Autres actions', { exact: true }).click();
+    const remove = page.getByRole('button', { name: 'Supprimer définitivement', exact: true });
+    page.once('dialog', async dialog => {
+      expect(dialog.type()).toBe('confirm');
+      expect(dialog.message()).toContain(data.name);
+      expect(dialog.message()).toContain('réponses et leurs corrigés');
+      expect(dialog.message()).toContain('irréversible');
+      await dialog.dismiss();
+    });
+    await remove.click();
+    await expect(page.getByRole('heading', { name: data.name, exact: true })).toBeVisible();
+    expect(deletions).toBe(0);
+    page.once('dialog', dialog => dialog.accept());
+    await remove.click();
+    await expect(page.getByRole('heading', { name: data.name, exact: true })).not.toBeVisible();
+    await expect(page.getByRole('status')).toContainText('supprimés définitivement');
+    expect(deletions).toBe(1);
+  });
+}
+
+test('a failed deletion retains the PRC and offers a retry', async ({ page }) => {
+  await authenticate(page);
+  let deleted = false;
+  let attempts = 0;
+  await page.route('**/api/prcs?*', route => route.fulfill({ json: deleted ? [] : [fixture()] }));
+  await page.route(`**/api/prcs/${id}`, route => {
+    attempts++;
+    if (attempts === 1) return route.fulfill({ status: 503, json: { error: 'Base temporairement indisponible.' } });
+    deleted = true;
+    return route.fulfill({ json: { id, deleted: true } });
+  });
+  await page.goto('/prcs');
+  await page.getByText('Autres actions', { exact: true }).click();
+  page.on('dialog', dialog => dialog.accept());
+  const remove = page.getByRole('button', { name: 'Supprimer définitivement', exact: true });
+  await remove.click();
+  await expect(page.getByRole('alert')).toContainText('Base temporairement indisponible.');
+  await expect(page.getByRole('heading', { name: fixture().name, exact: true })).toBeVisible();
+  await remove.click();
+  await expect(page.getByRole('status')).toContainText('supprimés définitivement');
+  await expect(page.getByRole('alert')).not.toBeVisible();
+});
+
+test('collaborators cannot see the permanent delete action', async ({ page }) => {
+  await authenticate(page);
+  const data = { ...fixture(), shared: true, ownerUsername: 'proprietaire', permissions: { edit: true, share: false, archive: false, delete: false, manageSessions: true } };
+  await page.route('**/api/prcs?*', route => route.fulfill({ json: [data] }));
+  await page.goto('/prcs');
+  await page.getByText('Autres actions', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Dupliquer', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Supprimer définitivement', exact: true })).toHaveCount(0);
+});
+
 test('resumes the bounded demonstration initialization before opening it', async ({ page }) => {
   await authenticate(page);
   await page.route('**/api/prcs?*', route => route.fulfill({ json: [] }));

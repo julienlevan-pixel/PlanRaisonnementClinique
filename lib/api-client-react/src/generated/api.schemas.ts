@@ -84,6 +84,7 @@ export type PrcPermissions = {
   edit?: boolean;
   share?: boolean;
   archive?: boolean;
+  delete?: boolean;
   manageSessions?: boolean;
 };
 
@@ -726,6 +727,15 @@ export interface ParticipantResults {
 
 export interface ErrorResponse {
   error: string;
+}
+
+export interface DeletePrcInput {
+  confirm: true;
+}
+
+export interface DeletePrcResult {
+  id: string;
+  deleted: true;
 }
 
 export interface ArchiveInput {

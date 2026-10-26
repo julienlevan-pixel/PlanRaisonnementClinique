@@ -10,5 +10,6 @@ export type PrcPermissions = {
   edit?: boolean;
   share?: boolean;
   archive?: boolean;
+  delete?: boolean;
   manageSessions?: boolean;
 };

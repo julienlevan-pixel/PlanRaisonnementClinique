@@ -245,6 +245,32 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ArchiveResult" }
+    delete:
+      operationId: deletePrc
+      tags: [prcs]
+      description: Suppression définitive réservée au propriétaire, y compris versions, séances, invitations, réponses, corrigés et partages. Nécessite confirm=true. Fonctionne aussi sur un PRC archivé.
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeletePrcInput" }
+      responses:
+        "200":
+          description: PRC et activités supprimés définitivement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeletePrcResult" }
+        "400":
+          description: Confirmation manquante
+        "401":
+          description: Connexion enseignante requise
+        "404":
+          description: PRC introuvable ou accès propriétaire absent
   /prcs/{prcId}/collaborators:
     get:
       operationId: getPrcSharing
@@ -824,6 +850,7 @@ components:
             edit: { type: boolean }
             share: { type: boolean }
             archive: { type: boolean }
+            delete: { type: boolean }
             manageSessions: { type: boolean }
         workflow: { $ref: "#/components/schemas/PrcWorkflow" }
       required: [id, name, scenario, status, version, updatedAt, launchCount]
@@ -1125,6 +1152,17 @@ components:
         panelLaunchId: { type: ["string", "null"] }
         referenceStatus: { type: ["string", "null"] }
       required: [step, missing, panelLaunchId, referenceStatus]
+    DeletePrcInput:
+      type: object
+      properties:
+        confirm: { type: boolean, enum: [true] }
+      required: [confirm]
+    DeletePrcResult:
+      type: object
+      properties:
+        id: { type: string }
+        deleted: { type: boolean, enum: [true] }
+      required: [id, deleted]
     ArchiveInput:
       type: object
       properties:

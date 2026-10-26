@@ -61,3 +61,10 @@
   margin-top: 8px;
   color: hsl(var(--muted-foreground));
 }
+.library-more button.library-delete {
+  color: #9f2929;
+  background: #fff2f2;
+}
+.library-more button.library-delete:hover {
+  background: #ffe4e4;
+}

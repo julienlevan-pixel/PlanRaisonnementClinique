@@ -8,7 +8,7 @@ export interface Workflow {
 export interface PrcSummary {
   ownerUsername?: string;
   shared?: boolean;
-  permissions?: { edit: boolean; share: boolean; archive: boolean; manageSessions: boolean };
+  permissions?: { edit: boolean; share: boolean; archive: boolean; delete?: boolean; manageSessions: boolean };
   id: string;
   name: string;
   scenario: string;

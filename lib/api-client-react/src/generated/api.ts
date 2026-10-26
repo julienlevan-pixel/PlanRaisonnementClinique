@@ -30,6 +30,8 @@ import type {
   CollaborationRemoved,
   Collaborator,
   CurrentUser,
+  DeletePrcInput,
+  DeletePrcResult,
   DemoCase,
   DemoSetupResult,
   DiscussionInput,
@@ -1330,6 +1332,92 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getArchivePrcMutationOptions(options), queryClient);
+    }
+
+export const getDeletePrcUrl = (prcId: string,) => {
+
+
+
+
+  return `/api/prcs/${prcId}`
+}
+
+/**
+ * Suppression définitive réservée au propriétaire, y compris versions, séances, invitations, réponses, corrigés et partages. Nécessite confirm=true. Fonctionne aussi sur un PRC archivé.
+ */
+export const deletePrc = async (prcId: string,
+    deletePrcInput: DeletePrcInput, options?: Parameters<typeof customFetch>[1]): Promise<DeletePrcResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<DeletePrcResult>(getDeletePrcUrl(prcId),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(deletePrcInput)
+  }
+);}
+
+
+
+
+
+export const getDeletePrcMutationKey = () => ['deletePrc'] as const;
+
+export const getDeletePrcMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePrc>>, TError,DeletePrcMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePrc>>, TError,DeletePrcMutationVariables, TContext> => {
+
+const mutationKey = getDeletePrcMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePrc>>, DeletePrcMutationVariables> = (props) => {
+          const {prcId,data} = props ?? {};
+
+          return  deletePrc(prcId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePrcMutationResult = NonNullable<Awaited<ReturnType<typeof deletePrc>>>
+    export type DeletePrcMutationBody = BodyType<DeletePrcInput>
+    export type DeletePrcMutationError = ErrorType<void>
+    export type DeletePrcMutationVariables = {prcId: string;data: BodyType<DeletePrcInput>}
+
+    export const useDeletePrc = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePrc>>, TError,DeletePrcMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deletePrc>>,
+        TError,
+        DeletePrcMutationVariables,
+        TContext
+      > => {
+      return useMutation(getDeletePrcMutationOptions(options), queryClient);
     }
 
 export const getGetPrcSharingUrl = (prcId: string,) => {
