@@ -68,6 +68,7 @@ import type {
   ReferenceValidateInput,
   RevealInput,
   RubricUpdateInput,
+  SessionActionInput,
   Submission,
   SubmissionInput,
   Teacher,
@@ -1943,6 +1944,92 @@ export function useGetLaunch<TData = Awaited<ReturnType<typeof getLaunch>>, TErr
 
 
 
+export const getAdvanceLiveSessionUrl = (launchId: string,) => {
+
+
+
+
+  return `/api/launches/${launchId}/session`
+}
+
+/**
+ * Le professeur présente le cas puis ouvre les réponses d’une nouvelle séance synchrone. Les transitions sont persistées, monotones et protégées côté serveur. Le chronomètre est indicatif ; la fermeture reste manuelle.
+ */
+export const advanceLiveSession = async (launchId: string,
+    sessionActionInput: SessionActionInput, options?: Parameters<typeof customFetch>[1]): Promise<Launch> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Launch>(getAdvanceLiveSessionUrl(launchId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(sessionActionInput)
+  }
+);}
+
+
+
+
+
+export const getAdvanceLiveSessionMutationKey = () => ['advanceLiveSession'] as const;
+
+export const getAdvanceLiveSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceLiveSession>>, TError,AdvanceLiveSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceLiveSession>>, TError,AdvanceLiveSessionMutationVariables, TContext> => {
+
+const mutationKey = getAdvanceLiveSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceLiveSession>>, AdvanceLiveSessionMutationVariables> = (props) => {
+          const {launchId,data} = props ?? {};
+
+          return  advanceLiveSession(launchId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceLiveSessionMutationResult = NonNullable<Awaited<ReturnType<typeof advanceLiveSession>>>
+    export type AdvanceLiveSessionMutationBody = BodyType<SessionActionInput>
+    export type AdvanceLiveSessionMutationError = ErrorType<ErrorResponse>
+    export type AdvanceLiveSessionMutationVariables = {launchId: string;data: BodyType<SessionActionInput>}
+
+    export const useAdvanceLiveSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceLiveSession>>, TError,AdvanceLiveSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof advanceLiveSession>>,
+        TError,
+        AdvanceLiveSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAdvanceLiveSessionMutationOptions(options), queryClient);
+    }
+
 export const getAdvanceDiscussionUrl = (launchId: string,) => {
 
 
@@ -3640,7 +3727,7 @@ export const getGetParticipantActivityStateUrl = () => {
 }
 
 /**
- * État léger pour le polling, sans questionnaire complet ni copies d’autrui.
+ * État de sa propre séance, sans copie d’autrui. Pour les séances pilotées, inclut le cas lorsque le professeur l’a présenté, l’étape courante et le nombre de personnes ayant rejoint.
  */
 export const getParticipantActivityState = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParticipantActivityState> => {
 

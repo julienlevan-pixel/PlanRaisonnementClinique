@@ -103,6 +103,9 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
   const [deliveryMode, setDeliveryMode] = useState<
     "synchronous" | "asynchronous"
   >("synchronous");
+  const [panelMode, setPanelMode] = useState<"synchronous" | "asynchronous">(
+    "synchronous",
+  );
   const [trial, setTrial] = useState<{
     invitationUrl: string;
     code: string;
@@ -127,6 +130,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
       setHistory([]);
       setTrial(null);
       setDeliveryMode("synchronous");
+      setPanelMode("synchronous");
       setError("");
       setStatus("");
       loaded.current = prcId;
@@ -353,7 +357,11 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
         const result = await api<{ id: string }>(
           `/api/prcs/${document.id}/launches`,
           "POST",
-          { role, ...(role === "students" ? { deliveryMode } : {}) },
+          {
+            role,
+            sessionMode: role === "students" ? deliveryMode : panelMode,
+            ...(role === "students" ? { deliveryMode } : {}),
+          },
         );
         navigate(`/activity/${result.id}`);
       }
@@ -896,6 +904,33 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
                           : "Le questionnaire est prêt pour le panel."}
                   </p>
                 )}
+                {step === "panel" && (
+                  <label className="student-delivery">
+                    <span>Modalité du panel expert</span>
+                    <select
+                      aria-label="Modalité du panel expert"
+                      value={panelMode}
+                      disabled={saving || busy}
+                      onChange={(event) =>
+                        setPanelMode(
+                          event.target.value as "synchronous" | "asynchronous",
+                        )
+                      }
+                    >
+                      <option value="synchronous">
+                        Synchrone · accueil et réponses pilotés
+                      </option>
+                      <option value="asynchronous">
+                        Asynchrone · accès immédiat au questionnaire
+                      </option>
+                    </select>
+                    <small>
+                      {panelMode === "synchronous"
+                        ? "Les experts rejoignent une salle d’attente. Vous présentez le cas, puis ouvrez les réponses."
+                        : "Chaque expert répond au moment qui lui convient et voit la comparaison après sa soumission."}
+                    </small>
+                  </label>
+                )}
                 {step === "students" && (
                   <>
                     {query.data?.workflow?.panelLaunchId && (
@@ -930,7 +965,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
                         Le professeur choisit la modalité. Les étudiants ne
                         peuvent pas la modifier.{" "}
                         {deliveryMode === "synchronous"
-                          ? "Vous terminez le temps de réponse, puis révélez la comparaison et les impressions cliniques une à une."
+                          ? "Les étudiants rejoignent la salle d’attente. Vous présentez le cas, ouvrez puis fermez les réponses, et guidez la correction."
                           : "Chaque étudiant voit uniquement ses réponses face au corrigé expert et sa note, dès sa soumission."}
                       </small>
                     </label>

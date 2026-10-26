@@ -5,11 +5,17 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { JoinInfo } from './joinInfo';
+import type { LiveSession } from './liveSession';
 import type { ParticipantActivityStateDeliveryMode } from './participantActivityStateDeliveryMode';
 import type { ParticipantActivityStateRole } from './participantActivityStateRole';
 import type { RevealState } from './revealState';
 
 export interface ParticipantActivityState {
+  liveSession?: LiveSession;
+  joinInfo?: JoinInfo;
+  participantCount?: number;
+  serverNow?: Date;
   status: string;
   role: ParticipantActivityStateRole;
   reveals: RevealState;

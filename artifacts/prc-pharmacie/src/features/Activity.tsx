@@ -31,6 +31,11 @@ import "./activity.css";
 import { GradeDistribution } from "./GradeDistribution";
 import { RubricEditor } from "./RubricEditor";
 import {
+  CasePresentation,
+  LiveSessionControls,
+  SessionCountdown,
+} from "./LiveSession";
+import {
   DiscussionControls,
   HypothesisComparison,
   DiagnosticCorrectionTable,
@@ -204,8 +209,8 @@ export function AggregateComparison({
         </div>
       ) : (
         <p className="stage-wait">
-          Les impressions cliniques {main ? "principales" : "alternatives"} n’ont pas
-          encore été révélées.
+          Les impressions cliniques {main ? "principales" : "alternatives"}{" "}
+          n’ont pas encore été révélées.
         </p>
       )}
       {argumentsVisible ? (
@@ -407,6 +412,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
     busy = mutate.isPending;
   const guided = l.role === "students" && l.guidedReview;
   const asynchronous = guided && l.deliveryMode === "asynchronous";
+  const liveSession = l.liveSession;
   const close = () => {
     if (
       window.confirm(
@@ -475,7 +481,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           <b className="mono">{l.code}</b>
         </div>
         <div>
-          <span>PARTICIPANTS</span>
+          <span>PARTICIPANTS AYANT REJOINT</span>
           <b>{participants}</b>
         </div>
         <div>
@@ -493,53 +499,63 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           grading={l.grading}
         />
       )}
-      <section className="next-command panel-card">
-        <div>
-          <div className="eyebrow">PROCHAINE ÉTAPE</div>
-          <h2>
-            {asynchronous
-              ? "Les étudiants consultent leur corrigé dès la soumission"
-              : guided && !closed
-                ? "Terminer le temps de réponse, puis comparer les impressions cliniques"
-                : !closed
-                  ? "Recueillir les copies, puis fermer la collecte"
-                  : l.role === "panel"
-                    ? validated
-                      ? "Le corrigé est validé : lancez un groupe étudiant depuis le PRC"
-                      : reference?.status === "draft"
-                        ? "Consulter les distributions et valider le corrigé"
-                        : "Générer le corrigé à partir du panel fermé"
-                    : l.status === "published"
-                      ? "Les copies corrigées sont accessibles dans les espaces privés"
-                      : "Révéler progressivement, puis publier les copies corrigées"}
-          </h2>
-        </div>
-        {!closed && (
-          <Btn kind="danger" disabled={busy} onClick={close}>
-            {guided
-              ? asynchronous
-                ? "Fermer les accès aux réponses"
-                : "Terminer le temps de réponse"
-              : "Fermer la collecte"}
-          </Btn>
-        )}
-        {closed && l.role === "panel" && validated && (
-          <Link
-            href={`/prc/${l.prcId}`}
-            className="btn btn-primary"
-            onClick={(event) => {
-              if (rubricDirty) {
-                event.preventDefault();
-                setError(
-                  "Enregistrez le barème modifié avant de lancer un groupe.",
-                );
-              }
-            }}
-          >
-            Lancer avec les étudiants
-          </Link>
-        )}
-      </section>
+      {liveSession && !closed && (
+        <LiveSessionControls
+          session={liveSession}
+          busy={busy}
+          serverNow={l.serverNow}
+          onAction={(data) => run("session", data)}
+        />
+      )}
+      {(!liveSession || liveSession.phase === "answering" || closed) && (
+        <section className="next-command panel-card">
+          <div>
+            <div className="eyebrow">PROCHAINE ÉTAPE</div>
+            <h2>
+              {asynchronous
+                ? "Les étudiants consultent leur corrigé dès la soumission"
+                : guided && !closed
+                  ? "Terminer le temps de réponse, puis comparer les impressions cliniques"
+                  : !closed
+                    ? "Recueillir les copies, puis fermer la collecte"
+                    : l.role === "panel"
+                      ? validated
+                        ? "Le corrigé est validé : lancez un groupe étudiant depuis le PRC"
+                        : reference?.status === "draft"
+                          ? "Consulter les distributions et valider le corrigé"
+                          : "Générer le corrigé à partir du panel fermé"
+                      : l.status === "published"
+                        ? "Les copies corrigées sont accessibles dans les espaces privés"
+                        : "Révéler progressivement, puis publier les copies corrigées"}
+            </h2>
+          </div>
+          {!closed && (
+            <Btn kind="danger" disabled={busy} onClick={close}>
+              {guided
+                ? asynchronous
+                  ? "Fermer les accès aux réponses"
+                  : "Terminer le temps de réponse"
+                : "Fermer la collecte"}
+            </Btn>
+          )}
+          {closed && l.role === "panel" && validated && (
+            <Link
+              href={`/prc/${l.prcId}`}
+              className="btn btn-primary"
+              onClick={(event) => {
+                if (rubricDirty) {
+                  event.preventDefault();
+                  setError(
+                    "Enregistrez le barème modifié avant de lancer un groupe.",
+                  );
+                }
+              }}
+            >
+              Lancer avec les étudiants
+            </Link>
+          )}
+        </section>
+      )}
       {(l.role === "students" || !closed) && (
         <section className="access-card">
           <QRCodeSVG
@@ -742,8 +758,8 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
                 reveal("mainDiagnosticTopOnly", e.target.checked)
               }
             />{" "}
-            Montrer d’abord l’impression clinique principale la plus fréquente (toutes les
-            égalités sont conservées)
+            Montrer d’abord l’impression clinique principale la plus fréquente
+            (toutes les égalités sont conservées)
           </label>
           {l.role === "panel" && (
             <p>
@@ -906,7 +922,8 @@ export function ScoringRule({
       </summary>
       <p>
         Impression clinique : diagnostic 2 points + justification 8 points.
-        Impression clinique alternative : diagnostic 2 points + justification 8 points.
+        Impression clinique alternative : diagnostic 2 points + justification 8
+        points.
       </p>
       <p>
         {newGroups
@@ -923,16 +940,16 @@ export function ScoringRule({
       {scoring?.version !== "V1" && (
         <p>
           Les experts attribuent de 1 à 3 points à chacune des cinq données
-          retenues par impression clinique. Les anciennes réponses sans pondération
-          comptent pour un point. Les étudiants choisissent uniquement les
-          signes +/−.
+          retenues par impression clinique. Les anciennes réponses sans
+          pondération comptent pour un point. Les étudiants choisissent
+          uniquement les signes +/−.
         </p>
       )}
       <p>
-        Les désaccords et choix minoritaires sont conservés. Une impression clinique non
-        représentée reçoit zéro ; un choix non crédité n’est pas automatiquement
-        une erreur clinique. Cette règle est une proposition pédagogique, pas
-        une norme universelle des PRC.
+        Les désaccords et choix minoritaires sont conservés. Une impression
+        clinique non représentée reçoit zéro ; un choix non crédité n’est pas
+        automatiquement une erreur clinique. Cette règle est une proposition
+        pédagogique, pas une norme universelle des PRC.
       </p>
     </details>
   );
@@ -960,9 +977,7 @@ function TeacherCopies({
             <tr>
               <th>Participant</th>
               <th>Copie</th>
-              <th>
-                Impression clinique /{grading?.mainDiagnosisMaximum ?? 2}
-              </th>
+              <th>Impression clinique /{grading?.mainDiagnosisMaximum ?? 2}</th>
               <th>Justification principale /{grading?.clinicalMaximum ?? 8}</th>
               <th>
                 Impression clinique alternative /
@@ -1055,20 +1070,61 @@ export function ProjectionPage() {
         n’est affichée.
       </p>
       {(p.status || p.launch?.status) === "open" ? (
-        <section className="panel-card">
-          <h2>Réponses en cours</h2>
-          <p>Les résultats restent masqués pendant la collecte.</p>
-          <p>
-            {p.launch?.submissionCount ?? 0} soumission(s) sur{" "}
-            {p.launch?.participantCount ?? 0} participant(s).
-          </p>
-        </section>
+        <>
+          <section className="panel-card" aria-label="Rejoindre la séance">
+            <h2>
+              {p.launch?.liveSession?.phase === "lobby"
+                ? "Bienvenue dans la séance"
+                : p.launch?.liveSession?.phase === "case"
+                  ? "Présentation du cas"
+                  : "Réponses en cours"}
+            </h2>
+            <div className="projection-session-access">
+              <QRCodeSVG
+                value={new URL(
+                  `/join/${encodeURIComponent(p.launch?.code || p.code)}`,
+                  window.location.origin,
+                ).toString()}
+                size={150}
+                title="Rejoindre la séance"
+              />
+              <div>
+                <span>
+                  Scannez le QR code ou saisissez le code sur la page d’accueil
+                </span>
+                <p>
+                  <strong>{p.launch?.code || p.code}</strong>
+                </p>
+              </div>
+            </div>
+            <p>
+              {p.launch?.participantCount ?? 0} personne(s) ont rejoint ·{" "}
+              {p.launch?.submissionCount ?? 0} réponse(s) soumise(s).
+            </p>
+            <p>
+              {p.launch?.liveSession?.phase === "lobby"
+                ? "Le professeur présentera bientôt le cas. Les réponses ne sont pas encore ouvertes."
+                : p.launch?.liveSession?.phase === "case"
+                  ? "Prenez connaissance du cas. Attendez le signal du professeur pour répondre."
+                  : "Les résultats restent masqués pendant la collecte."}
+            </p>
+          </section>
+          <SessionCountdown
+            session={p.launch?.liveSession}
+            serverNow={p.launch?.serverNow}
+          />
+          {p.launch?.liveSession?.phase !== "lobby" && p.case && (
+            <CasePresentation data={p.case} />
+          )}
+        </>
       ) : p.launch?.guidedReview ? (
         <section className="panel-card">
           {p.discussion?.activeDiagnosticId ? (
             <>
               <details>
-                <summary>Revoir la comparaison des impressions cliniques</summary>
+                <summary>
+                  Revoir la comparaison des impressions cliniques
+                </summary>
                 <HypothesisComparison rows={p.discussion.comparison ?? []} />
               </details>
               {p.discussion.corrections
@@ -1088,7 +1144,8 @@ export function ProjectionPage() {
             <HypothesisComparison rows={p.discussion.comparison} />
           ) : (
             <p>
-              La comparaison des impressions cliniques sera affichée par le professeur.
+              La comparaison des impressions cliniques sera affichée par le
+              professeur.
             </p>
           )}
         </section>

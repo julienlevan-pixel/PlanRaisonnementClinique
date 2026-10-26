@@ -32,9 +32,15 @@ import {
 } from "./GradeDistribution";
 import "./participant.css";
 import type { GradingSummary } from "./RubricEditor";
+import {
+  CasePresentation,
+  SessionCountdown,
+  type LiveSession,
+} from "./LiveSession";
 
 type Role = "main" | "alternative";
 type CaseData = {
+  liveSession?: LiveSession;
   grading?: GradingSummary;
   scoringVersion?: string;
   guidedReview?: boolean;
@@ -63,6 +69,10 @@ type SavedResponse = Draft & {
 };
 type ResponseEnvelope = { response: SavedResponse; joinInfo: CaseData };
 type ActivityState = {
+  liveSession?: LiveSession;
+  joinInfo?: CaseData;
+  participantCount?: number;
+  serverNow?: string;
   status: string;
   role: "panel" | "students";
   reveals: Record<string, any>;
@@ -264,7 +274,8 @@ export function Join({ actions }: { actions: AppActions }) {
             </p>
             {info.data.guidedReview && (
               <p className="participant-notice">
-                Deux impressions cliniques distinctes, cinq données cliniques pour chacune.{" "}
+                Deux impressions cliniques distinctes, cinq données cliniques
+                pour chacune.{" "}
                 {info.data.deliveryMode === "asynchronous"
                   ? "Votre corrigé personnel sera disponible dès la soumission."
                   : "Le professeur guidera la correction après la fin du temps de réponse."}
@@ -330,11 +341,13 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           state.status !== "open" &&
           state.reveals?.reference
         )
-        ? 15000
+        ? state?.liveSession
+          ? 5000
+          : 15000
         : false;
     },
     refetchIntervalInBackground: false,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [loaded, setLoaded] = useState(false);
@@ -356,10 +369,18 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     acknowledgedVersion = useRef(0),
     revision = useRef(0);
   const inFlight = useRef<Promise<boolean> | null>(null);
-  const context = useRef({ online, submitted, status: "open", conflict });
-  const joinInfo = responseQuery.data?.joinInfo;
+  const context = useRef({
+    online,
+    submitted,
+    status: "open",
+    conflict,
+    canAnswer: true,
+  });
+  const joinInfo = stateQuery.data?.joinInfo ?? responseQuery.data?.joinInfo;
   const status = stateQuery.data?.status ?? joinInfo?.status ?? "open";
-  context.current = { online, submitted, status, conflict };
+  const liveSession = stateQuery.data?.liveSession ?? joinInfo?.liveSession;
+  const canAnswer = !liveSession || liveSession.phase === "answering";
+  context.current = { online, submitted, status, conflict, canAnswer };
   const applyServerCopy = useCallback((response: SavedResponse) => {
     const copy = {
       mainDiagnosticId: response.mainDiagnosticId,
@@ -425,6 +446,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       !context.current.online ||
       context.current.submitted ||
       context.current.status !== "open" ||
+      !context.current.canAnswer ||
       context.current.conflict
     )
       return false;
@@ -484,7 +506,8 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       conflict ||
       submitted ||
       submitting ||
-      status !== "open"
+      status !== "open" ||
+      !canAnswer
     )
       return;
     const timer = window.setTimeout(() => {
@@ -500,6 +523,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     submitted,
     submitting,
     status,
+    canAnswer,
     saveDraft,
   ]);
   useEffect(() => {
@@ -516,7 +540,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
   const edit = (change: Partial<Draft>) => {
-    if (submitted || status !== "open" || submitting) return;
+    if (submitted || status !== "open" || submitting || !canAnswer) return;
     localVersion.current++;
     const next = { ...latest.current, ...change };
     latest.current = next;
@@ -560,7 +584,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     );
   };
   const transmit = async () => {
-    if (!joinInfo || submitted || status !== "open") return;
+    if (!joinInfo || submitted || status !== "open" || !canAnswer) return;
     const missing: { message: string; target: string }[] = [];
     if (!draft.mainDiagnosticId)
       missing.push({
@@ -697,7 +721,56 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         </Link>
       </div>
     );
-  const locked = submitted || status !== "open" || submitting;
+  if (liveSession && status === "open" && !canAnswer && !submitted) {
+    return (
+      <div className="participant-layout">
+        <ParticipantTop label="Séance synchrone" />
+        <main className="participant-content">
+          <h1>{joinInfo.name}</h1>
+          <section
+            className="session-waiting"
+            aria-label="Salle d’attente de la séance"
+          >
+            <div className="eyebrow">
+              {liveSession.phase === "lobby"
+                ? "BIENVENUE"
+                : "PRÉSENTATION DU CAS"}
+            </div>
+            <h2>
+              {liveSession.phase === "lobby"
+                ? "Vous avez rejoint la séance"
+                : "Prenez connaissance du cas clinique"}
+            </h2>
+            <p>
+              {liveSession.phase === "lobby"
+                ? "Le professeur présentera bientôt le cas. Vous n’avez rien à faire : cet écran se met à jour automatiquement."
+                : "Le professeur présente le cas. Vous pourrez choisir vos impressions cliniques et vos données lorsqu’il ouvrira les réponses."}
+            </p>
+            {stateQuery.data?.participantCount !== undefined && (
+              <p className="session-joined-count">
+                {stateQuery.data.participantCount} personne(s) ont rejoint la
+                séance.
+              </p>
+            )}
+            {!online && (
+              <p role="status">
+                Hors connexion. L’écran se remettra à jour au retour de la
+                connexion.
+              </p>
+            )}
+            {stateQuery.isError && (
+              <ErrorBox
+                message="La mise à jour de la séance est interrompue."
+                retry={() => stateQuery.refetch()}
+              />
+            )}
+          </section>
+          {liveSession.phase === "case" && <CasePresentation data={joinInfo} />}
+        </main>
+      </div>
+    );
+  }
+  const locked = submitted || status !== "open" || submitting || !canAnswer;
   const saveLabel = !online
     ? "Hors connexion — les nouveaux choix ne sont pas encore enregistrés"
     : saving
@@ -713,6 +786,12 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       <main className="participant-content">
         <h1>{joinInfo.name}</h1>
         <TrialNotice trial={joinInfo.isTrial} />
+        {status === "open" && (
+          <SessionCountdown
+            session={liveSession}
+            serverNow={stateQuery.data?.serverNow}
+          />
+        )}
         <section className="scenario-card">
           <div className="eyebrow">SITUATION CLINIQUE</div>
           <p>{joinInfo.scenario}</p>
@@ -813,11 +892,12 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           {joinInfo.role === "panel" && (
             <>
               Attribuez à chaque donnée choisie de 1 à 3 points : 1 = peu
-              discriminante, 2 = modérément discriminante, 3 = très discriminante.{" "}
+              discriminante, 2 = modérément discriminante, 3 = très
+              discriminante.{" "}
             </>
           )}
-          Une même donnée peut soutenir une impression clinique et affaiblir l’autre.
-          Cliquez à nouveau sur un signe retenu pour retirer ce choix.
+          Une même donnée peut soutenir une impression clinique et affaiblir
+          l’autre. Cliquez à nouveau sur un signe retenu pour retirer ce choix.
         </p>
         <ObservationMatrix
           observations={joinInfo.observations}
@@ -1426,14 +1506,17 @@ function OwnHypothesis({
   return (
     <article className="own-hypothesis">
       <h3>
-        {role === "main" ? "Impression clinique" : "Impression clinique alternative"} :{" "}
+        {role === "main"
+          ? "Impression clinique"
+          : "Impression clinique alternative"}{" "}
+        :{" "}
         {data.case.diagnostics.find((diagnostic) => diagnostic.id === id)
           ?.label || "Non choisie"}
       </h3>
       {corrected && score?.represented === false && (
         <p className="participant-notice">
-          Impression clinique non représentée dans le panel pour ce rôle. Les deux
-          composantes de ce rôle valent zéro ; cela ne qualifie pas
+          Impression clinique non représentée dans le panel pour ce rôle. Les
+          deux composantes de ce rôle valent zéro ; cela ne qualifie pas
           automatiquement ce choix d’erreur clinique.
         </p>
       )}
@@ -1511,9 +1594,9 @@ function ExpertComparison({
         soumissions, en séance ou à distance.
       </p>
       <p>
-        Pour chaque diagnostic, les choix en impression clinique principale et alternative
-        sont réunis. Les points en faveur et en défaveur restent séparés ; ils
-        ne s’annulent pas.
+        Pour chaque diagnostic, les choix en impression clinique principale et
+        alternative sont réunis. Les points en faveur et en défaveur restent
+        séparés ; ils ne s’annulent pas.
       </p>
       {data.case.diagnostics.map((diagnostic, index) => {
         const distributions =

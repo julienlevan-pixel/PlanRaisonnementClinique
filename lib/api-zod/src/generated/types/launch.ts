@@ -8,6 +8,7 @@
 import type { GradingSummary } from './gradingSummary';
 import type { LaunchDeliveryMode } from './launchDeliveryMode';
 import type { LaunchRole } from './launchRole';
+import type { LiveSession } from './liveSession';
 
 export interface Launch {
   id: string;
@@ -28,4 +29,6 @@ export interface Launch {
   createdAt: Date;
   participantCount: number;
   submissionCount: number;
+  liveSession?: LiveSession;
+  serverNow?: Date;
 }

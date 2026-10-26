@@ -160,7 +160,13 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })).optional(),
   "recentLaunches": zod.array(zod.object({
   "id": zod.string(),
@@ -185,7 +191,13 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 }))
 })
 
@@ -348,7 +360,13 @@ export const GetPrcResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })).optional()
 }))
 
@@ -443,7 +461,13 @@ export const UpdatePrcResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })).optional()
 }))
 
@@ -550,6 +574,7 @@ export const OpenDemoStudentSessionParams = zod.object({
 })
 
 export const OpenDemoStudentSessionBody = zod.object({
+  "sessionMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).describe('Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants.')
 })
 
@@ -576,7 +601,13 @@ export const OpenDemoStudentSessionResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })
 
 
@@ -592,6 +623,7 @@ export const CreateLaunchBody = zod.object({
   "role": zod.enum(['panel', 'students']),
   "name": zod.string().max(createLaunchBodyNameMax).optional().describe('Compatibilité historique ; le serveur utilise le nom du PRC.'),
   "isTrial": zod.boolean().default(createLaunchBodyIsTrialDefault),
+  "sessionMode": zod.enum(['synchronous', 'asynchronous']).optional().describe('synchronous ajoute une salle d’attente et l’ouverture explicite des réponses. Les anciens lancements sans cette propriété conservent leur fonctionnement.'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional().describe('Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété')
 })
 
@@ -618,7 +650,13 @@ export const CreateLaunchResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })
 
 
@@ -707,10 +745,21 @@ export const GetLaunchResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 }).and(zod.object({
   "reveals": zod.object({
   "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),
@@ -812,6 +861,55 @@ export const GetLaunchResponse = zod.object({
 
 
 /**
+ * Le professeur présente le cas puis ouvre les réponses d’une nouvelle séance synchrone. Les transitions sont persistées, monotones et protégées côté serveur. Le chronomètre est indicatif ; la fermeture reste manuelle.
+ */
+export const AdvanceLiveSessionParams = zod.object({
+  "launchId": zod.coerce.string()
+})
+
+export const advanceLiveSessionBodyDurationMinutesMax = 180;
+
+
+
+export const AdvanceLiveSessionBody = zod.object({
+  "action": zod.enum(['present', 'open']),
+  "durationMinutes": zod.number().int().min(1).max(advanceLiveSessionBodyDurationMinutesMax).nullish()
+})
+
+export const AdvanceLiveSessionResponse = zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
+})
+
+
+/**
  * Révèle la comparaison puis un corrigé par diagnostic. Réservé au propriétaire d’une séance synchrone fermée. Les étapes concurrentes sont sérialisées et les corrigés révélés sont conservés.
  */
 export const AdvanceDiscussionParams = zod.object({
@@ -846,7 +944,13 @@ export const AdvanceDiscussionResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })
 
 
@@ -897,6 +1001,11 @@ export const GetJoinInfoResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
   "grading": zod.object({
@@ -981,6 +1090,11 @@ export const JoinLaunchResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
   "grading": zod.object({
@@ -1044,6 +1158,11 @@ export const GetParticipantResponseResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
   "grading": zod.object({
@@ -1142,6 +1261,11 @@ export const SaveParticipantResponseResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
   "grading": zod.object({
@@ -1226,7 +1350,13 @@ export const CloseLaunchResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })
 
 
@@ -1266,7 +1396,13 @@ export const RevealLaunchResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })
 
 
@@ -1825,7 +1961,13 @@ export const PublishResultsResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 })
 
 
@@ -1907,7 +2049,13 @@ export const GetLaunchResultsResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 }),
   "participants": zod.array(zod.object({
   "id": zod.string(),
@@ -1958,6 +2106,11 @@ export const GetLaunchResultsResponse = zod.object({
 }).optional(),
   "reveals": zod.object({
   "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),
@@ -2114,7 +2267,7 @@ export const GetLaunchResultsResponse = zod.object({
 })),
   "activeDiagnosticId": zod.string().nullish(),
   "explanation": zod.string().optional()
-}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
   "gradeDistribution": zod.object({
   "maximum": zod.number(),
   "gradedCount": zod.number().int(),
@@ -2288,7 +2441,7 @@ export const GetParticipantResultsResponse = zod.object({
 })),
   "activeDiagnosticId": zod.string().nullish(),
   "explanation": zod.string().optional()
-}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
   "gradeDistribution": zod.object({
   "maximum": zod.number(),
   "gradedCount": zod.number().int(),
@@ -2324,6 +2477,11 @@ export const GetParticipantResultsResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
   "grading": zod.object({
@@ -2382,6 +2540,11 @@ export const GetParticipantResultsResponse = zod.object({
   "status": zod.string().optional(),
   "reveals": zod.object({
   "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),
@@ -2636,7 +2799,13 @@ export const CreateTrialResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 }),
   "code": zod.string(),
   "invitationUrl": zod.string().describe('Lien individuel secret à ouvrir dans une session participante distincte.')
@@ -2644,17 +2813,68 @@ export const CreateTrialResponse = zod.object({
 
 
 /**
- * État léger pour le polling, sans questionnaire complet ni copies d’autrui.
+ * État de sa propre séance, sans copie d’autrui. Pour les séances pilotées, inclut le cas lorsque le professeur l’a présenté, l’étape courante et le nombre de personnes ayant rejoint.
  */
+export const getParticipantActivityStateResponseJoinInfoTwoRequiredChoicesMax = 5;
+
 export const getParticipantActivityStateResponseRevisionMin = 0;
 
 
 
 export const GetParticipantActivityStateResponse = zod.object({
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "joinInfo": zod.object({
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).and(zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "requiredChoices": zod.number().int().min(1).max(getParticipantActivityStateResponseJoinInfoTwoRequiredChoicesMax).nullish()
+})).optional(),
+  "participantCount": zod.number().int().optional(),
+  "serverNow": zod.coerce.date().optional(),
   "status": zod.string(),
   "role": zod.enum(['panel', 'students']),
   "reveals": zod.object({
   "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),
@@ -2754,10 +2974,21 @@ export const GetLaunchProjectionResponse = zod.object({
   "status": zod.string(),
   "createdAt": zod.coerce.date(),
   "participantCount": zod.number().int(),
-  "submissionCount": zod.number().int()
+  "submissionCount": zod.number().int(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "serverNow": zod.coerce.date().optional()
 }).and(zod.object({
   "reveals": zod.object({
   "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),
@@ -2842,7 +3073,7 @@ export const GetLaunchProjectionResponse = zod.object({
 })),
   "activeDiagnosticId": zod.string().nullish(),
   "explanation": zod.string().optional()
-}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
   "gradeDistribution": zod.object({
   "maximum": zod.number(),
   "gradedCount": zod.number().int(),
@@ -2863,6 +3094,11 @@ export const GetLaunchProjectionResponse = zod.object({
   "status": zod.string(),
   "reveals": zod.object({
   "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
   "mainArguments": zod.boolean(),
   "alternativeDiagnostic": zod.boolean(),
   "alternativeArguments": zod.boolean(),

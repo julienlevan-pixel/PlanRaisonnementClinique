@@ -25,6 +25,7 @@ export function DemoStudentSessions({
     mutationFn: (deliveryMode: Mode) =>
       api<Session>(`/api/prcs/${document.id}/demo-session`, "POST", {
         deliveryMode,
+        sessionMode: deliveryMode,
       }),
     onSuccess: async () => {
       await Promise.all([
@@ -87,7 +88,7 @@ export function DemoStudentSessions({
               </h3>
               <p>
                 {mode === "synchronous"
-                  ? "Les étudiants répondent. Vous fermez les réponses, puis affichez la comparaison et les corrigés une impression clinique à la fois."
+                  ? "Les étudiants rejoignent la salle d’attente. Vous présentez le cas, ouvrez les réponses, puis guidez la correction après leur fermeture."
                   : "Vous autorisez cette modalité. Après sa soumission, chaque étudiant voit ses réponses, le corrigé expert et son pointage."}
               </p>
               {session?.code && ready ? (

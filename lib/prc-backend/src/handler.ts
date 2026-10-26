@@ -40,6 +40,7 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 type CaseData = {
+  sessionMode?: DeliveryMode;
   studentWorkflow?: {
     deliveryMode: DeliveryMode;
     requiredChoices: 5;
@@ -76,6 +77,11 @@ type LaunchRow = {
   aggregate_snapshot: PanelSnapshot | null;
 };
 type RevealState = {
+  liveSession?: {
+    phase: "lobby" | "case" | "answering";
+    openedAt?: string;
+    endsAt?: string | null;
+  };
   diagnosticComparison?: boolean;
   correctedDiagnosticIds?: string[];
   activeDiagnosticId?: string;
@@ -291,12 +297,16 @@ function mapLaunch(
     scoringVersion: row.case_snapshot.studentWorkflow?.scoringVersion,
     grading: launchGrading(row),
     deliveryMode:
-      row.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
+      row.case_snapshot.studentWorkflow?.deliveryMode ??
+      row.case_snapshot.sessionMode ??
+      "synchronous",
     code: row.code,
     status: row.status,
     createdAt: row.created_at,
     participantCount: counts?.participants ?? 0,
     submissionCount: counts?.submissions ?? 0,
+    liveSession: row.reveals.liveSession,
+    serverNow: new Date().toISOString(),
   };
 }
 
@@ -672,6 +682,7 @@ async function getPanelSnapshot(
 }
 
 function caseForJoin(launch: LaunchRow) {
+  const waiting = launch.reveals.liveSession?.phase === "lobby";
   return {
     launchId: launch.id,
     role: launch.role,
@@ -681,14 +692,17 @@ function caseForJoin(launch: LaunchRow) {
     scoringVersion: launch.case_snapshot.studentWorkflow?.scoringVersion,
     grading: launchGrading(launch),
     deliveryMode:
-      launch.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
+      launch.case_snapshot.studentWorkflow?.deliveryMode ??
+      launch.case_snapshot.sessionMode ??
+      "synchronous",
     requiredChoices:
       launch.case_snapshot.studentWorkflow?.requiredChoices ?? null,
     status: launch.status,
-    scenario: launch.case_snapshot.scenario,
-    instructions: launch.case_snapshot.instructions,
-    diagnostics: launch.case_snapshot.diagnostics,
-    observations: launch.case_snapshot.observations,
+    liveSession: launch.reveals.liveSession,
+    scenario: waiting ? "" : launch.case_snapshot.scenario,
+    instructions: waiting ? "" : launch.case_snapshot.instructions,
+    diagnostics: waiting ? [] : launch.case_snapshot.diagnostics,
+    observations: waiting ? [] : launch.case_snapshot.observations,
   };
 }
 
@@ -948,6 +962,18 @@ async function createLaunch(
   const teacher = await requireTeacher(request);
   const role = forceTrial ? "panel" : validRole(input.role);
   const isTrial = forceTrial || input.isTrial === true;
+  if (
+    input.sessionMode !== undefined &&
+    !["synchronous", "asynchronous"].includes(String(input.sessionMode))
+  )
+    fail(400, "Choisissez une modalité de séance valide.");
+  if (
+    role === "students" &&
+    input.sessionMode !== undefined &&
+    input.sessionMode !== input.deliveryMode
+  )
+    fail(400, "La modalité de séance doit correspondre au groupe étudiant.");
+  const managedSession = !isTrial && input.sessionMode === "synchronous";
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -965,6 +991,9 @@ async function createLaunch(
     if (reuseDemoSession && (!prc.is_demo || role !== "students" || isTrial))
       fail(409, "Ce lancement est réservé à la démonstration étudiante.");
     const caseSnapshot: CaseData = {
+      ...(input.sessionMode !== undefined
+        ? { sessionMode: input.sessionMode as DeliveryMode }
+        : {}),
       name: prc.name,
       scenario: prc.scenario,
       instructions: prc.instructions,
@@ -1022,6 +1051,7 @@ async function createLaunch(
           AND case_snapshot->'studentWorkflow'->>'deliveryMode'=$3
           AND case_snapshot->'studentWorkflow'->>'scoringVersion'=$4
           AND case_snapshot->'studentWorkflow'->'rubric'->>'revision'=$5
+          AND (reveals->'liveSession' IS NOT NULL)=$6
           ORDER BY created_at DESC LIMIT 1`,
         [
           prcId,
@@ -1029,6 +1059,7 @@ async function createLaunch(
           input.deliveryMode,
           CUSTOM_SCORING_VERSION,
           String(caseSnapshot.studentWorkflow?.rubric?.revision),
+          managedSession,
         ],
       );
       if (existing.rows[0]) {
@@ -1053,6 +1084,16 @@ async function createLaunch(
         isTrial,
       ],
     );
+    if (managedSession) {
+      const updated = await client.query<LaunchRow>(
+        "UPDATE prc_private.launches SET reveals=reveals || $1::jsonb WHERE id=$2 RETURNING *",
+        [
+          JSON.stringify({ liveSession: { phase: "lobby" } }),
+          result.rows[0].id,
+        ],
+      );
+      result.rows[0] = updated.rows[0];
+    }
     await client.query("COMMIT");
     return result.rows[0];
   } catch (error) {
@@ -1834,6 +1875,7 @@ async function handle(request: Request): Promise<Response> {
           {
             role: "students",
             deliveryMode: input.deliveryMode,
+            sessionMode: input.sessionMode,
           },
           false,
           true,
@@ -2088,7 +2130,7 @@ async function handle(request: Request): Promise<Response> {
   if (path === "/api/participant/state" && method === "GET") {
     const participant = await requireParticipant(request);
     const result = await pool.query(
-      `SELECT l.status,l.role,l.reveals,l.case_snapshot->'studentWorkflow' AS workflow,r.state,r.revision,r.updated_at FROM prc_private.launches l JOIN prc_private.responses r ON r.launch_id=l.id WHERE l.id=$1 AND r.participant_id=$2`,
+      `SELECT l.*,l.case_snapshot->'studentWorkflow' AS workflow,r.state,r.revision,r.updated_at FROM prc_private.launches l JOIN prc_private.responses r ON r.launch_id=l.id WHERE l.id=$1 AND r.participant_id=$2`,
       [participant.launchId, participant.id],
     );
     const row = result.rows[0];
@@ -2103,10 +2145,22 @@ async function handle(request: Request): Promise<Response> {
           (row.workflow?.deliveryMode === "asynchronous" &&
             row.state === "submitted")),
       guidedReview: !!row.workflow,
-      deliveryMode: row.workflow?.deliveryMode ?? "synchronous",
+      deliveryMode:
+        row.workflow?.deliveryMode ??
+        row.case_snapshot.sessionMode ??
+        "synchronous",
       responseState: row.state,
       revision: Number(row.revision),
       updatedAt: row.updated_at,
+      liveSession: row.reveals.liveSession,
+      serverNow: new Date().toISOString(),
+      ...(row.reveals.liveSession
+        ? {
+            participantCount: (await launchCounts(participant.launchId))
+              .participants,
+            joinInfo: caseForJoin(row as LaunchRow),
+          }
+        : {}),
     });
   }
 
@@ -2128,12 +2182,15 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const lockedLaunch = await client.query(
-        "SELECT status FROM prc_private.launches WHERE id = $1 FOR UPDATE",
+      const lockedLaunch = await client.query<LaunchRow>(
+        "SELECT * FROM prc_private.launches WHERE id = $1 FOR UPDATE",
         [launch.id],
       );
       if (lockedLaunch.rows[0]?.status !== "open")
         fail(409, "Les réponses sont fermées.");
+      const liveSession = lockedLaunch.rows[0].reveals.liveSession;
+      if (liveSession && liveSession.phase !== "answering")
+        fail(409, "Le professeur n’a pas encore ouvert les réponses.");
       const currentResult = await client.query(
         "SELECT * FROM prc_private.responses WHERE participant_id = $1 FOR UPDATE",
         [participant.id],
@@ -2219,8 +2276,8 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const lockedLaunch = await client.query(
-        "SELECT status FROM prc_private.launches WHERE id = $1 FOR UPDATE",
+      const lockedLaunch = await client.query<LaunchRow>(
+        "SELECT * FROM prc_private.launches WHERE id = $1 FOR UPDATE",
         [launch.id],
       );
       const responseResult = await client.query(
@@ -2239,6 +2296,9 @@ async function handle(request: Request): Promise<Response> {
       }
       if (lockedLaunch.rows[0]?.status !== "open")
         fail(409, "Les réponses sont fermées.");
+      const liveSession = lockedLaunch.rows[0].reveals.liveSession;
+      if (liveSession && liveSession.phase !== "answering")
+        fail(409, "Le professeur n’a pas encore ouvert les réponses.");
       const submissionInput = request.body ? await body(request) : {};
       if (
         submissionInput.expectedRevision !== undefined &&
@@ -2351,6 +2411,71 @@ async function handle(request: Request): Promise<Response> {
     }
   }
 
+  const sessionMatch = match(/^\/api\/launches\/([^/]+)\/session$/);
+  if (sessionMatch && method === "POST") {
+    const teacher = await requireTeacher(request);
+    const input = await body(request);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await lockManagedLaunch(
+        client,
+        segment(sessionMatch[1]),
+        teacher.id,
+      );
+      const launch = result.rows[0];
+      if (!launch || !launch.reveals.liveSession)
+        fail(
+          400,
+          "Cette activité ne possède pas de salle d’attente synchrone.",
+        );
+      if (launch.status !== "open") fail(409, "Cette séance est terminée.");
+      const session = launch.reveals.liveSession;
+      if (input.action === "present") {
+        if (session.phase === "answering")
+          fail(409, "Les réponses sont déjà ouvertes. Le cas reste projeté.");
+        session.phase = "case";
+      } else if (input.action === "open") {
+        if (session.phase === "lobby")
+          fail(409, "Présentez le cas avant d’ouvrir les réponses.");
+        // Repeated clicks and retries never restart the clock.
+        if (session.phase !== "answering") {
+          const duration = input.durationMinutes;
+          if (
+            duration != null &&
+            (!Number.isInteger(duration) ||
+              Number(duration) < 1 ||
+              Number(duration) > 180)
+          )
+            fail(
+              400,
+              "Choisissez une durée entière entre 1 et 180 minutes, ou laissez le champ vide.",
+            );
+          const now = Date.now();
+          session.phase = "answering";
+          session.openedAt = new Date(now).toISOString();
+          session.endsAt =
+            duration == null
+              ? null
+              : new Date(now + Number(duration) * 60000).toISOString();
+        }
+      } else fail(400, "Choisissez une étape de séance valide.");
+      const updated = await client.query<LaunchRow>(
+        "UPDATE prc_private.launches SET reveals=jsonb_set(reveals,'{liveSession}',$1::jsonb) WHERE id=$2 RETURNING *",
+        [JSON.stringify(session), launch.id],
+      );
+      await client.query("COMMIT");
+      return send(
+        mapLaunch(updated.rows[0], await launchCounts(launch.id, client)),
+      );
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   const closeMatch = match(/^\/api\/launches\/([^/]+)\/close$/);
   if (closeMatch && method === "POST") {
     const launchId = segment(closeMatch[1]);
@@ -2407,7 +2532,10 @@ async function handle(request: Request): Promise<Response> {
         if (!launch.case_snapshot.diagnostics.some((row) => row.id === id))
           fail(400, "Cette impression clinique ne fait pas partie du cas.");
         if (!reveals.diagnosticComparison)
-          fail(409, "Affichez d’abord la comparaison des impressions cliniques.");
+          fail(
+            409,
+            "Affichez d’abord la comparaison des impressions cliniques.",
+          );
         reveals.correctedDiagnosticIds = [
           ...new Set([...(reveals.correctedDiagnosticIds ?? []), id]),
         ];

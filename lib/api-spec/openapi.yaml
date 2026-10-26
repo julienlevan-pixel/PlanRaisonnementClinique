@@ -392,6 +392,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LaunchDetail"
+  /launches/{launchId}/session:
+    post:
+      operationId: advanceLiveSession
+      tags: [activities]
+      description: Le professeur présente le cas puis ouvre les réponses d’une nouvelle séance synchrone. Les transitions sont persistées, monotones et protégées côté serveur. Le chronomètre est indicatif ; la fermeture reste manuelle.
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SessionActionInput" }
+      responses:
+        "200":
+          description: Étape de séance enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Launch" }
+        "409":
+          $ref: "#/components/responses/Error"
   /launches/{launchId}/discussion:
     post:
       operationId: advanceDiscussion
@@ -791,7 +814,7 @@ paths:
       tags: [participants]
       security:
         - participantSession: []
-      description: État léger pour le polling, sans questionnaire complet ni copies d’autrui.
+      description: État de sa propre séance, sans copie d’autrui. Pour les séances pilotées, inclut le cas lorsque le professeur l’a présenté, l’étape courante et le nombre de personnes ayant rejoint.
       responses:
         "200":
           description: État persistant du lancement et de sa propre copie
@@ -952,6 +975,19 @@ components:
         category: { type: string }
         position: { type: integer }
       required: [id, text, category, position]
+    SessionActionInput:
+      type: object
+      properties:
+        action: { type: string, enum: [present, open] }
+        durationMinutes: { type: [integer, "null"], minimum: 1, maximum: 180 }
+      required: [action]
+    LiveSession:
+      type: object
+      properties:
+        phase: { type: string, enum: [lobby, case, answering] }
+        openedAt: { type: string, format: date-time }
+        endsAt: { type: [string, "null"], format: date-time }
+      required: [phase]
     Launch:
       type: object
       properties:
@@ -971,6 +1007,8 @@ components:
         createdAt: { type: string, format: date-time }
         participantCount: { type: integer }
         submissionCount: { type: integer }
+        liveSession: { $ref: "#/components/schemas/LiveSession" }
+        serverNow: { type: string, format: date-time }
       required: [id, prcId, role, name, code, status, createdAt, participantCount, submissionCount]
     LaunchDetail:
       allOf:
@@ -991,6 +1029,7 @@ components:
         role: { type: string, enum: [panel, students] }
         name: { type: string, maxLength: 160, deprecated: true, description: Compatibilité historique ; le serveur utilise le nom du PRC. }
         isTrial: { type: boolean, default: false }
+        sessionMode: { type: string, enum: [synchronous, asynchronous], description: synchronous ajoute une salle d’attente et l’ouverture explicite des réponses. Les anciens lancements sans cette propriété conservent leur fonctionnement. }
         deliveryMode: { type: string, enum: [synchronous, asynchronous], description: Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété, conserve le fonctionnement historique des anciens clients. }
       required: [role]
     InvitationInput:
@@ -1015,6 +1054,7 @@ components:
             role: { type: string }
             status: { type: string }
             isTrial: { type: boolean }
+            liveSession: { $ref: "#/components/schemas/LiveSession" }
             guidedReview: { type: boolean }
             scoringVersion: { type: string }
             grading: { $ref: "#/components/schemas/GradingSummary" }
@@ -1086,6 +1126,7 @@ components:
       type: object
       properties:
         mainDiagnostic: { type: boolean }
+        liveSession: { $ref: "#/components/schemas/LiveSession" }
         mainArguments: { type: boolean }
         alternativeDiagnostic: { type: boolean }
         alternativeArguments: { type: boolean }
@@ -1216,6 +1257,7 @@ components:
     DemoSessionInput:
       type: object
       properties:
+        sessionMode: { type: string, enum: [synchronous, asynchronous] }
         deliveryMode:
           type: string
           enum: [synchronous, asynchronous]
@@ -1263,6 +1305,10 @@ components:
     ParticipantActivityState:
       type: object
       properties:
+        liveSession: { $ref: "#/components/schemas/LiveSession" }
+        joinInfo: { $ref: "#/components/schemas/JoinInfo" }
+        participantCount: { type: integer }
+        serverNow: { type: string, format: date-time }
         status: { type: string }
         role: { type: string, enum: [panel, students] }
         reveals: { $ref: "#/components/schemas/RevealState" }
