@@ -13,7 +13,7 @@ import {
   Menu,
   Settings2,
   ShieldCheck,
-  Stethoscope,
+  Brain,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -169,7 +169,7 @@ export function Shell({
       <aside className={`sidebar ${mobileOpen ? "sidebar-open" : ""}`}>
         <Link href="/" className="brand">
           <span className="brand-mark">
-            <Stethoscope size={20} />
+            <Brain size={20} />
           </span>
           <span>
             <b>PRC</b>

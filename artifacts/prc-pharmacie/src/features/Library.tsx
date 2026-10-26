@@ -12,7 +12,7 @@ import {
   Plus,
   Search,
   ShieldCheck,
-  Stethoscope,
+  Brain,
   Users,
 } from "lucide-react";
 import { Link, Redirect, useLocation } from "wouter";
@@ -220,7 +220,7 @@ export function Home({
         <header className="public-prc-header">
           <Link href="/" className="brand">
             <span className="brand-mark">
-              <Stethoscope size={20} />
+              <Brain size={20} />
             </span>
             <span>
               <b>PRC</b>
