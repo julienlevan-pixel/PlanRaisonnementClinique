@@ -230,7 +230,7 @@ test('public Toux preview unfolds on demand, preserves choices and never creates
   await page.goto('/');
   const preview = page.getByRole('region', { name: 'Toux — essai du tableau' });
   await expect(preview).not.toBeVisible();
-  await expect(page.locator('.reasoning-words em')).toHaveText('Décider.');
+  await expect(page.locator('.reasoning-words em')).toHaveText('Justifier.');
   await page.screenshot({ path: testInfo.outputPath('home-desktop.png'), fullPage: true, animations: 'disabled' });
   await page.getByRole('link', { name: 'Découvrir l’exemple « Toux »', exact: true }).click();
   await expect(preview).toBeVisible();
