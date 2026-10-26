@@ -99,6 +99,7 @@ export const PrcWorkflowStep = {
 } as const;
 
 export interface PrcWorkflow {
+  rubricRevision?: number;
   step: PrcWorkflowStep;
   missing: string[];
   /** @nullable */
@@ -143,6 +144,15 @@ export const LaunchRole = {
   students: 'students',
 } as const;
 
+export interface GradingSummary {
+  maximum: number;
+  attainableMaximum: number;
+  mainDiagnosisMaximum: number;
+  alternativeDiagnosisMaximum: number;
+  clinicalMaximum: number;
+  rubricRevision?: number;
+}
+
 export type LaunchDeliveryMode = typeof LaunchDeliveryMode[keyof typeof LaunchDeliveryMode];
 
 
@@ -161,8 +171,9 @@ export interface Launch {
   caseVersion?: number;
   isTrial?: boolean;
   guidedReview?: boolean;
-  /** Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel */
+  /** Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées. */
   scoringVersion?: string;
+  grading?: GradingSummary;
   deliveryMode?: LaunchDeliveryMode;
   code: string;
   status: string;
@@ -225,6 +236,47 @@ export interface ScoringRule {
   description?: string;
   [key: string]: unknown;
  }
+
+export interface RubricObservation {
+  observationId: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  positivePoints: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  negativePoints: number;
+}
+
+export interface RubricDiagnostic {
+  diagnosticId: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  mainPoints: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  alternativePoints: number;
+  observations: RubricObservation[];
+}
+
+export interface ProfessorRubric {
+  version: string;
+  /** @minimum 1 */
+  revision: number;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  clinicalMaximum: number;
+  diagnostics: RubricDiagnostic[];
+}
 
 export interface DiagnosticCount {
   diagnosticId: string;
@@ -299,6 +351,8 @@ export interface Reference {
   panelSize: number;
   explanation: string;
   scoring: ScoringRule;
+  rubric?: ProfessorRubric;
+  suggestedRubric?: ProfessorRubric;
   diagnostics: DiagnosticCount[];
   distributions: DiagnosticDistribution[];
 }
@@ -381,6 +435,7 @@ export type JoinInfo = CaseSnapshot & ({
   isTrial?: boolean;
   guidedReview?: boolean;
   scoringVersion?: string;
+  grading?: GradingSummary;
   deliveryMode?: JoinInfoDeliveryMode;
   /**
      * @minimum 1
@@ -553,7 +608,7 @@ export interface LaunchParticipantResult {
   /** @nullable */
   submittedAt: string | null;
   /**
-     * Note sur 20
+     * Note selon le maximum du groupe
      * @nullable
      */
   score: number | null;
@@ -637,6 +692,8 @@ export type StudentReviewCorrectionsItemObservationsItem = {
   negative?: number;
   positivePoints?: number;
   negativePoints?: number;
+  positiveScorePoints?: number;
+  negativeScorePoints?: number;
   /** @nullable */
   studentSign?: StudentReviewCorrectionsItemObservationsItemStudentSign;
   earnedPoints?: number;
@@ -664,6 +721,9 @@ export type StudentReviewCorrectionsItem = {
   /** @nullable */
   raw?: number | null;
   maximum?: number;
+  diagnosisMaximum?: number;
+  clinicalMaximum?: number;
+  zeroByRubric?: boolean;
   ceiling?: number;
   observations?: StudentReviewCorrectionsItemObservationsItem[];
   [key: string]: unknown;
@@ -675,6 +735,7 @@ export type StudentReviewCorrectionsItem = {
 export interface StudentReview {
   scoringVersion?: string;
   maximum?: number;
+  grading?: GradingSummary;
   deliveryMode: StudentReviewDeliveryMode;
   comparisonVisible: boolean;
   comparison: StudentReviewComparisonItem[];
@@ -749,9 +810,9 @@ export interface ParticipantResults {
   case: JoinInfo;
   response: ParticipantResponse;
   /**
-     * Note sur 20 ; null pour les experts
+     * Note selon le barème figé de la séance
      * @minimum 0
-     * @maximum 20
+     * @maximum 100
      * @nullable
      */
   score: number | null;
@@ -936,6 +997,12 @@ export const DiscussionInputAction = {
 export interface DiscussionInput {
   action: DiscussionInputAction;
   diagnosticId?: string;
+}
+
+export interface RubricUpdateInput {
+  /** @minimum 1 */
+  revision: number;
+  rubric: ProfessorRubric;
 }
 
 export interface PrcSharingInput {

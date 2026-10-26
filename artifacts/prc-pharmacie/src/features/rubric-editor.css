@@ -1,0 +1,112 @@
+.rubric-editor {
+  margin: 22px 0;
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 20px;
+  min-width: 0;
+}
+.rubric-editor h3 {
+  font-size: 24px;
+  margin: 0 0 12px;
+}
+.rubric-editor p,
+.rubric-editor li {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.rubric-instructions {
+  padding: 16px;
+  background: #eef7f3;
+  border-radius: 8px;
+  margin: 15px 0;
+}
+.rubric-instructions summary,
+.rubric-diagnostic summary {
+  cursor: pointer;
+  font-weight: 650;
+}
+.rubric-instructions ul {
+  padding-left: 20px;
+}
+.rubric-diagnostic {
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+  padding: 15px;
+  margin: 12px 0;
+}
+.rubric-diagnostic[open] summary {
+  margin-bottom: 14px;
+}
+.rubric-points {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+}
+.rubric-points input {
+  width: 90px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 5px;
+  background: hsl(var(--background));
+}
+.rubric-diagnosis-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 15px 0;
+}
+.rubric-table-scroll {
+  overflow-x: auto;
+}
+.rubric-table-scroll table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 650px;
+  font-size: 13px;
+}
+.rubric-table-scroll th,
+.rubric-table-scroll td {
+  padding: 12px 8px;
+  text-align: left;
+  vertical-align: middle;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.rubric-table-scroll th:first-child {
+  width: 45%;
+}
+.rubric-table-scroll small {
+  display: block;
+}
+.rubric-table-scroll .rubric-points > span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.rubric-attainable {
+  padding: 12px;
+  background: #fff8e8;
+  border-radius: 6px;
+}
+.rubric-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+.rubric-scroll-hint {
+  display: none;
+}
+@media (max-width: 700px) {
+  .rubric-editor .rubric-scroll-hint {
+    display: block;
+    font-size: 12px;
+    color: hsl(var(--muted-foreground));
+  }
+  .rubric-table-scroll th:first-child {
+    width: 180px;
+    min-width: 180px;
+  }
+}

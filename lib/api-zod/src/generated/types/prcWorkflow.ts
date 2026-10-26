@@ -8,6 +8,7 @@
 import type { PrcWorkflowStep } from './prcWorkflowStep';
 
 export interface PrcWorkflow {
+  rubricRevision?: number;
   step: PrcWorkflowStep;
   missing: string[];
   /** @nullable */

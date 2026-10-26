@@ -21,7 +21,6 @@ import {
 import {
   computeCeiling,
   scoreSubmission,
-  TOP_TWO_SCORING_VERSION,
   type Choice,
   type PanelDistribution,
 } from "./scoring.js";
@@ -30,6 +29,14 @@ import { ensureTeacherDemo, DemoSetupError } from "./demo.js";
 import { deploymentDatabaseError } from "./deployment.js";
 import { buildStudentReview, type DeliveryMode } from "./student-review.js";
 import { gradeDistribution } from "./grade-distribution.js";
+import {
+  CUSTOM_SCORING_VERSION,
+  defaultRubric,
+  parseRubric,
+  rubricSummary,
+  scoreCustomSubmission,
+  type Rubric,
+} from "./custom-rubric.js";
 
 type JsonRecord = Record<string, unknown>;
 type CaseData = {
@@ -37,6 +44,7 @@ type CaseData = {
     deliveryMode: DeliveryMode;
     requiredChoices: 5;
     scoringVersion?: string;
+    rubric?: Rubric;
   };
   name: string;
   scenario: string;
@@ -281,6 +289,7 @@ function mapLaunch(
     isTrial: row.is_trial ?? false,
     guidedReview: !!row.case_snapshot.studentWorkflow,
     scoringVersion: row.case_snapshot.studentWorkflow?.scoringVersion,
+    grading: launchGrading(row),
     deliveryMode:
       row.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
     code: row.code,
@@ -670,6 +679,7 @@ function caseForJoin(launch: LaunchRow) {
     isTrial: launch.is_trial ?? false,
     guidedReview: !!launch.case_snapshot.studentWorkflow,
     scoringVersion: launch.case_snapshot.studentWorkflow?.scoringVersion,
+    grading: launchGrading(launch),
     deliveryMode:
       launch.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
     requiredChoices:
@@ -698,7 +708,7 @@ function missingCase(value: CaseData): string[] {
 async function workflowFor(prcId: string, version: number, value: CaseData) {
   const missing = missingCase(value);
   const result = await pool.query(
-    `SELECT l.id, l.status, r.status AS reference_status
+    `SELECT l.id, l.status, r.status AS reference_status, r.snapshot->'rubric'->>'revision' AS rubric_revision
        FROM prc_private.launches l LEFT JOIN prc_private.references r ON r.launch_id = l.id
       WHERE l.prc_id = $1 AND l.case_version = $2 AND l.role = 'panel' AND NOT l.is_trial
       ORDER BY (r.status = 'validated') DESC NULLS LAST, l.created_at DESC LIMIT 1`,
@@ -716,14 +726,21 @@ async function workflowFor(prcId: string, version: number, value: CaseData) {
     missing,
     panelLaunchId: panel?.id ?? null,
     referenceStatus: panel?.reference_status ?? null,
+    rubricRevision: Number(panel?.rubric_revision ?? 1),
   };
 }
 
-function mapReference(reference: JsonRecord | undefined) {
+function mapReference(
+  reference: JsonRecord | undefined,
+  fallbackCase?: CaseData,
+) {
   if (!reference) return null;
   const snapshot = reference.snapshot as PanelSnapshot & {
     scoring?: JsonRecord;
+    case?: CaseData;
+    rubric?: Rubric;
   };
+  const rubricCase = snapshot.case ?? fallbackCase;
   return {
     status: reference.status,
     minimumPanelSize: reference.minimum_panel_size,
@@ -732,6 +749,14 @@ function mapReference(reference: JsonRecord | undefined) {
     scoring: snapshot.scoring,
     diagnostics: snapshot.diagnostics,
     distributions: snapshot.distributions,
+    rubric:
+      snapshot.rubric ??
+      (rubricCase
+        ? defaultRubric(rubricCase, snapshot.distributions)
+        : undefined),
+    suggestedRubric: rubricCase
+      ? defaultRubric(rubricCase, snapshot.distributions)
+      : undefined,
   };
 }
 
@@ -827,6 +852,19 @@ async function visibleAggregates(launch: LaunchRow, all = false) {
   };
 }
 
+function launchGrading(launch: LaunchRow) {
+  const rubric = launch.case_snapshot.studentWorkflow?.rubric;
+  return rubric
+    ? rubricSummary(rubric)
+    : {
+        maximum: 20,
+        attainableMaximum: 20,
+        mainDiagnosisMaximum: 2,
+        alternativeDiagnosisMaximum: 2,
+        clinicalMaximum: 8,
+      };
+}
+
 async function launchGradeDistribution(
   launch: LaunchRow,
   teacherPreview = false,
@@ -843,7 +881,7 @@ async function launchGradeDistribution(
       WHERE p.launch_id=$1 AND p.role='students'`,
     [launch.id],
   );
-  return gradeDistribution(result.rows);
+  return gradeDistribution(result.rows, launchGrading(launch).maximum);
 }
 
 async function studentDiscussion(
@@ -888,6 +926,7 @@ async function studentDiscussion(
       diagnosticIds,
       activeDiagnosticId: launch.reveals.activeDiagnosticId,
       scoringVersion: workflow.scoringVersion,
+      rubric: workflow.rubric,
       ...(submitted ? { response } : {}),
     }),
     ...(all ||
@@ -944,7 +983,7 @@ async function createLaunch(
       caseSnapshot.studentWorkflow = {
         deliveryMode: input.deliveryMode as DeliveryMode,
         requiredChoices: 5,
-        scoringVersion: TOP_TWO_SCORING_VERSION,
+        scoringVersion: CUSTOM_SCORING_VERSION,
       };
     }
     if (reuseDemoSession) {
@@ -956,7 +995,7 @@ async function createLaunch(
     let referenceId: string | null = null;
     if (role === "students") {
       const reference = await client.query(
-        `SELECT r.id FROM prc_private.references r JOIN prc_private.launches panel ON panel.id = r.launch_id
+        `SELECT r.id,r.snapshot FROM prc_private.references r JOIN prc_private.launches panel ON panel.id = r.launch_id
         WHERE panel.prc_id = $1 AND panel.case_version = $2 AND panel.role = 'panel'
           AND NOT panel.is_trial AND r.status = 'validated' ORDER BY r.validated_at DESC LIMIT 1`,
         [prcId, prc.current_version],
@@ -967,6 +1006,14 @@ async function createLaunch(
           "Fermez un panel, générez puis validez un corrigé pour cette version du PRC avant de lancer les étudiants.",
         );
       referenceId = reference.rows[0].id;
+      if (caseSnapshot.studentWorkflow) {
+        const snapshot = reference.rows[0].snapshot as PanelSnapshot & {
+          rubric?: Rubric;
+        };
+        caseSnapshot.studentWorkflow.rubric =
+          snapshot.rubric ??
+          defaultRubric(caseSnapshot, snapshot.distributions);
+      }
     }
     if (reuseDemoSession) {
       const existing = await client.query<LaunchRow>(
@@ -974,12 +1021,14 @@ async function createLaunch(
           AND role='students' AND NOT is_trial AND status='open'
           AND case_snapshot->'studentWorkflow'->>'deliveryMode'=$3
           AND case_snapshot->'studentWorkflow'->>'scoringVersion'=$4
+          AND case_snapshot->'studentWorkflow'->'rubric'->>'revision'=$5
           ORDER BY created_at DESC LIMIT 1`,
         [
           prcId,
           prc.current_version,
           input.deliveryMode,
-          TOP_TWO_SCORING_VERSION,
+          CUSTOM_SCORING_VERSION,
+          String(caseSnapshot.studentWorkflow?.rubric?.revision),
         ],
       );
       if (existing.rows[0]) {
@@ -1817,7 +1866,7 @@ async function handle(request: Request): Promise<Response> {
       ...mapLaunch(launch, counts),
       reveals: launch.reveals,
       referenceStatus: reference?.status ?? null,
-      reference: mapReference(reference),
+      reference: mapReference(reference, launch.case_snapshot),
       case: launch.case_snapshot,
     });
   }
@@ -2264,7 +2313,7 @@ async function handle(request: Request): Promise<Response> {
         if (!reference.rows[0])
           fail(409, "Le corrigé de référence n’est pas validé.");
         const panelSnapshot = reference.rows[0].snapshot as PanelSnapshot;
-        const graded = scoreSubmission({
+        const responseInput = {
           mainDiagnosticId: response.main_diagnostic_id,
           alternativeDiagnosticId: response.alternative_diagnostic_id,
           mainChoices: response.main_choices,
@@ -2272,7 +2321,11 @@ async function handle(request: Request): Promise<Response> {
           panel: panelSnapshot.distributions,
           combineRoles: !!launch.case_snapshot.studentWorkflow,
           scoringVersion: launch.case_snapshot.studentWorkflow?.scoringVersion,
-        });
+        };
+        const frozenRubric = launch.case_snapshot.studentWorkflow?.rubric;
+        const graded = frozenRubric
+          ? scoreCustomSubmission(frozenRubric, responseInput)
+          : scoreSubmission(responseInput);
         score = graded.total;
         components = graded as unknown as JsonRecord;
       }
@@ -2479,6 +2532,9 @@ async function handle(request: Request): Promise<Response> {
         ...panel,
         caseVersion: launch.case_version,
         case: launch.case_snapshot,
+        rubric:
+          current.rows[0]?.snapshot?.rubric ??
+          defaultRubric(launch.case_snapshot, panel.distributions),
         scoring: {
           version: "V2",
           mainDiagnosis: 2,
@@ -2509,7 +2565,72 @@ async function handle(request: Request): Promise<Response> {
         [JSON.stringify(panel), launchId],
       );
       await client.query("COMMIT");
-      return send(mapReference(result.rows[0]));
+      return send(mapReference(result.rows[0], launch.case_snapshot));
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const rubricMatch = match(/^\/api\/launches\/([^/]+)\/reference\/rubric$/);
+  if (rubricMatch && method === "PUT") {
+    const teacher = await requireTeacher(request);
+    const input = await body(request);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const found = await lockManagedLaunch(
+        client,
+        segment(rubricMatch[1]),
+        teacher.id,
+      );
+      const launch = found.rows[0];
+      if (
+        !launch ||
+        launch.role !== "panel" ||
+        launch.status === "open" ||
+        launch.is_trial
+      )
+        fail(
+          409,
+          "Générez le corrigé d’un panel fermé avant de personnaliser le barème.",
+        );
+      const result = await client.query(
+        "SELECT * FROM prc_private.references WHERE launch_id=$1 FOR UPDATE",
+        [launch.id],
+      );
+      const reference = result.rows[0];
+      if (!reference) fail(409, "Générez d’abord le corrigé du panel.");
+      const current =
+        reference.snapshot.rubric ??
+        defaultRubric(launch.case_snapshot, reference.snapshot.distributions);
+      if (input.revision !== current.revision)
+        fail(
+          409,
+          "Ce barème a été modifié ailleurs. Rechargez-le avant d’enregistrer.",
+        );
+      let rubric: Rubric;
+      try {
+        rubric = parseRubric(
+          input.rubric,
+          launch.case_snapshot,
+          current.revision + 1,
+        );
+      } catch (error) {
+        fail(400, (error as Error).message);
+      }
+      const updated = await client.query(
+        "UPDATE prc_private.references SET snapshot=jsonb_set(snapshot,'{rubric}',$1::jsonb) WHERE id=$2 RETURNING *",
+        [JSON.stringify(rubric), reference.id],
+      );
+      await client.query(
+        "UPDATE prc_private.prcs SET updated_at=clock_timestamp() WHERE id=$1",
+        [launch.prc_id],
+      );
+      await client.query("COMMIT");
+      return send(mapReference(updated.rows[0], launch.case_snapshot));
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -2545,7 +2666,7 @@ async function handle(request: Request): Promise<Response> {
       if (!reference) fail(409, "Générez d’abord le corrigé du panel.");
       if (reference.status === "validated") {
         await client.query("COMMIT");
-        return send(mapReference(reference));
+        return send(mapReference(reference, launch.case_snapshot));
       }
       const snapshot = reference.snapshot as PanelSnapshot;
       if (
@@ -2566,7 +2687,7 @@ async function handle(request: Request): Promise<Response> {
         [reference.id, launchId],
       );
       await client.query("COMMIT");
-      return send(mapReference(updated.rows[0]));
+      return send(mapReference(updated.rows[0], launch.case_snapshot));
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -2689,7 +2810,8 @@ async function handle(request: Request): Promise<Response> {
       case: caseForJoin(launch),
       response: mapResponse(responseRow),
       score,
-      percentage: score === null ? null : score * 5,
+      percentage:
+        score === null ? null : (score / launchGrading(launch).maximum) * 100,
       components:
         published && submitted ? (responseRow.score_components ?? {}) : {},
       role: launch.role,

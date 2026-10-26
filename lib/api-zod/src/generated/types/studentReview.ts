@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { GradingSummary } from './gradingSummary';
 import type { StudentReviewComparisonItem } from './studentReviewComparisonItem';
 import type { StudentReviewCorrectionsItem } from './studentReviewCorrectionsItem';
 import type { StudentReviewDeliveryMode } from './studentReviewDeliveryMode';
@@ -15,6 +16,7 @@ import type { StudentReviewDeliveryMode } from './studentReviewDeliveryMode';
 export interface StudentReview {
   scoringVersion?: string;
   maximum?: number;
+  grading?: GradingSummary;
   deliveryMode: StudentReviewDeliveryMode;
   comparisonVisible: boolean;
   comparison: StudentReviewComparisonItem[];

@@ -82,7 +82,7 @@ export function GradeDistribution({
             className="distribution-chart-scroll"
             tabIndex={0}
             role="region"
-            aria-label="Histogramme des notes, par tranche de deux points"
+            aria-label="Histogramme des notes par tranches"
           >
             <div className="distribution-chart">
               {data.bins.map((bin, index) => (

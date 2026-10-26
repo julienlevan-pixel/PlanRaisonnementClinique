@@ -70,7 +70,9 @@ export function DemoStudentSessions({
               launch.role === "students" &&
               launch.status === "open" &&
               launch.guidedReview &&
-              launch.scoringVersion === "top-two-v1" &&
+              launch.scoringVersion === "custom-rubric-v1" &&
+              launch.grading?.rubricRevision ===
+                (document.workflow?.rubricRevision ?? 1) &&
               launch.caseVersion === document.version &&
               launch.deliveryMode === mode &&
               launch.code,
