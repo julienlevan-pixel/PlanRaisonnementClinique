@@ -802,11 +802,20 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           </div>
         )}
         <p className="body-copy">
-          {joinInfo.role === "panel"
-            ? "Choisissez exactement cinq données par impression clinique et attribuez à chacune de 1 à 3 points : 1 = peu discriminante, 2 = modérément discriminante, 3 = très discriminante."
-            : joinInfo.requiredChoices === 5
-              ? "Choisissez exactement cinq données par impression clinique."
-              : "Choisissez de une à cinq données par impression clinique."}{" "}
+          Choisissez l’impression clinique la plus probable, puis une impression
+          clinique alternative plausible. Pour chacune, sélectionnez{" "}
+          {joinInfo.role === "panel" || joinInfo.requiredChoices === 5
+            ? "les cinq données"
+            : "de une à cinq données"}{" "}
+          qui permettent le mieux de la soutenir ou de la remettre en question.
+        </p>
+        <p className="body-copy">
+          {joinInfo.role === "panel" && (
+            <>
+              Attribuez à chaque donnée choisie de 1 à 3 points : 1 = peu
+              discriminante, 2 = modérément discriminante, 3 = très discriminante.{" "}
+            </>
+          )}
           Une même donnée peut soutenir une impression clinique et affaiblir l’autre.
           Cliquez à nouveau sur un signe retenu pour retirer ce choix.
         </p>
