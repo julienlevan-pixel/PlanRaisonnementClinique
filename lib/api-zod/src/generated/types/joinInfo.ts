@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { CaseSnapshot } from './caseSnapshot';
+import type { GradingSummary } from './gradingSummary';
 import type { JoinInfoDeliveryMode } from './joinInfoDeliveryMode';
 
 export type JoinInfo = CaseSnapshot & ({
@@ -15,6 +16,7 @@ export type JoinInfo = CaseSnapshot & ({
   isTrial?: boolean;
   guidedReview?: boolean;
   scoringVersion?: string;
+  grading?: GradingSummary;
   deliveryMode?: JoinInfoDeliveryMode;
   /**
      * @minimum 1

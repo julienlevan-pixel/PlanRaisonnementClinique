@@ -152,7 +152,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(student.locator('.score-components > div')).toHaveCount(4);
       await expect(student.getByRole('heading', { name: 'Explication du professeur', exact: true })).toBeVisible();
       const own = await (await student.request.get('/api/participant/results')).json();
-      expect(own.score).toBe(20);
+      expect(own.score).toBe(15);
+      expect(own.case.grading.maximum).toBe(15);
       expect(own.response.state).toBe('submitted');
       expect(own.gradeDistribution.gradedCount).toBe(1);
       await expect(student.getByRole('region', { name: 'Distribution des notes du groupe', exact: true })).toBeVisible();
@@ -175,7 +176,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(asyncStudent.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toHaveCount(0);
       const result = await (await asyncStudent.request.get('/api/participant/results')).json();
       expect(result.status).toBe('open');
-      expect(result.score).toBe(20);
+      expect(result.score).toBe(15);
+      expect(result.case.grading.maximum).toBe(15);
       expect(result.class).toEqual({});
       expect(result.gradeDistribution).toBeUndefined();
       await confirmClick(teacher, 'Fermer les accès aux réponses');
@@ -263,6 +265,18 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(syncStudent.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toBeVisible({ timeout: 12000 });
       await teacher.getByRole('button', { name: `Afficher le corrigé : ${demoDocument.diagnostics[0].label}`, exact: true }).click();
       await expect(syncStudent.getByRole('article', { name: `Corrigé ${demoDocument.diagnostics[0].label}`, exact: true })).toBeVisible({ timeout: 12000 });
+      await teacher.goto(`/activity/${panel.id}`);
+      const rubric=teacher.getByRole('region',{name:'Barème personnalisable du professeur',exact:true});
+      await expect(rubric).toContainText('Note maximale : 15 points');
+      await rubric.locator('.rubric-diagnostic').first().locator('summary').click();
+      await rubric.getByRole('spinbutton',{name:`Diagnostic principal — ${demoDocument.diagnostics[0].label}`,exact:true}).fill('4');
+      await rubric.getByRole('button',{name:'Enregistrer le barème',exact:true}).click();
+      await expect(rubric.getByRole('status')).toContainText('version 2');
+      await teacher.goto(casePath.replace('/prcs/','/prc/'));
+      await demo.getByRole('button',{name:'Autoriser la séance asynchrone',exact:true}).click();
+      const refreshed=await(await teacher.request.get(`/api${casePath}`)).json();
+      expect(refreshed.launches.some((launch:any)=>launch.grading?.maximum===16&&launch.grading?.rubricRevision===2)).toBe(true);
+      expect((await(await asyncStudent.request.get('/api/participant/results')).json()).case.grading.maximum).toBe(15);
     });
   } finally { await Promise.all(contexts.map(context => context.close())); }
 });

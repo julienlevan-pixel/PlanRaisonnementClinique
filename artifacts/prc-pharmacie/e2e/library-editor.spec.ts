@@ -230,7 +230,7 @@ test('teacher opens both Toux student modes explicitly and finds the same access
     expect(route.request().method()).toBe('POST');
     const { deliveryMode } = route.request().postDataJSON();
     modes.push(deliveryMode);
-    const session = { id: `session-${deliveryMode}`, code: deliveryMode === 'synchronous' ? 'SYN123' : 'ASY456', role: 'students', caseVersion: 1, status: 'open', guidedReview: true, scoringVersion: 'top-two-v1', deliveryMode, name: 'Toux', createdAt: '2026-01-01T00:00:00Z', participantCount: 0, submissionCount: 0 };
+    const session = { id: `session-${deliveryMode}`, code: deliveryMode === 'synchronous' ? 'SYN123' : 'ASY456', role: 'students', caseVersion: 1, status: 'open', guidedReview: true, scoringVersion: 'custom-rubric-v1', grading: {rubricRevision:1}, deliveryMode, name: 'Toux', createdAt: '2026-01-01T00:00:00Z', participantCount: 0, submissionCount: 0 };
     data = { ...data, launches: [...data.launches, session] };
     await route.fulfill({ json: session });
   });

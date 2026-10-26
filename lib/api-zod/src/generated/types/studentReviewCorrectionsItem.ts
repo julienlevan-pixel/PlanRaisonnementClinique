@@ -25,6 +25,9 @@ export type StudentReviewCorrectionsItem = {
   /** @nullable */
   raw?: number | null;
   maximum?: number;
+  diagnosisMaximum?: number;
+  clinicalMaximum?: number;
+  zeroByRubric?: boolean;
   ceiling?: number;
   observations?: StudentReviewCorrectionsItemObservationsItem[];
   [key: string]: unknown;

@@ -115,3 +115,8 @@ Les sauvegardes de cas partagés exigent la version chargée ; l’éditeur cons
 Navigation : `/` suit les activités ; `/prcs` réunit les cas personnels et partagés. Le propriétaire choisit les accès dans `Sharing.tsx`. Le lancement d’un nouveau groupe étudiant depuis la bibliothèque repasse par le PRC pour choisir sa modalité synchrone/asynchrone.
 
 Vérification locale : script de migration rejoué deux fois avec un partage existant, absence de privilèges publics, partage sans duplication, conflit concurrent entre deux sauvegardes, isolation des professeurs tiers, édition seule vs gestion des séances, révocation y compris des séances créées par le collaborateur, historique clinique conservé, et parcours navigateur complet avec deux enseignants distincts.
+
+
+## Barème personnalisable
+
+`custom-rubric.ts` génère les suggestions 3/1/0, 2/0 et seuils 75 % / 50 %, valide les identifiants et points, et corrige sans normalisation. Le modèle mutable est `references.snapshot.rubric` ; ses distributions et sources cliniques ne changent pas. PUT `/launches/:id/reference/rubric` prend le verrou PRC/séance, vérifie la révision et ne remplace que cette clé JSON. La création d’un groupe prend le même verrou et fige une copie dans `case_snapshot.studentWorkflow.rubric`, utilisée pour toutes ses soumissions et restitutions. Les anciennes séances sans copie gardent leurs anciens calculs. `caseForJoin` expose seulement le résumé chiffré, jamais le barème complet. Les graphiques utilisent le maximum du groupe. Aucun SQL supplémentaire.

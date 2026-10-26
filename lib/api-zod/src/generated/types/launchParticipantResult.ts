@@ -15,7 +15,7 @@ export interface LaunchParticipantResult {
   /** @nullable */
   submittedAt: Date | null;
   /**
-     * Note sur 20
+     * Note selon le maximum du groupe
      * @nullable
      */
   score: number | null;

@@ -897,33 +897,44 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
                   </p>
                 )}
                 {step === "students" && (
-                  <label className="student-delivery">
-                    <span>Modalité du groupe étudiant</span>
-                    <select
-                      aria-label="Modalité du groupe étudiant"
-                      value={deliveryMode}
-                      disabled={saving || busy}
-                      onChange={(event) =>
-                        setDeliveryMode(
-                          event.target.value as "synchronous" | "asynchronous",
-                        )
-                      }
-                    >
-                      <option value="synchronous">
-                        Synchrone · correction guidée en séance
-                      </option>
-                      <option value="asynchronous">
-                        Asynchrone · autoriser le corrigé dès la soumission
-                      </option>
-                    </select>
-                    <small>
-                      Le professeur choisit la modalité. Les étudiants ne
-                      peuvent pas la modifier.{" "}
-                      {deliveryMode === "synchronous"
-                        ? "Vous terminez le temps de réponse, puis révélez la comparaison et les hypothèses une à une."
-                        : "Chaque étudiant voit uniquement ses réponses face au corrigé expert et sa note, dès sa soumission."}
-                    </small>
-                  </label>
+                  <>
+                    {query.data?.workflow?.panelLaunchId && (
+                      <Link
+                        className="library-text-link"
+                        href={`/activity/${query.data.workflow.panelLaunchId}`}
+                      >
+                        Consulter ou personnaliser le barème du corrigé
+                      </Link>
+                    )}
+                    <label className="student-delivery">
+                      <span>Modalité du groupe étudiant</span>
+                      <select
+                        aria-label="Modalité du groupe étudiant"
+                        value={deliveryMode}
+                        disabled={saving || busy}
+                        onChange={(event) =>
+                          setDeliveryMode(
+                            event.target.value as
+                              "synchronous" | "asynchronous",
+                          )
+                        }
+                      >
+                        <option value="synchronous">
+                          Synchrone · correction guidée en séance
+                        </option>
+                        <option value="asynchronous">
+                          Asynchrone · autoriser le corrigé dès la soumission
+                        </option>
+                      </select>
+                      <small>
+                        Le professeur choisit la modalité. Les étudiants ne
+                        peuvent pas la modifier.{" "}
+                        {deliveryMode === "synchronous"
+                          ? "Vous terminez le temps de réponse, puis révélez la comparaison et les hypothèses une à une."
+                          : "Chaque étudiant voit uniquement ses réponses face au corrigé expert et sa note, dès sa soumission."}
+                      </small>
+                    </label>
+                  </>
                 )}
                 <Btn disabled={saving || busy || conflict} onClick={next}>
                   {dirty && step !== "prepare"

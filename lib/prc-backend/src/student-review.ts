@@ -7,6 +7,7 @@ import {
   type Choice,
   type PanelDistribution,
 } from "./scoring.js";
+import { customRole, rubricSummary, type Rubric } from "./custom-rubric.js";
 
 export type DeliveryMode = "synchronous" | "asynchronous";
 export type ReviewCase = {
@@ -35,7 +36,10 @@ export function buildStudentReview(input: {
   activeDiagnosticId?: string;
   response?: ReviewResponse;
   scoringVersion?: string;
+  rubric?: Rubric;
 }) {
+  const rubric = input.rubric;
+  const grading = rubric ? rubricSummary(rubric) : undefined;
   const topTwo = input.scoringVersion === TOP_TWO_SCORING_VERSION;
   const pairCredits =
     topTwo && input.response
@@ -95,30 +99,38 @@ export function buildStudentReview(input: {
             ? input.response!.alternativeChoices
             : [];
       const component = ownRole
-        ? scoreRole({
-            diagnosisId: diagnostic.diagnosticId,
-            choices,
-            distribution,
-            strictMaximum: topTwo,
-            ...(topTwo
-              ? {
-                  diagnosisPoints:
-                    ownRole === "main"
-                      ? pairCredits!.main
-                      : pairCredits!.alternative,
-                }
-              : {}),
-          })
+        ? rubric
+          ? customRole(rubric, diagnostic.diagnosticId, choices, ownRole)
+          : scoreRole({
+              diagnosisId: diagnostic.diagnosticId,
+              choices,
+              distribution,
+              strictMaximum: topTwo,
+              ...(topTwo
+                ? {
+                    diagnosisPoints:
+                      ownRole === "main"
+                        ? pairCredits!.main
+                        : pairCredits!.alternative,
+                  }
+                : {}),
+            })
         : null;
+      const rubricDiagnostic = rubric?.diagnostics.find(
+        (row) => row.diagnosticId === diagnostic.diagnosticId,
+      );
       const topFiveThreshold =
-        distribution.observations
-          .map((row) =>
-            Math.max(
-              row.positivePoints ?? row.positive,
-              row.negativePoints ?? row.negative,
-            ),
-          )
-          .sort((a, b) => b - a)[4] ?? 0;
+        (rubricDiagnostic
+          ? rubricDiagnostic.observations.map((row) =>
+              Math.max(row.positivePoints, row.negativePoints),
+            )
+          : distribution.observations.map((row) =>
+              Math.max(
+                row.positivePoints ?? row.positive,
+                row.negativePoints ?? row.negative,
+              ),
+            )
+        ).sort((a, b) => b - a)[4] ?? 0;
       return {
         diagnosticId: diagnostic.diagnosticId,
         label: diagnostic.label,
@@ -143,8 +155,26 @@ export function buildStudentReview(input: {
               raw: component?.raw ?? null,
             }
           : {}),
-        maximum: 10,
-        ceiling: distribution.ceiling,
+        maximum: grading
+          ? (ownRole === "alternative"
+              ? grading.alternativeDiagnosisMaximum
+              : grading.mainDiagnosisMaximum) + grading.clinicalMaximum
+          : 10,
+        diagnosisMaximum: grading
+          ? ownRole === "alternative"
+            ? grading.alternativeDiagnosisMaximum
+            : grading.mainDiagnosisMaximum
+          : 2,
+        clinicalMaximum: grading?.clinicalMaximum ?? 8,
+        zeroByRubric: rubricDiagnostic
+          ? (ownRole === "alternative"
+              ? rubricDiagnostic.alternativePoints
+              : rubricDiagnostic.mainPoints) === 0 &&
+            rubricDiagnostic.observations.every(
+              (row) => !row.positivePoints && !row.negativePoints,
+            )
+          : !distribution.expertCount,
+        ceiling: grading?.clinicalMaximum ?? distribution.ceiling,
         observations: input.caseData.observations.map((observation) => {
           const row = distribution.observations.find(
             (row) => row.observationId === observation.id,
@@ -154,12 +184,19 @@ export function buildStudentReview(input: {
           );
           const positivePoints = row?.positivePoints ?? row?.positive ?? 0;
           const negativePoints = row?.negativePoints ?? row?.negative ?? 0;
-          const bestPoints = Math.max(positivePoints, negativePoints);
+          const rubricObservation = rubricDiagnostic?.observations.find(
+            (row) => row.observationId === observation.id,
+          );
+          const positiveScorePoints =
+            rubricObservation?.positivePoints ?? positivePoints;
+          const negativeScorePoints =
+            rubricObservation?.negativePoints ?? negativePoints;
+          const bestPoints = Math.max(positiveScorePoints, negativeScorePoints);
           const earnedPoints =
-            choice && distribution.expertCount
+            choice && (rubric || distribution.expertCount)
               ? choice.sign === "+"
-                ? positivePoints
-                : negativePoints
+                ? positiveScorePoints
+                : negativeScorePoints
               : 0;
           return {
             observationId: observation.id,
@@ -169,23 +206,28 @@ export function buildStudentReview(input: {
             negative: row?.negative ?? 0,
             positivePoints,
             negativePoints,
+            ...(rubric ? { positiveScorePoints, negativeScorePoints } : {}),
             topClinical: bestPoints > 0 && bestPoints >= topFiveThreshold,
             bestSigns: bestPoints
               ? [
-                  ...(positivePoints === bestPoints ? ["+"] : []),
-                  ...(negativePoints === bestPoints ? ["-"] : []),
+                  ...(positiveScorePoints === bestPoints ? ["+"] : []),
+                  ...(negativeScorePoints === bestPoints ? ["-"] : []),
                 ]
               : [],
-            referenceScorePoints: distribution.ceiling
-              ? (8 * bestPoints) / distribution.ceiling
-              : 0,
+            referenceScorePoints: rubric
+              ? bestPoints
+              : distribution.ceiling
+                ? (8 * bestPoints) / distribution.ceiling
+                : 0,
             ...(input.response
               ? {
                   studentSign: choice?.sign ?? null,
                   earnedPoints: earnedPoints,
-                  earnedScorePoints: distribution.ceiling
-                    ? (8 * earnedPoints) / distribution.ceiling
-                    : 0,
+                  earnedScorePoints: rubric
+                    ? earnedPoints
+                    : distribution.ceiling
+                      ? (8 * earnedPoints) / distribution.ceiling
+                      : 0,
                 }
               : {}),
           };
@@ -193,7 +235,8 @@ export function buildStudentReview(input: {
       };
     });
   return {
-    maximum: 20,
+    maximum: grading?.maximum ?? 20,
+    grading,
     scoringVersion: input.scoringVersion ?? "panel-weighted-v2",
     deliveryMode: input.mode,
     comparisonVisible: input.comparisonVisible,

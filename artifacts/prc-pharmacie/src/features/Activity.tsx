@@ -29,6 +29,7 @@ import {
 import { dateLabel, getError } from "../app/utils";
 import "./activity.css";
 import { GradeDistribution } from "./GradeDistribution";
+import { RubricEditor } from "./RubricEditor";
 import {
   DiscussionControls,
   HypothesisComparison,
@@ -346,6 +347,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
   const [explanation, setExplanation] = useState("");
   const [minimum, setMinimum] = useState("5");
   const [error, setError] = useState("");
+  const [rubricDirty, setRubricDirty] = useState(false);
   const reference = l?.reference;
   useEffect(() => {
     if (reference) {
@@ -486,7 +488,10 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
         </div>
       </div>
       {l.role === "students" && (
-        <MaximumScoreGuide scoringVersion={l.scoringVersion} />
+        <MaximumScoreGuide
+          scoringVersion={l.scoringVersion}
+          grading={l.grading}
+        />
       )}
       <section className="next-command panel-card">
         <div>
@@ -519,7 +524,18 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           </Btn>
         )}
         {closed && l.role === "panel" && validated && (
-          <Link href={`/prc/${l.prcId}`} className="btn btn-primary">
+          <Link
+            href={`/prc/${l.prcId}`}
+            className="btn btn-primary"
+            onClick={(event) => {
+              if (rubricDirty) {
+                event.preventDefault();
+                setError(
+                  "Enregistrez le barème modifié avant de lancer un groupe.",
+                );
+              }
+            }}
+          >
             Lancer avec les étudiants
           </Link>
         )}
@@ -747,12 +763,27 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
               value={reference?.status ?? l.referenceStatus ?? "à générer"}
             />
           </div>
-          <ScoringRule scoring={reference?.scoring} newGroups />
+          {reference?.rubric ? (
+            <RubricEditor
+              launchId={launchId}
+              rubric={reference.rubric}
+              suggestedRubric={reference.suggestedRubric}
+              caseData={l.case}
+              distributions={reference.distributions ?? []}
+              onDirty={setRubricDirty}
+            />
+          ) : (
+            <p>
+              Générez le corrigé pour obtenir un barème proposé sur 15 points,
+              personnalisable avant le lancement des étudiants.
+            </p>
+          )}
           {validated ? (
             <>
               <p className="reference-locked">
-                Le corrigé est validé et immuable. Il conserve les copies
-                sources, les choix minoritaires et la version clinique utilisée.
+                Le corrigé clinique est validé et immuable. Il conserve les
+                copies sources, les choix minoritaires et la version clinique
+                utilisée.
               </p>
               <p>
                 {reference?.explanation || "Aucune explication complémentaire."}
@@ -798,11 +829,11 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
                 onChange={(e) => setExplanation(e.target.value)}
               />
               <Btn
-                disabled={busy || reference?.status !== "draft"}
+                disabled={busy || rubricDirty || reference?.status !== "draft"}
                 onClick={() => {
                   if (
                     window.confirm(
-                      "Valider définitivement ce corrigé et son barème ? Il ne sera plus modifiable.",
+                      "Valider définitivement la référence clinique ? Le barème restera adaptable pour les prochains groupes ; les groupes ouverts conserveront leur version.",
                     )
                   )
                     run("reference/validate", { explanation });
@@ -817,7 +848,10 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
       {l.role === "students" &&
         closed &&
         Array.isArray(results.data?.participants) && (
-          <TeacherCopies participants={results.data.participants} />
+          <TeacherCopies
+            participants={results.data.participants}
+            grading={l.grading}
+          />
         )}
       {results.data?.gradeDistribution && (
         <GradeDistribution
@@ -830,8 +864,8 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           <div>
             <b>Terminer la révision et partager le bilan</b>
             <p>
-              Chaque étudiant voit sa note sur 20 et la distribution anonyme du
-              groupe.
+              Chaque étudiant voit sa note sur {l.grading?.maximum ?? 20} et la
+              distribution anonyme du groupe.
               {asynchronous &&
                 " Le corrigé individuel reste disponible dès la soumission ; le bilan collectif attend votre publication."}
               Les {unsent} copies non soumises restent sans note.
@@ -904,7 +938,13 @@ export function ScoringRule({
   );
 }
 
-function TeacherCopies({ participants }: { participants: any[] }) {
+function TeacherCopies({
+  participants,
+  grading,
+}: {
+  participants: any[];
+  grading?: any;
+}) {
   return (
     <details className="panel-card teacher-private-copies">
       <summary>
@@ -920,11 +960,18 @@ function TeacherCopies({ participants }: { participants: any[] }) {
             <tr>
               <th>Participant</th>
               <th>Copie</th>
-              <th>Diagnostic principal /2</th>
-              <th>Justification principale /8</th>
-              <th>Diagnostic alternatif /2</th>
-              <th>Justification alternative /8</th>
-              <th>Total /20</th>
+              <th>
+                Diagnostic principal /{grading?.mainDiagnosisMaximum ?? 2}
+              </th>
+              <th>Justification principale /{grading?.clinicalMaximum ?? 8}</th>
+              <th>
+                Diagnostic alternatif /
+                {grading?.alternativeDiagnosisMaximum ?? 2}
+              </th>
+              <th>
+                Justification alternative /{grading?.clinicalMaximum ?? 8}
+              </th>
+              <th>Total /{grading?.maximum ?? 20}</th>
             </tr>
           </thead>
           <tbody>

@@ -16,6 +16,8 @@ export type StudentReviewCorrectionsItemObservationsItem = {
   negative?: number;
   positivePoints?: number;
   negativePoints?: number;
+  positiveScorePoints?: number;
+  negativeScorePoints?: number;
   /** @nullable */
   studentSign?: StudentReviewCorrectionsItemObservationsItemStudentSign;
   earnedPoints?: number;

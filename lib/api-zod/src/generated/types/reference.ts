@@ -7,6 +7,7 @@
  */
 import type { DiagnosticCount } from './diagnosticCount';
 import type { DiagnosticDistribution } from './diagnosticDistribution';
+import type { ProfessorRubric } from './professorRubric';
 import type { ScoringRule } from './scoringRule';
 
 export interface Reference {
@@ -15,6 +16,8 @@ export interface Reference {
   panelSize: number;
   explanation: string;
   scoring: ScoringRule;
+  rubric?: ProfessorRubric;
+  suggestedRubric?: ProfessorRubric;
   diagnostics: DiagnosticCount[];
   distributions: DiagnosticDistribution[];
 }

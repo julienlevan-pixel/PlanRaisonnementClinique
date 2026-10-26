@@ -31,9 +31,11 @@ import {
   type GradeDistributionData,
 } from "./GradeDistribution";
 import "./participant.css";
+import type { GradingSummary } from "./RubricEditor";
 
 type Role = "main" | "alternative";
 type CaseData = {
+  grading?: GradingSummary;
   scoringVersion?: string;
   guidedReview?: boolean;
   deliveryMode?: "synchronous" | "asynchronous";
@@ -730,7 +732,10 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           {saveLabel}
         </div>
         {joinInfo.role === "students" && (
-          <MaximumScoreGuide scoringVersion={joinInfo.scoringVersion} />
+          <MaximumScoreGuide
+            scoringVersion={joinInfo.scoringVersion}
+            grading={joinInfo.grading}
+          />
         )}
         {submitted ? (
           <p className="participant-notice">
@@ -1245,22 +1250,39 @@ export function ParticipantResults() {
             <p>Note obtenue / note maximale du cas</p>
             <strong>
               {number(data.score)}
-              <small> / 20</small>
+              <small> / {data.case.grading?.maximum ?? 20}</small>
             </strong>
             <span>
               {number(
                 data.percentage ??
                   data.components.percentage ??
-                  Number(data.score) * 5,
+                  (Number(data.score) / (data.case.grading?.maximum ?? 20)) *
+                    100,
               )}{" "}
               %
             </span>
             <div className="score-components">
               {[
-                ["mainDiagnosis", "Diagnostic principal", 2],
-                ["mainJustification", "Justification principale", 8],
-                ["alternativeDiagnosis", "Diagnostic alternatif", 2],
-                ["alternativeJustification", "Justification alternative", 8],
+                [
+                  "mainDiagnosis",
+                  "Diagnostic principal",
+                  data.case.grading?.mainDiagnosisMaximum ?? 2,
+                ],
+                [
+                  "mainJustification",
+                  "Justification principale",
+                  data.case.grading?.clinicalMaximum ?? 8,
+                ],
+                [
+                  "alternativeDiagnosis",
+                  "Diagnostic alternatif",
+                  data.case.grading?.alternativeDiagnosisMaximum ?? 2,
+                ],
+                [
+                  "alternativeJustification",
+                  "Justification alternative",
+                  data.case.grading?.clinicalMaximum ?? 8,
+                ],
               ].map(([key, label, maximum]) => (
                 <div key={key}>
                   <span>{label}</span>
@@ -1290,7 +1312,10 @@ export function ParticipantResults() {
           </p>
         ) : null}
         {role === "students" && (
-          <MaximumScoreGuide scoringVersion={data.case.scoringVersion} />
+          <MaximumScoreGuide
+            scoringVersion={data.case.scoringVersion}
+            grading={data.case.grading}
+          />
         )}
         <section className="participant-own-copy">
           {data.guidedReview && submitted ? (

@@ -26,9 +26,9 @@ export interface ParticipantResults {
   case: JoinInfo;
   response: ParticipantResponse;
   /**
-     * Note sur 20 ; null pour les experts
+     * Note selon le barème figé de la séance
      * @minimum 0
-     * @maximum 20
+     * @maximum 100
      * @nullable
      */
   score: number | null;

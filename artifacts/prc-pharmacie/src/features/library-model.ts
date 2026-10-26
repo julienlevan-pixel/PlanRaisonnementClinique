@@ -3,6 +3,7 @@ export interface Workflow {
   missing: string[];
   panelLaunchId: string | null;
   referenceStatus: 'draft' | 'validated' | null;
+  rubricRevision?: number;
 }
 
 export interface PrcSummary {
@@ -62,6 +63,7 @@ export interface PrcDetail extends PrcSummary, CasePreviewData {
     deliveryMode?: 'synchronous' | 'asynchronous';
     guidedReview?: boolean;
     scoringVersion?: string;
+    grading?: {rubricRevision?:number};
   }>;
 }
 

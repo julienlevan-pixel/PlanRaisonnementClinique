@@ -146,7 +146,15 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -163,7 +171,15 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -203,6 +219,7 @@ export const ListPrcsResponseItem = zod.object({
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
+  "rubricRevision": zod.number().int().optional(),
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
   "panelLaunchId": zod.string().nullable(),
@@ -257,6 +274,7 @@ export const CreatePrcResponse = zod.object({
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
+  "rubricRevision": zod.number().int().optional(),
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
   "panelLaunchId": zod.string().nullable(),
@@ -289,6 +307,7 @@ export const GetPrcResponse = zod.object({
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
+  "rubricRevision": zod.number().int().optional(),
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
   "panelLaunchId": zod.string().nullable(),
@@ -315,7 +334,15 @@ export const GetPrcResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -375,6 +402,7 @@ export const UpdatePrcResponse = zod.object({
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
+  "rubricRevision": zod.number().int().optional(),
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
   "panelLaunchId": zod.string().nullable(),
@@ -401,7 +429,15 @@ export const UpdatePrcResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -526,7 +562,15 @@ export const OpenDemoStudentSessionResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -560,7 +604,15 @@ export const CreateLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -573,6 +625,38 @@ export const CreateLaunchResponse = zod.object({
 export const GetLaunchParams = zod.object({
   "launchId": zod.coerce.string()
 })
+
+
+export const getLaunchResponseTwoReferenceOneRubricClinicalMaximumMin = 0;
+export const getLaunchResponseTwoReferenceOneRubricClinicalMaximumMax = 100;
+
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemMainPointsMin = 0;
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemMainPointsMax = 100;
+
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemAlternativePointsMin = 0;
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
+
+export const getLaunchResponseTwoReferenceOneSuggestedRubricClinicalMaximumMin = 0;
+export const getLaunchResponseTwoReferenceOneSuggestedRubricClinicalMaximumMax = 100;
+
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemMainPointsMin = 0;
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemMainPointsMax = 100;
+
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemAlternativePointsMin = 0;
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
 
 export const getLaunchResponseTwoReferenceOneDiagnosticsItemMainCountMin = 0;
 
@@ -609,7 +693,15 @@ export const GetLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -643,6 +735,36 @@ export const GetLaunchResponse = zod.object({
   "total": zod.number().optional(),
   "description": zod.string().optional()
 }),
+  "rubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(getLaunchResponseTwoReferenceOneRubricClinicalMaximumMin).max(getLaunchResponseTwoReferenceOneRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemMainPointsMin).max(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemAlternativePointsMin).max(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemPositivePointsMin).max(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemNegativePointsMin).max(getLaunchResponseTwoReferenceOneRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
+  "suggestedRubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(getLaunchResponseTwoReferenceOneSuggestedRubricClinicalMaximumMin).max(getLaunchResponseTwoReferenceOneSuggestedRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemMainPointsMin).max(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemAlternativePointsMin).max(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin).max(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin).max(getLaunchResponseTwoReferenceOneSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
   "diagnostics": zod.array(zod.object({
   "diagnosticId": zod.string(),
   "label": zod.string(),
@@ -710,7 +832,15 @@ export const AdvanceDiscussionResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -769,6 +899,14 @@ export const GetJoinInfoResponse = zod.object({
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(getJoinInfoResponseTwoRequiredChoicesMax).nullish()
 }))
@@ -845,6 +983,14 @@ export const JoinLaunchResponse = zod.object({
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(joinLaunchResponseJoinInfoTwoRequiredChoicesMax).nullish()
 }))
@@ -900,6 +1046,14 @@ export const GetParticipantResponseResponse = zod.object({
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(getParticipantResponseResponseJoinInfoTwoRequiredChoicesMax).nullish()
 })),
@@ -990,6 +1144,14 @@ export const SaveParticipantResponseResponse = zod.object({
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(saveParticipantResponseResponseJoinInfoTwoRequiredChoicesMax).nullish()
 })),
@@ -1050,7 +1212,15 @@ export const CloseLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1082,7 +1252,15 @@ export const RevealLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1167,6 +1345,38 @@ export const GenerateReferenceBody = zod.object({
   "minimumPanelSize": zod.number().int().min(1).max(generateReferenceBodyMinimumPanelSizeMax)
 })
 
+
+export const generateReferenceResponseRubricClinicalMaximumMin = 0;
+export const generateReferenceResponseRubricClinicalMaximumMax = 100;
+
+export const generateReferenceResponseRubricDiagnosticsItemMainPointsMin = 0;
+export const generateReferenceResponseRubricDiagnosticsItemMainPointsMax = 100;
+
+export const generateReferenceResponseRubricDiagnosticsItemAlternativePointsMin = 0;
+export const generateReferenceResponseRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const generateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const generateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const generateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const generateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
+
+export const generateReferenceResponseSuggestedRubricClinicalMaximumMin = 0;
+export const generateReferenceResponseSuggestedRubricClinicalMaximumMax = 100;
+
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMin = 0;
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMax = 100;
+
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMin = 0;
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
 export const generateReferenceResponseDiagnosticsItemMainCountMin = 0;
 
 export const generateReferenceResponseDiagnosticsItemMainPercentMin = 0;
@@ -1207,6 +1417,36 @@ export const GenerateReferenceResponse = zod.object({
   "total": zod.number().optional(),
   "description": zod.string().optional()
 }),
+  "rubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(generateReferenceResponseRubricClinicalMaximumMin).max(generateReferenceResponseRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(generateReferenceResponseRubricDiagnosticsItemMainPointsMin).max(generateReferenceResponseRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(generateReferenceResponseRubricDiagnosticsItemAlternativePointsMin).max(generateReferenceResponseRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(generateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMin).max(generateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(generateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMin).max(generateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
+  "suggestedRubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(generateReferenceResponseSuggestedRubricClinicalMaximumMin).max(generateReferenceResponseSuggestedRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(generateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMin).max(generateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(generateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMin).max(generateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin).max(generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin).max(generateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
   "diagnostics": zod.array(zod.object({
   "diagnosticId": zod.string(),
   "label": zod.string(),
@@ -1237,6 +1477,183 @@ export const GenerateReferenceResponse = zod.object({
 })
 
 
+/**
+ * Modifie le barème proposé aux prochains groupes, même après validation clinique. Les groupes déjà ouverts conservent leur copie figée. Contrôle de version obligatoire.
+ */
+export const UpdateProfessorRubricParams = zod.object({
+  "launchId": zod.coerce.string()
+})
+
+
+
+export const updateProfessorRubricBodyRubricClinicalMaximumMin = 0;
+export const updateProfessorRubricBodyRubricClinicalMaximumMax = 100;
+
+export const updateProfessorRubricBodyRubricDiagnosticsItemMainPointsMin = 0;
+export const updateProfessorRubricBodyRubricDiagnosticsItemMainPointsMax = 100;
+
+export const updateProfessorRubricBodyRubricDiagnosticsItemAlternativePointsMin = 0;
+export const updateProfessorRubricBodyRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
+
+
+export const UpdateProfessorRubricBody = zod.object({
+  "revision": zod.number().int().min(1),
+  "rubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(updateProfessorRubricBodyRubricClinicalMaximumMin).max(updateProfessorRubricBodyRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(updateProfessorRubricBodyRubricDiagnosticsItemMainPointsMin).max(updateProfessorRubricBodyRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(updateProfessorRubricBodyRubricDiagnosticsItemAlternativePointsMin).max(updateProfessorRubricBodyRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemPositivePointsMin).max(updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemNegativePointsMin).max(updateProfessorRubricBodyRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+})
+})
+
+
+export const updateProfessorRubricResponseRubricClinicalMaximumMin = 0;
+export const updateProfessorRubricResponseRubricClinicalMaximumMax = 100;
+
+export const updateProfessorRubricResponseRubricDiagnosticsItemMainPointsMin = 0;
+export const updateProfessorRubricResponseRubricDiagnosticsItemMainPointsMax = 100;
+
+export const updateProfessorRubricResponseRubricDiagnosticsItemAlternativePointsMin = 0;
+export const updateProfessorRubricResponseRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
+
+export const updateProfessorRubricResponseSuggestedRubricClinicalMaximumMin = 0;
+export const updateProfessorRubricResponseSuggestedRubricClinicalMaximumMax = 100;
+
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemMainPointsMin = 0;
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemMainPointsMax = 100;
+
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemAlternativePointsMin = 0;
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
+export const updateProfessorRubricResponseDiagnosticsItemMainCountMin = 0;
+
+export const updateProfessorRubricResponseDiagnosticsItemMainPercentMin = 0;
+export const updateProfessorRubricResponseDiagnosticsItemMainPercentMax = 100;
+
+export const updateProfessorRubricResponseDiagnosticsItemAlternativeCountMin = 0;
+
+export const updateProfessorRubricResponseDiagnosticsItemAlternativePercentMin = 0;
+export const updateProfessorRubricResponseDiagnosticsItemAlternativePercentMax = 100;
+
+export const updateProfessorRubricResponseDistributionsItemExpertCountMin = 0;
+
+export const updateProfessorRubricResponseDistributionsItemObservationsItemPositiveMin = 0;
+
+export const updateProfessorRubricResponseDistributionsItemObservationsItemNegativeMin = 0;
+
+export const updateProfessorRubricResponseDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const updateProfessorRubricResponseDistributionsItemObservationsItemNegativePointsMin = 0;
+
+export const updateProfessorRubricResponseDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const updateProfessorRubricResponseDistributionsItemCeilingMin = 0;
+
+
+
+export const UpdateProfessorRubricResponse = zod.object({
+  "status": zod.string(),
+  "minimumPanelSize": zod.number().int(),
+  "panelSize": zod.number().int(),
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+}),
+  "rubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(updateProfessorRubricResponseRubricClinicalMaximumMin).max(updateProfessorRubricResponseRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(updateProfessorRubricResponseRubricDiagnosticsItemMainPointsMin).max(updateProfessorRubricResponseRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(updateProfessorRubricResponseRubricDiagnosticsItemAlternativePointsMin).max(updateProfessorRubricResponseRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemPositivePointsMin).max(updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemNegativePointsMin).max(updateProfessorRubricResponseRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
+  "suggestedRubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(updateProfessorRubricResponseSuggestedRubricClinicalMaximumMin).max(updateProfessorRubricResponseSuggestedRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemMainPointsMin).max(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemAlternativePointsMin).max(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin).max(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin).max(updateProfessorRubricResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(updateProfessorRubricResponseDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(updateProfessorRubricResponseDiagnosticsItemMainPercentMin).max(updateProfessorRubricResponseDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(updateProfessorRubricResponseDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(updateProfessorRubricResponseDiagnosticsItemAlternativePercentMin).max(updateProfessorRubricResponseDiagnosticsItemAlternativePercentMax).optional()
+})),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(updateProfessorRubricResponseDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(updateProfessorRubricResponseDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(updateProfessorRubricResponseDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(updateProfessorRubricResponseDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(updateProfessorRubricResponseDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
+  "notSelected": zod.number().int().min(updateProfessorRubricResponseDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(updateProfessorRubricResponseDistributionsItemCeilingMin)
+}))
+})
+
+
 export const ValidateReferenceParams = zod.object({
   "launchId": zod.coerce.string()
 })
@@ -1248,6 +1665,38 @@ export const validateReferenceBodyExplanationMax = 5000;
 export const ValidateReferenceBody = zod.object({
   "explanation": zod.string().max(validateReferenceBodyExplanationMax)
 })
+
+
+export const validateReferenceResponseRubricClinicalMaximumMin = 0;
+export const validateReferenceResponseRubricClinicalMaximumMax = 100;
+
+export const validateReferenceResponseRubricDiagnosticsItemMainPointsMin = 0;
+export const validateReferenceResponseRubricDiagnosticsItemMainPointsMax = 100;
+
+export const validateReferenceResponseRubricDiagnosticsItemAlternativePointsMin = 0;
+export const validateReferenceResponseRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const validateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const validateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const validateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const validateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
+
+
+export const validateReferenceResponseSuggestedRubricClinicalMaximumMin = 0;
+export const validateReferenceResponseSuggestedRubricClinicalMaximumMax = 100;
+
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMin = 0;
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMax = 100;
+
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMin = 0;
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMax = 100;
+
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin = 0;
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax = 100;
+
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin = 0;
+export const validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax = 100;
 
 export const validateReferenceResponseDiagnosticsItemMainCountMin = 0;
 
@@ -1289,6 +1738,36 @@ export const ValidateReferenceResponse = zod.object({
   "total": zod.number().optional(),
   "description": zod.string().optional()
 }),
+  "rubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(validateReferenceResponseRubricClinicalMaximumMin).max(validateReferenceResponseRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(validateReferenceResponseRubricDiagnosticsItemMainPointsMin).max(validateReferenceResponseRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(validateReferenceResponseRubricDiagnosticsItemAlternativePointsMin).max(validateReferenceResponseRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(validateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMin).max(validateReferenceResponseRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(validateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMin).max(validateReferenceResponseRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
+  "suggestedRubric": zod.object({
+  "version": zod.string(),
+  "revision": zod.number().int().min(1),
+  "clinicalMaximum": zod.number().min(validateReferenceResponseSuggestedRubricClinicalMaximumMin).max(validateReferenceResponseSuggestedRubricClinicalMaximumMax),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "mainPoints": zod.number().min(validateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMin).max(validateReferenceResponseSuggestedRubricDiagnosticsItemMainPointsMax),
+  "alternativePoints": zod.number().min(validateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMin).max(validateReferenceResponseSuggestedRubricDiagnosticsItemAlternativePointsMax),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "positivePoints": zod.number().min(validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMin).max(validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemPositivePointsMax),
+  "negativePoints": zod.number().min(validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMin).max(validateReferenceResponseSuggestedRubricDiagnosticsItemObservationsItemNegativePointsMax)
+}))
+}))
+}).optional(),
   "diagnostics": zod.array(zod.object({
   "diagnosticId": zod.string(),
   "label": zod.string(),
@@ -1332,7 +1811,15 @@ export const PublishResultsResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1406,7 +1893,15 @@ export const GetLaunchResultsResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1420,7 +1915,7 @@ export const GetLaunchResultsResponse = zod.object({
   "role": zod.string(),
   "state": zod.string(),
   "submittedAt": zod.coerce.date().nullable(),
-  "score": zod.number().nullable().describe('Note sur 20'),
+  "score": zod.number().nullable().describe('Note selon le maximum du groupe'),
   "components": zod.union([zod.object({
   "mainDiagnosis": zod.number().optional(),
   "mainJustification": zod.number().optional(),
@@ -1563,6 +2058,14 @@ export const GetLaunchResultsResponse = zod.object({
   "discussion": zod.object({
   "scoringVersion": zod.string().optional(),
   "maximum": zod.number().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
   "comparison": zod.array(zod.object({
@@ -1587,6 +2090,9 @@ export const GetLaunchResultsResponse = zod.object({
   "justificationScore": zod.number().nullish(),
   "raw": zod.number().nullish(),
   "maximum": zod.number().optional(),
+  "diagnosisMaximum": zod.number().optional(),
+  "clinicalMaximum": zod.number().optional(),
+  "zeroByRubric": zod.boolean().optional(),
   "ceiling": zod.number().optional(),
   "observations": zod.array(zod.object({
   "observationId": zod.string().optional(),
@@ -1596,6 +2102,8 @@ export const GetLaunchResultsResponse = zod.object({
   "negative": zod.number().int().optional(),
   "positivePoints": zod.number().int().optional(),
   "negativePoints": zod.number().int().optional(),
+  "positiveScorePoints": zod.number().optional(),
+  "negativeScorePoints": zod.number().optional(),
   "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
   "earnedPoints": zod.number().optional(),
   "earnedScorePoints": zod.number().optional(),
@@ -1638,7 +2146,7 @@ export const getParticipantResultsResponseResponseAlternativeChoicesItemPointsMa
 export const getParticipantResultsResponseResponseRevisionMin = 0;
 
 export const getParticipantResultsResponseScoreMin = 0;
-export const getParticipantResultsResponseScoreMax = 20;
+export const getParticipantResultsResponseScoreMax = 100;
 
 export const getParticipantResultsResponsePercentageMin = 0;
 export const getParticipantResultsResponsePercentageMax = 100;
@@ -1724,6 +2232,14 @@ export const GetParticipantResultsResponse = zod.object({
   "studentReview": zod.object({
   "scoringVersion": zod.string().optional(),
   "maximum": zod.number().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
   "comparison": zod.array(zod.object({
@@ -1748,6 +2264,9 @@ export const GetParticipantResultsResponse = zod.object({
   "justificationScore": zod.number().nullish(),
   "raw": zod.number().nullish(),
   "maximum": zod.number().optional(),
+  "diagnosisMaximum": zod.number().optional(),
+  "clinicalMaximum": zod.number().optional(),
+  "zeroByRubric": zod.boolean().optional(),
   "ceiling": zod.number().optional(),
   "observations": zod.array(zod.object({
   "observationId": zod.string().optional(),
@@ -1757,6 +2276,8 @@ export const GetParticipantResultsResponse = zod.object({
   "negative": zod.number().int().optional(),
   "positivePoints": zod.number().int().optional(),
   "negativePoints": zod.number().int().optional(),
+  "positiveScorePoints": zod.number().optional(),
+  "negativeScorePoints": zod.number().optional(),
   "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
   "earnedPoints": zod.number().optional(),
   "earnedScorePoints": zod.number().optional(),
@@ -1805,6 +2326,14 @@ export const GetParticipantResultsResponse = zod.object({
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
   "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(getParticipantResultsResponseCaseTwoRequiredChoicesMax).nullish()
 })),
@@ -1825,7 +2354,7 @@ export const GetParticipantResultsResponse = zod.object({
   "updatedAt": zod.coerce.date().nullable(),
   "revision": zod.number().int().min(getParticipantResultsResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
-  "score": zod.number().min(getParticipantResultsResponseScoreMin).max(getParticipantResultsResponseScoreMax).nullable().describe('Note sur 20 ; null pour les experts'),
+  "score": zod.number().min(getParticipantResultsResponseScoreMin).max(getParticipantResultsResponseScoreMax).nullable().describe('Note selon le barème figé de la séance'),
   "percentage": zod.number().min(getParticipantResultsResponsePercentageMin).max(getParticipantResultsResponsePercentageMax).nullish(),
   "components": zod.object({
   "mainDiagnosis": zod.number().optional(),
@@ -2093,7 +2622,15 @@ export const CreateTrialResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -2203,7 +2740,15 @@ export const GetLaunchProjectionResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
-  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées.'),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -2241,6 +2786,14 @@ export const GetLaunchProjectionResponse = zod.object({
   "discussion": zod.object({
   "scoringVersion": zod.string().optional(),
   "maximum": zod.number().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
   "comparison": zod.array(zod.object({
@@ -2265,6 +2818,9 @@ export const GetLaunchProjectionResponse = zod.object({
   "justificationScore": zod.number().nullish(),
   "raw": zod.number().nullish(),
   "maximum": zod.number().optional(),
+  "diagnosisMaximum": zod.number().optional(),
+  "clinicalMaximum": zod.number().optional(),
+  "zeroByRubric": zod.boolean().optional(),
   "ceiling": zod.number().optional(),
   "observations": zod.array(zod.object({
   "observationId": zod.string().optional(),
@@ -2274,6 +2830,8 @@ export const GetLaunchProjectionResponse = zod.object({
   "negative": zod.number().int().optional(),
   "positivePoints": zod.number().int().optional(),
   "negativePoints": zod.number().int().optional(),
+  "positiveScorePoints": zod.number().optional(),
+  "negativeScorePoints": zod.number().optional(),
   "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
   "earnedPoints": zod.number().optional(),
   "earnedScorePoints": zod.number().optional(),

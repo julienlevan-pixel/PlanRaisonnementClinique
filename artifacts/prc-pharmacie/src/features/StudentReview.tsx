@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Btn } from "../app/ui";
 import "./student-review.css";
+import type { GradingSummary } from "./RubricEditor";
 
 export type DiagnosticComparison = {
   topDiagnosis?: boolean;
@@ -14,6 +15,9 @@ export type DiagnosticComparison = {
   studentTotal: number;
 };
 export type DiagnosticCorrection = {
+  diagnosisMaximum?: number;
+  clinicalMaximum?: number;
+  zeroByRubric?: boolean;
   topDiagnosis?: boolean;
   diagnosticId: string;
   label: string;
@@ -34,6 +38,8 @@ export type DiagnosticCorrection = {
     negative: number;
     positivePoints: number;
     negativePoints: number;
+    positiveScorePoints?: number;
+    negativeScorePoints?: number;
     studentSign?: "+" | "-" | null;
     earnedPoints?: number;
     earnedScorePoints?: number;
@@ -57,9 +63,44 @@ const number = (value: number | null | undefined) =>
 
 export function MaximumScoreGuide({
   scoringVersion,
+  grading,
 }: {
   scoringVersion?: string;
+  grading?: GradingSummary;
 }) {
+  if (scoringVersion === "custom-rubric-v1" && grading)
+    return (
+      <section
+        className="maximum-score-guide"
+        aria-label="Comprendre la note maximale du cas"
+      >
+        <div>
+          <span>NOTE MAXIMALE DU CAS</span>
+          <strong>{number(grading.maximum)} points</strong>
+        </div>
+        <p>
+          Impression principale : diagnostic sur{" "}
+          {number(grading.mainDiagnosisMaximum)} + données sur{" "}
+          {number(grading.clinicalMaximum)}. Impression alternative : diagnostic
+          sur {number(grading.alternativeDiagnosisMaximum)} + données sur{" "}
+          {number(grading.clinicalMaximum)}.
+        </p>
+        <p>
+          Retenez deux impressions distinctes et cinq données signées par
+          impression. Les points des données s’additionnent jusqu’au plafond
+          indiqué. Les valeurs sont celles du barème enregistré par le
+          professeur pour cette séance, proposé à partir des fréquences du panel
+          puis personnalisable.
+        </p>
+        {grading.attainableMaximum < grading.maximum && (
+          <small>
+            Avec les valeurs de ce barème, le meilleur score réalisable est{" "}
+            {number(grading.attainableMaximum)} / {number(grading.maximum)}.
+            Aucune remise à l’échelle automatique.
+          </small>
+        )}
+      </section>
+    );
   const topTwo = scoringVersion === "top-two-v1";
   return (
     <section
@@ -214,10 +255,13 @@ export function DiagnosticCorrectionTable({
           {correction.panelCount} expert(s) ont retenu ce diagnostic.
         </p>
       )}
-      {!correction.represented && (
+      {(correction.zeroByRubric ?? !correction.represented) && (
         <p className="review-zero">
-          Aucun clinicien du panel n’a retenu cette hypothèse : 0 point pour le
-          diagnostic et 0 point pour les données cliniques.
+          {correction.observations.some(
+            (row) => row.positiveScorePoints !== undefined,
+          )
+            ? "Cette hypothèse ne rapporte aucun point dans ce corrigé : 0 pour le diagnostic et 0 pour les données cliniques."
+            : "Aucun clinicien du panel n’a retenu cette hypothèse : 0 point pour le diagnostic et 0 point pour les données cliniques."}
         </p>
       )}
       <div
@@ -228,14 +272,13 @@ export function DiagnosticCorrectionTable({
       >
         <table className="review-table correction-table">
           <caption>
-            Toutes les données cliniques · points experts de 1 à 3, cumulés par
-            signe
+            Toutes les données cliniques · votes des experts et points par signe
           </caption>
           <thead>
             <tr>
               <th scope="col">Donnée clinique</th>
               {personal && <th scope="col">Votre réponse</th>}
-              <th scope="col">Corrigé des experts</th>
+              <th scope="col">Corrigé et barème</th>
               {personal && chosen && <th scope="col">Points obtenus</th>}
             </tr>
           </thead>
@@ -267,10 +310,20 @@ export function DiagnosticCorrectionTable({
                 <td>
                   <span className="review-positive">
                     + : {row.positive} réponse(s) · {row.positivePoints} pt
+                    experts
                   </span>
                   <span className="review-negative">
                     − : {row.negative} réponse(s) · {row.negativePoints} pt
+                    experts
                   </span>
+                  {row.positiveScorePoints !== undefined && (
+                    <small>
+                      <b>
+                        Barème : + {number(row.positiveScorePoints)} pt · −{" "}
+                        {number(row.negativeScorePoints)} pt
+                      </b>
+                    </small>
+                  )}
                 </td>
                 {personal && chosen && (
                   <td>
@@ -305,20 +358,37 @@ export function DiagnosticCorrectionTable({
       </div>
       {personal && chosen && (
         <footer className="hypothesis-score-detail">
-          <p>
-            Points concordants :{" "}
-            <b>
-              {number(correction.raw)} / {number(correction.ceiling)}
-            </b>{" "}
-            points de référence.
-          </p>
+          {correction.observations.some(
+            (row) => row.positiveScorePoints !== undefined,
+          ) ? (
+            <p>
+              Points des données avant plafonnement :{" "}
+              <b>{number(correction.raw)}</b> · plafond de cette impression :{" "}
+              <b>{correction.clinicalMaximum ?? 5}</b>.
+            </p>
+          ) : (
+            <p>
+              Points concordants :{" "}
+              <b>
+                {number(correction.raw)} / {number(correction.ceiling)}
+              </b>{" "}
+              points de référence.
+            </p>
+          )}
           <div>
             <span>
-              Diagnostic <b>{number(correction.diagnosisScore)} / 2</b>
+              Diagnostic{" "}
+              <b>
+                {number(correction.diagnosisScore)} /{" "}
+                {correction.diagnosisMaximum ?? 2}
+              </b>
             </span>
             <span>
               Données cliniques{" "}
-              <b>{number(correction.justificationScore)} / 8</b>
+              <b>
+                {number(correction.justificationScore)} /{" "}
+                {correction.clinicalMaximum ?? 8}
+              </b>
             </span>
             <strong>
               Total de cette hypothèse : {number(correction.score)} /{" "}

@@ -11,6 +11,11 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
   const owner = await newUser();
   const other = await newUser();
   const anonymous = new Session();
+  // Existing cohorts keep their former grading algorithm after this upgrade.
+  const asHistoricalTopTwo = async (launch: any) => {
+    await pool.query("UPDATE prc_private.launches SET case_snapshot=jsonb_set(case_snapshot #- '{studentWorkflow,rubric}','{studentWorkflow,scoringVersion}','\"top-two-v1\"'::jsonb) WHERE id=$1", [launch.id]);
+    return owner.session.call(`/launches/${launch.id}`);
+  };
   let prc: any;
   let panel: any;
   let expert: InstanceType<typeof Session>;
@@ -268,7 +273,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
   await t.test("guided synchronous discussion reveals only the chosen stage, compares counts and gives private partial scores", async () => {
     const item = await owner.session.call('/prcs', 'POST', { ...completeCase(), diagnostics: ['A', 'B', 'C', 'D', 'E'] }, 201);
     await createReference(owner.session, item, 2);
-    const launch = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'synchronous' }, 201);
+    const launch = await asHistoricalTopTwo(await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'synchronous' }, 201));
     assert.equal(launch.guidedReview, true);
     const a = new Session(), b = new Session(), unsent = new Session();
     for (const session of [a, b, unsent]) await session.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: 'Private student' });
@@ -333,7 +338,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const item = await owner.session.call('/prcs', 'POST', { ...completeCase(), diagnostics: ['A', 'B', 'C', 'D', 'E'] }, 201);
     await createReference(owner.session, item, 2);
     await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'invalid' }, 400);
-    const launch = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'asynchronous' }, 201);
+    const launch = await asHistoricalTopTwo(await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'asynchronous' }, 201));
     const a = new Session(), unsent = new Session();
     await a.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: 'Async student' });
     await unsent.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: 'Other student' });
@@ -378,7 +383,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await owner.session.call(`/launches/${panel.id}/close`, 'POST', {});
     await owner.session.call(`/launches/${panel.id}/reference/generate`, 'POST', { minimumPanelSize: 4 });
     await owner.session.call(`/launches/${panel.id}/reference/validate`, 'POST', {});
-    const launch = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'synchronous', scoringVersion: 'legacy' }, 201);
+    const launch = await asHistoricalTopTwo(await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'synchronous', scoringVersion: 'legacy' }, 201));
     assert.equal(launch.scoringVersion, 'top-two-v1');
     const people = [new Session(), new Session(), new Session(), new Session()];
     for (const [i, person] of people.entries()) await person.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: `Nom confidentiel ${i}`, code: launch.code });
@@ -427,13 +432,75 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
 
     // Simulate a group already created before this scoring version existed.
     const historical = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'asynchronous' }, 201);
-    await pool.query("UPDATE prc_private.launches SET case_snapshot=case_snapshot #- '{studentWorkflow,scoringVersion}' WHERE id=$1", [historical.id]);
+    await pool.query("UPDATE prc_private.launches SET case_snapshot=case_snapshot #- '{studentWorkflow,scoringVersion}' #- '{studentWorkflow,rubric}' WHERE id=$1", [historical.id]);
     const legacy = new Session();
     await legacy.call(`/launches/${historical.id}/join`, 'POST', { pseudonym: 'Ancienne règle', code: historical.code });
     await save(legacy, { ...answer(item), mainDiagnosticId: item.diagnostics[2].id });
     await legacy.call('/participant/submit', 'POST', {});
     assert.equal((await legacy.call('/participant/results')).score, 20);
     assert.equal((await people[1].call('/participant/results')).score, 18.67);
+  });
+
+  await t.test('professor-customized rubric defaults to 15, validates edits, freezes every cohort and never leaks answers before submission', async () => {
+    const item=await owner.session.call('/prcs','POST',{...completeCase(),diagnostics:['A','B','C','D']},201);
+    const panel=await owner.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},201);
+    for(let i=0;i<4;i++){
+      const expert=new Session();
+      await expert.call(`/launches/${panel.id}/join`,'POST',{pseudonym:`Expert barème ${i}`,code:panel.code});
+      await save(expert,{...answer(item),mainDiagnosticId:item.diagnostics[i===3?2:0].id});
+      await expert.call('/participant/submit','POST',{});
+    }
+    await owner.session.call(`/launches/${panel.id}/close`,'POST',{});
+    const generated=await owner.session.call(`/launches/${panel.id}/reference/generate`,'POST',{minimumPanelSize:4});
+    assert.deepEqual(generated.rubric.diagnostics.map((row:any)=>row.mainPoints),[1,3,1,0]);
+    assert.deepEqual(generated.rubric.diagnostics.map((row:any)=>row.alternativePoints),[2,2,2,0]);
+    await owner.session.call(`/launches/${panel.id}/reference/validate`,'POST',{});
+    // Older installations can lack both the rubric and the redundant case in the reference.
+    await pool.query("UPDATE prc_private.references SET snapshot=snapshot - 'rubric' - 'case' WHERE launch_id=$1",[panel.id]);
+    assert.deepEqual((await owner.session.call(`/launches/${panel.id}`)).reference.rubric,generated.rubric);
+    const before=(await pool.query('SELECT snapshot FROM prc_private.references WHERE launch_id=$1',[panel.id])).rows[0].snapshot;
+    const edited=structuredClone(generated.rubric);
+    edited.diagnostics[1].mainPoints=4;
+    edited.diagnostics[0].observations[0].positivePoints=.5;
+    await anonymous.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:1,rubric:edited},401);
+    await other.session.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:1,rubric:edited},404);
+    const invalid=structuredClone(edited);invalid.diagnostics[0].observations[0].positivePoints=-1;
+    await owner.session.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:1,rubric:invalid},400);
+    const stored=await owner.session.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:1,rubric:edited});
+    assert.equal(stored.status,'validated');assert.equal(stored.rubric.revision,2);
+    await owner.session.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:1,rubric:edited},409);
+    const after=(await pool.query('SELECT snapshot FROM prc_private.references WHERE launch_id=$1',[panel.id])).rows[0].snapshot;
+    for(const key of ['diagnostics','distributions','case','scoring'])assert.deepEqual(after[key],before[key]);
+    const launch=await owner.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'asynchronous'},201);
+    assert.equal(launch.scoringVersion,'custom-rubric-v1');assert.equal(launch.grading.maximum,16);assert.equal(launch.grading.attainableMaximum,16);
+    const first=new Session(),late=new Session();
+    for(const session of [first,late]){
+      const joined=await session.call(`/launches/${launch.id}/join`,'POST',{pseudonym:'Étudiant barème',code:launch.code});
+      assert.equal(JSON.stringify(joined.joinInfo).includes('positivePoints'),false);
+      assert.equal('rubric' in joined.joinInfo,false);
+    }
+    await first.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:2,rubric:edited},401);
+    const response={mainDiagnosticId:item.diagnostics[1].id,alternativeDiagnosticId:item.diagnostics[0].id,mainChoices:answer(item).alternativeChoices,alternativeChoices:answer(item).mainChoices};
+    await save(first,response);await first.call('/participant/submit','POST',{rubric:generated.rubric});
+    const result=await first.call('/participant/results');
+    assert.equal(result.score,15.5);assert.equal(result.case.grading.maximum,16);
+    assert.equal(result.studentReview.corrections[0].diagnosisScore,4);
+    const a=result.studentReview.corrections.find((row:any)=>row.diagnosticId===item.diagnostics[0].id);
+    assert.equal(a.justificationScore,4.5);assert.equal(a.observations[0].positiveScorePoints,.5);
+    const revised=structuredClone(stored.rubric);revised.diagnostics[1].mainPoints=5;revised.diagnostics[0].observations[0].positivePoints=1;
+    await owner.session.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:2,rubric:revised});
+    await save(late,response);await late.call('/participant/submit','POST',{});
+    assert.equal((await late.call('/participant/results')).score,15.5);
+    assert.equal((await first.call('/participant/results')).score,15.5);
+    const next=await owner.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'asynchronous'},201);
+    assert.equal(next.grading.maximum,17);assert.equal(next.grading.rubricRevision,3);
+    const newStudent=new Session();await newStudent.call(`/launches/${next.id}/join`,'POST',{pseudonym:'Nouveau groupe',code:next.code});
+    await save(newStudent,response);await newStudent.call('/participant/submit','POST',{});
+    assert.equal((await newStudent.call('/participant/results')).score,17);
+    await owner.session.call(`/launches/${launch.id}/close`,'POST',{});await owner.session.call(`/launches/${launch.id}/publish`,'POST',{});
+    assert.equal((await first.call('/participant/results')).gradeDistribution.maximum,16);
+    assert.equal((await first.call('/participant/results')).gradeDistribution.gradedCount,2);
+    assert.equal((await first.call('/participant/results')).gradeDistribution.average,15.5);
   });
 
   await t.test("drafts survive refresh and stale saves cannot overwrite a later revision", async () => {

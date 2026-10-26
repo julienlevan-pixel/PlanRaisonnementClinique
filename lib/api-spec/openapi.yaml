@@ -620,6 +620,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Reference"
+  /launches/{launchId}/reference/rubric:
+    put:
+      operationId: updateProfessorRubric
+      tags: [launches]
+      description: Modifie le barème proposé aux prochains groupes, même après validation clinique. Les groupes déjà ouverts conservent leur copie figée. Contrôle de version obligatoire.
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RubricUpdateInput" }
+      responses:
+        "200":
+          description: Barème enregistré pour les prochains groupes
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Reference" }
+        "400":
+          description: Barème invalide
+        "409":
+          description: Version obsolète ou corrigé non disponible
   /launches/{launchId}/reference/validate:
     post:
       operationId: validateReference
@@ -938,7 +963,8 @@ components:
         caseVersion: { type: integer }
         isTrial: { type: boolean }
         guidedReview: { type: boolean }
-        scoringVersion: { type: string, description: Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel, avec ex æquo. }
+        scoringVersion: { type: string, description: Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées. }
+        grading: { $ref: "#/components/schemas/GradingSummary" }
         deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         code: { type: string }
         status: { type: string }
@@ -991,6 +1017,7 @@ components:
             isTrial: { type: boolean }
             guidedReview: { type: boolean }
             scoringVersion: { type: string }
+            grading: { $ref: "#/components/schemas/GradingSummary" }
             deliveryMode: { type: string, enum: [synchronous, asynchronous] }
             requiredChoices: { type: [integer, "null"], minimum: 1, maximum: 5 }
           required: [launchId, role, status]
@@ -1103,6 +1130,8 @@ components:
         panelSize: { type: integer }
         explanation: { type: string }
         scoring: { $ref: "#/components/schemas/ScoringRule" }
+        rubric: { $ref: "#/components/schemas/ProfessorRubric" }
+        suggestedRubric: { $ref: "#/components/schemas/ProfessorRubric" }
         diagnostics: { type: array, items: { $ref: "#/components/schemas/DiagnosticCount" } }
         distributions: { type: array, items: { $ref: "#/components/schemas/DiagnosticDistribution" } }
       required: [status, minimumPanelSize, panelSize, explanation, scoring, diagnostics, distributions]
@@ -1144,7 +1173,7 @@ components:
         gradeDistribution: { $ref: "#/components/schemas/GradeDistribution", description: Bilan anonyme du groupe uniquement après publication finale par le professeur. }
         case: { $ref: "#/components/schemas/JoinInfo" }
         response: { $ref: "#/components/schemas/ParticipantResponse" }
-        score: { type: ["number", "null"], minimum: 0, maximum: 20, description: Note sur 20 ; null pour les experts, avant publication et pour une copie non soumise. }
+        score: { type: ["number", "null"], minimum: 0, maximum: 100, description: Note selon le barème figé de la séance, dont le maximum figure dans case.grading ; null pour les experts, avant publication et pour une copie non soumise. }
         percentage: { type: ["number", "null"], minimum: 0, maximum: 100 }
         components: { $ref: "#/components/schemas/VisibleScoreComponents" }
         role: { type: string, enum: [panel, students] }
@@ -1178,6 +1207,7 @@ components:
     PrcWorkflow:
       type: object
       properties:
+        rubricRevision: { type: integer }
         step: { type: string, enum: [prepare, panel, reference, students] }
         missing: { type: array, items: { type: string } }
         panelLaunchId: { type: ["string", "null"] }
@@ -1341,7 +1371,7 @@ components:
         role: { type: string }
         state: { type: string }
         submittedAt: { type: ["string", "null"], format: date-time }
-        score: { type: ["number", "null"], description: Note sur 20, null si aucune note. }
+        score: { type: ["number", "null"], description: Note selon le maximum du groupe, null si aucune note. }
         components:
           anyOf:
             - $ref: "#/components/schemas/VisibleScoreComponents"
@@ -1443,6 +1473,7 @@ components:
       properties:
         scoringVersion: { type: string }
         maximum: { type: number }
+        grading: { $ref: "#/components/schemas/GradingSummary" }
         deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         comparisonVisible: { type: boolean }
         comparison:
@@ -1476,6 +1507,9 @@ components:
               justificationScore: { type: [number, "null"] }
               raw: { type: [number, "null"] }
               maximum: { type: number }
+              diagnosisMaximum: { type: number }
+              clinicalMaximum: { type: number }
+              zeroByRubric: { type: boolean }
               ceiling: { type: number }
               observations:
                 type: array
@@ -1490,6 +1524,8 @@ components:
                     negative: { type: integer }
                     positivePoints: { type: integer }
                     negativePoints: { type: integer }
+                    positiveScorePoints: { type: number }
+                    negativeScorePoints: { type: number }
                     studentSign: { type: [string, "null"], enum: ["+", "-", null] }
                     earnedPoints: { type: number }
                     earnedScorePoints: { type: number }
@@ -1500,6 +1536,45 @@ components:
         explanation: { type: string }
       required: [deliveryMode, comparisonVisible, comparison, corrections]
 
+    GradingSummary:
+      type: object
+      properties:
+        maximum: { type: number }
+        attainableMaximum: { type: number }
+        mainDiagnosisMaximum: { type: number }
+        alternativeDiagnosisMaximum: { type: number }
+        clinicalMaximum: { type: number }
+        rubricRevision: { type: integer }
+      required: [maximum, attainableMaximum, mainDiagnosisMaximum, alternativeDiagnosisMaximum, clinicalMaximum]
+    RubricObservation:
+      type: object
+      properties:
+        observationId: { type: string }
+        positivePoints: { type: number, minimum: 0, maximum: 100 }
+        negativePoints: { type: number, minimum: 0, maximum: 100 }
+      required: [observationId, positivePoints, negativePoints]
+    RubricDiagnostic:
+      type: object
+      properties:
+        diagnosticId: { type: string }
+        mainPoints: { type: number, minimum: 0, maximum: 100 }
+        alternativePoints: { type: number, minimum: 0, maximum: 100 }
+        observations: { type: array, items: { $ref: "#/components/schemas/RubricObservation" } }
+      required: [diagnosticId, mainPoints, alternativePoints, observations]
+    ProfessorRubric:
+      type: object
+      properties:
+        version: { type: string }
+        revision: { type: integer, minimum: 1 }
+        clinicalMaximum: { type: number, minimum: 0, maximum: 100 }
+        diagnostics: { type: array, items: { $ref: "#/components/schemas/RubricDiagnostic" } }
+      required: [version, revision, clinicalMaximum, diagnostics]
+    RubricUpdateInput:
+      type: object
+      properties:
+        revision: { type: integer, minimum: 1 }
+        rubric: { $ref: "#/components/schemas/ProfessorRubric" }
+      required: [revision, rubric]
     GradeDistributionBin:
       type: object
       properties:

@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { GradingSummary } from './gradingSummary';
 import type { LaunchDeliveryMode } from './launchDeliveryMode';
 import type { LaunchRole } from './launchRole';
 
@@ -18,8 +19,9 @@ export interface Launch {
   caseVersion?: number;
   isTrial?: boolean;
   guidedReview?: boolean;
-  /** Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel */
+  /** Barème figé à la création du groupe. custom-rubric-v1 utilise le modèle personnalisé du professeur ; les versions antérieures restent conservées. */
   scoringVersion?: string;
+  grading?: GradingSummary;
   deliveryMode?: LaunchDeliveryMode;
   code: string;
   status: string;
