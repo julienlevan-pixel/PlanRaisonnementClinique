@@ -8,6 +8,11 @@
 import type { ObservationInput } from './observationInput';
 
 export interface PrcInput {
+  /**
+     * Version lue lors de l’ouverture du formulaire. Requise pour un PRC partagé ; HTTP 409 si une autre version a été enregistrée.
+     * @minimum 1
+     */
+  version?: number;
   /** @maxLength 160 */
   name: string;
   /** @maxLength 20000 */

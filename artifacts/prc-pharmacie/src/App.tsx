@@ -21,6 +21,9 @@ function Router() {
       <Route path="/login">
         <Login actions={actions} />
       </Route>
+      <Route path="/prcs">
+        <Home actions={actions} view="library" />
+      </Route>
       <Route path="/prc/:prcId">
         <PrcEditor actions={actions} />
       </Route>

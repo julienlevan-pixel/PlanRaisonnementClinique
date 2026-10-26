@@ -27,6 +27,8 @@ import type {
 import type {
   ArchiveInput,
   ArchiveResult,
+  CollaborationRemoved,
+  Collaborator,
   CurrentUser,
   DemoCase,
   DemoSetupResult,
@@ -55,6 +57,8 @@ import type {
   Prc,
   PrcDetail,
   PrcInput,
+  PrcSharing,
+  PrcSharingInput,
   Projection,
   Reference,
   ReferenceGenerateInput,
@@ -1326,6 +1330,263 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getArchivePrcMutationOptions(options), queryClient);
+    }
+
+export const getGetPrcSharingUrl = (prcId: string,) => {
+
+
+
+
+  return `/api/prcs/${prcId}/collaborators`
+}
+
+/**
+ * Liste des collaborateurs du même PRC ; accessible uniquement aux professeurs autorisés pour ce cas.
+ */
+export const getPrcSharing = async (prcId: string, options?: Parameters<typeof customFetch>[1]): Promise<PrcSharing> => {
+
+  return customFetch<PrcSharing>(getGetPrcSharingUrl(prcId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPrcSharingQueryKey = (prcId: string,) => {
+    return [
+    `/api/prcs/${prcId}/collaborators`
+    ] as const;
+    }
+
+
+export const getGetPrcSharingQueryOptions = <TData = Awaited<ReturnType<typeof getPrcSharing>>, TError = ErrorType<unknown>>(prcId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrcSharing>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPrcSharingQueryKey(prcId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPrcSharing>>> = ({ signal }) => getPrcSharing(prcId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: prcId !== null && prcId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPrcSharing>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetPrcSharingQueryResult = NonNullable<Awaited<ReturnType<typeof getPrcSharing>>>
+export type GetPrcSharingQueryError = ErrorType<unknown>
+
+
+export function useGetPrcSharing<TData = Awaited<ReturnType<typeof getPrcSharing>>, TError = ErrorType<unknown>>(
+ prcId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrcSharing>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPrcSharing>>,
+          TError,
+          Awaited<ReturnType<typeof getPrcSharing>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPrcSharing<TData = Awaited<ReturnType<typeof getPrcSharing>>, TError = ErrorType<unknown>>(
+ prcId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrcSharing>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getPrcSharing>>,
+          TError,
+          Awaited<ReturnType<typeof getPrcSharing>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetPrcSharing<TData = Awaited<ReturnType<typeof getPrcSharing>>, TError = ErrorType<unknown>>(
+ prcId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrcSharing>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetPrcSharing<TData = Awaited<ReturnType<typeof getPrcSharing>>, TError = ErrorType<unknown>>(
+ prcId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getPrcSharing>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetPrcSharingQueryOptions(prcId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSharePrcUrl = (prcId: string,) => {
+
+
+
+
+  return `/api/prcs/${prcId}/collaborators`
+}
+
+/**
+ * Ajoute ou modifie l’accès d’un compte PRC existant. Réservé au propriétaire ; aucune duplication du cas. La gestion des séances est facultative et désactivée par défaut.
+ */
+export const sharePrc = async (prcId: string,
+    prcSharingInput: PrcSharingInput, options?: Parameters<typeof customFetch>[1]): Promise<Collaborator> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Collaborator>(getSharePrcUrl(prcId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(prcSharingInput)
+  }
+);}
+
+
+
+
+
+export const getSharePrcMutationKey = () => ['sharePrc'] as const;
+
+export const getSharePrcMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sharePrc>>, TError,SharePrcMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sharePrc>>, TError,SharePrcMutationVariables, TContext> => {
+
+const mutationKey = getSharePrcMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sharePrc>>, SharePrcMutationVariables> = (props) => {
+          const {prcId,data} = props ?? {};
+
+          return  sharePrc(prcId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SharePrcMutationResult = NonNullable<Awaited<ReturnType<typeof sharePrc>>>
+    export type SharePrcMutationBody = BodyType<PrcSharingInput>
+    export type SharePrcMutationError = ErrorType<unknown>
+    export type SharePrcMutationVariables = {prcId: string;data: BodyType<PrcSharingInput>}
+
+    export const useSharePrc = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sharePrc>>, TError,SharePrcMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof sharePrc>>,
+        TError,
+        SharePrcMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSharePrcMutationOptions(options), queryClient);
+    }
+
+export const getRemovePrcCollaboratorUrl = (prcId: string,
+    userId: string,) => {
+
+
+
+
+  return `/api/prcs/${prcId}/collaborators/${userId}`
+}
+
+/**
+ * Retire l’accès au cas et à ses séances. Réservé au propriétaire ; conserve le contenu, les réponses et les versions.
+ */
+export const removePrcCollaborator = async (prcId: string,
+    userId: string, options?: Parameters<typeof customFetch>[1]): Promise<CollaborationRemoved> => {
+
+  return customFetch<CollaborationRemoved>(getRemovePrcCollaboratorUrl(prcId,userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getRemovePrcCollaboratorMutationKey = () => ['removePrcCollaborator'] as const;
+
+export const getRemovePrcCollaboratorMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePrcCollaborator>>, TError,RemovePrcCollaboratorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removePrcCollaborator>>, TError,RemovePrcCollaboratorMutationVariables, TContext> => {
+
+const mutationKey = getRemovePrcCollaboratorMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removePrcCollaborator>>, RemovePrcCollaboratorMutationVariables> = (props) => {
+          const {prcId,userId} = props ?? {};
+
+          return  removePrcCollaborator(prcId,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemovePrcCollaboratorMutationResult = NonNullable<Awaited<ReturnType<typeof removePrcCollaborator>>>
+
+    export type RemovePrcCollaboratorMutationError = ErrorType<unknown>
+    export type RemovePrcCollaboratorMutationVariables = {prcId: string;userId: string}
+
+    export const useRemovePrcCollaborator = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removePrcCollaborator>>, TError,RemovePrcCollaboratorMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removePrcCollaborator>>,
+        TError,
+        RemovePrcCollaboratorMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemovePrcCollaboratorMutationOptions(options), queryClient);
     }
 
 export const getCreateLaunchUrl = (prcId: string,) => {

@@ -48,3 +48,16 @@
 .clinical-category select:focus-visible, .clinical-row-text textarea:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .clinical-bulk-import { margin-top: 20px; }
 @media (max-width: 767px) { .editor-layout > .editor-rail { grid-column: auto; grid-row: 1; } }
+
+.workspace-library-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin: 22px 0;
+}
+.workspace-library-link p {
+  margin-top: 8px;
+  color: hsl(var(--muted-foreground));
+}

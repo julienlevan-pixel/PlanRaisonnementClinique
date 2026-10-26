@@ -12,5 +12,6 @@ export interface WorkspaceSummary {
   activeLaunchCount: number;
   participantCount: number;
   submissionCount: number;
+  activeLaunches?: Launch[];
   recentLaunches: Launch[];
 }

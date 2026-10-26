@@ -245,6 +245,62 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ArchiveResult" }
+  /prcs/{prcId}/collaborators:
+    get:
+      operationId: getPrcSharing
+      tags: [prcs]
+      description: Liste des collaborateurs du même PRC ; accessible uniquement aux professeurs autorisés pour ce cas.
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Propriétaire et collaborateurs
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrcSharing" }
+    post:
+      operationId: sharePrc
+      tags: [prcs]
+      description: Ajoute ou modifie l’accès d’un compte PRC existant. Réservé au propriétaire ; aucune duplication du cas. La gestion des séances est facultative et désactivée par défaut.
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrcSharingInput" }
+      responses:
+        "200":
+          description: Accès enregistré
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Collaborator" }
+  /prcs/{prcId}/collaborators/{userId}:
+    delete:
+      operationId: removePrcCollaborator
+      tags: [prcs]
+      description: Retire l’accès au cas et à ses séances. Réservé au propriétaire ; conserve le contenu, les réponses et les versions.
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Accès retiré
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollaborationRemoved" }
   /prcs/{prcId}/launches:
     post:
       operationId: createLaunch
@@ -760,6 +816,15 @@ components:
         launchCount: { type: integer }
         archived: { type: boolean }
         isDemo: { type: boolean }
+        ownerUsername: { type: string }
+        shared: { type: boolean }
+        permissions:
+          type: object
+          properties:
+            edit: { type: boolean }
+            share: { type: boolean }
+            archive: { type: boolean }
+            manageSessions: { type: boolean }
         workflow: { $ref: "#/components/schemas/PrcWorkflow" }
       required: [id, name, scenario, status, version, updatedAt, launchCount]
     PrcDetail:
@@ -775,6 +840,7 @@ components:
     PrcInput:
       type: object
       properties:
+        version: { type: integer, minimum: 1, description: Version lue lors de l’ouverture du formulaire. Requise pour un PRC partagé ; HTTP 409 si une autre version a été enregistrée. }
         name: { type: string, maxLength: 160 }
         scenario: { type: string, maxLength: 20000 }
         instructions: { type: string, maxLength: 5000 }
@@ -991,6 +1057,9 @@ components:
         activeLaunchCount: { type: integer }
         participantCount: { type: integer }
         submissionCount: { type: integer }
+        activeLaunches:
+          type: array
+          items: { $ref: "#/components/schemas/Launch" }
         recentLaunches:
           type: array
           items: { $ref: "#/components/schemas/Launch" }
@@ -1345,3 +1414,35 @@ components:
         activeDiagnosticId: { type: [string, "null"] }
         explanation: { type: string }
       required: [deliveryMode, comparisonVisible, comparison, corrections]
+
+    PrcSharingInput:
+      type: object
+      properties:
+        username: { type: string, minLength: 1, maxLength: 80 }
+        manageSessions: { type: boolean, default: false }
+      required: [username]
+    Collaborator:
+      type: object
+      properties:
+        id: { type: string }
+        username: { type: string }
+        active: { type: boolean }
+        manageSessions: { type: boolean }
+      required: [id, username, manageSessions]
+    PrcSharing:
+      type: object
+      properties:
+        owner:
+          type: object
+          properties:
+            id: { type: string }
+            username: { type: string }
+          required: [id, username]
+        canShare: { type: boolean }
+        collaborators: { type: array, items: { $ref: "#/components/schemas/Collaborator" } }
+      required: [owner, canShare, collaborators]
+    CollaborationRemoved:
+      type: object
+      properties:
+        removed: { type: boolean }
+      required: [removed]
