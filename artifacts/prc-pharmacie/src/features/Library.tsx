@@ -258,7 +258,7 @@ export function Home({
                 <br />
                 Interpréter.
                 <br />
-                <em>Décider.</em>
+                <em>Justifier.</em>
               </p>
               <p className="reasoning-description">
                 Un espace de travail pour enseigner
@@ -270,9 +270,10 @@ export function Home({
               <div className="eyebrow">FACULTÉ DE PHARMACIE</div>
               <h1>Plan de raisonnement clinique (PRC)</h1>
               <p className="public-prc-description">
-                Un même cas, deux hypothèses et les données qui permettent de
-                les discuter. Préparez le cas, recueillez le panel et
-                accompagnez le raisonnement des étudiants.
+                Une application pour enseigner le raisonnement clinique en
+                pharmacie. Créez des cas, recueillez l’avis d’experts et aidez
+                les étudiants à justifier leurs hypothèses grâce aux données
+                cliniques.
               </p>
               <form className="public-join" onSubmit={join}>
                 <label htmlFor="public-code">Rejoindre une activité</label>
