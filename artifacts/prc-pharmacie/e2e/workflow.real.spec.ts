@@ -131,16 +131,18 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
     });
     await test.step('teacher closes, reveals each saved stage, and publishes the private score', async () => {
       await teacher.reload();
-      await confirmClick(teacher, 'Fermer la collecte');
-      for (const stage of ['mainDiagnostic', 'mainArguments', 'alternativeDiagnostic', 'alternativeArguments', 'reference']) {
-        await teacher.getByTestId(`toggle-reveal-${stage}`).click();
-        await expect(teacher.getByTestId(`toggle-reveal-${stage}`)).toBeChecked();
+      await confirmClick(teacher, 'Terminer le temps de réponse');
+      await teacher.getByRole('button', { name: 'Afficher la comparaison des hypothèses', exact: true }).click();
+      await expect(student.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toBeVisible({ timeout: 12000 });
+      for (const label of ['Hypothèse navigateur A', 'Hypothèse navigateur B']) {
+        await teacher.getByRole('button', { name: `Afficher le corrigé : ${label}`, exact: true }).click();
+        await expect(student.getByRole('article', { name: `Corrigé ${label}`, exact: true })).toBeVisible({ timeout: 12000 });
       }
       await teacher.reload();
-      for (const stage of ['mainDiagnostic', 'mainArguments', 'alternativeDiagnostic', 'alternativeArguments', 'reference']) await expect(teacher.getByTestId(`toggle-reveal-${stage}`)).toBeChecked();
+      await expect(teacher.getByText('2 / 2 corrigé(s) révélé(s).', { exact: false })).toBeVisible();
       await student.reload();
       await expect(student.getByRole('heading', { name: 'Votre résultat', exact: true })).not.toBeVisible();
-      await expect(student.getByRole('heading', { name: 'Référence du panel révélée', exact: true })).toBeVisible();
+      await expect(student.getByRole('region', { name: 'Votre correction guidée', exact: true })).toBeVisible();
       await teacher.getByRole('button', { name: 'Publier les résultats', exact: true }).click();
       await expect(teacher.getByRole('button', { name: 'Résultats publiés', exact: true })).toBeDisabled();
       await student.reload();
@@ -154,6 +156,24 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       expect(own).not.toHaveProperty('participants');
       expect(own).not.toHaveProperty('password_hash');
       expect((await student.request.get('/api/teachers')).status()).toBe(401);
+    });
+    await test.step('asynchronous student sees a private correction immediately while the group stays open', async () => {
+      await teacher.goto(prcPath);
+      await teacher.getByLabel('Modalité du groupe étudiant', { exact: true }).selectOption('asynchronous');
+      await teacher.getByRole('button', { name: 'Lancer avec les étudiants', exact: true }).click();
+      await expect(teacher).toHaveURL(/\/activity\/[0-9a-f-]+$/);
+      const link = teacher.locator('.access-card a');
+      await expect(link).toBeVisible();
+      const asyncStudent = await page();
+      await asyncStudent.goto((await link.getAttribute('href'))!);
+      await answerAndSubmit(asyncStudent, 'Étudiant asynchrone fictif');
+      await expect(asyncStudent.getByRole('heading', { name: 'Votre résultat', exact: true })).toBeVisible();
+      await expect(asyncStudent.locator('.diagnostic-correction')).toHaveCount(2);
+      await expect(asyncStudent.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toHaveCount(0);
+      const result = await (await asyncStudent.request.get('/api/participant/results')).json();
+      expect(result.status).toBe('open');
+      expect(result.score).toBe(20);
+      expect(result.class).toEqual({});
     });
   } finally { await Promise.all(contexts.map(context => context.close())); }
 });

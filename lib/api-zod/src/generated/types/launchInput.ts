@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { LaunchInputDeliveryMode } from './launchInputDeliveryMode';
 import type { LaunchInputRole } from './launchInputRole';
 
 export interface LaunchInput {
@@ -16,4 +17,6 @@ export interface LaunchInput {
      */
   name?: string;
   isTrial?: boolean;
+  /** Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété */
+  deliveryMode?: LaunchInputDeliveryMode;
 }

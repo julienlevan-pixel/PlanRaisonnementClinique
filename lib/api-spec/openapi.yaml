@@ -283,6 +283,28 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LaunchDetail"
+  /launches/{launchId}/discussion:
+    post:
+      operationId: advanceDiscussion
+      description: Révèle la comparaison puis un corrigé par diagnostic. Réservé au propriétaire d’une séance synchrone fermée. Les étapes concurrentes sont sérialisées et les corrigés révélés sont conservés.
+      tags: [launches]
+      parameters:
+        - in: path
+          name: launchId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DiscussionInput"
+      responses:
+        "200":
+          description: Étape enregistrée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Launch" }
   /launches/{launchId}/invitations:
     post:
       operationId: createInvitation
@@ -549,9 +571,11 @@ paths:
       description: >-
         Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel
         contient immédiatement les agrégats anonymes du panel, même pendant la collecte.
-        Les autres agrégats suivent les étapes de révélation après fermeture. Le score privé
-        n’apparaît qu’après publication étudiante. Un brouillon reste non soumis
-        avec score et pourcentage nuls ; les experts ne sont jamais notés.
+        studentReview suit les étapes révélées en synchrone, avec des sous-totaux personnels
+        uniquement pour les diagnostics corrigés ; la note globale attend la publication.
+        En asynchrone, la copie soumise reçoit immédiatement ses deux corrections et sa note,
+        sans résultats des autres étudiants. Un brouillon reste non soumis, sans note ;
+        les experts ne sont jamais notés. Les anciens groupes conservent leurs étapes historiques.
       security:
         - participantSession: []
       tags: [participants]
@@ -793,6 +817,8 @@ components:
         prcName: { type: string }
         caseVersion: { type: integer }
         isTrial: { type: boolean }
+        guidedReview: { type: boolean }
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         code: { type: string }
         status: { type: string }
         createdAt: { type: string, format: date-time }
@@ -818,6 +844,7 @@ components:
         role: { type: string, enum: [panel, students] }
         name: { type: string, maxLength: 160, deprecated: true, description: Compatibilité historique ; le serveur utilise le nom du PRC. }
         isTrial: { type: boolean, default: false }
+        deliveryMode: { type: string, enum: [synchronous, asynchronous], description: Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété, conserve le fonctionnement historique des anciens clients. }
       required: [role]
     InvitationInput:
       type: object
@@ -841,6 +868,9 @@ components:
             role: { type: string }
             status: { type: string }
             isTrial: { type: boolean }
+            guidedReview: { type: boolean }
+            deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+            requiredChoices: { type: [integer, "null"], minimum: 1, maximum: 5 }
           required: [launchId, role, status]
     JoinInput:
       type: object
@@ -911,6 +941,9 @@ components:
         alternativeDiagnostic: { type: boolean }
         alternativeArguments: { type: boolean }
         reference: { type: boolean }
+        diagnosticComparison: { type: boolean }
+        correctedDiagnosticIds: { type: array, items: { type: string } }
+        activeDiagnosticId: { type: string }
         mainDiagnosticTopOnly: { type: boolean, description: Affiche uniquement les principales les plus fréquentes en conservant les égalités. }
       required: [mainDiagnostic, mainArguments, alternativeDiagnostic, alternativeArguments, reference]
     RevealInput:
@@ -973,11 +1006,15 @@ components:
         reveals: { $ref: "#/components/schemas/RevealState" }
         class: { $ref: "#/components/schemas/VisibleAggregate" }
         panel: { $ref: "#/components/schemas/VisibleAggregate" }
+        discussion: { $ref: "#/components/schemas/StudentReview" }
       required: [launch, participants, submittedCount, participantCount]
     ParticipantResults:
       type: object
       properties:
         published: { type: boolean }
+        guidedReview: { type: boolean }
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+        studentReview: { $ref: "#/components/schemas/StudentReview" }
         case: { $ref: "#/components/schemas/JoinInfo" }
         response: { $ref: "#/components/schemas/ParticipantResponse" }
         score: { type: ["number", "null"], minimum: 0, maximum: 20, description: Note sur 20 ; null pour les experts, avant publication et pour une copie non soumise. }
@@ -1054,6 +1091,8 @@ components:
         role: { type: string, enum: [panel, students] }
         reveals: { $ref: "#/components/schemas/RevealState" }
         published: { type: boolean }
+        guidedReview: { type: boolean }
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         responseState: { type: string }
         revision: { type: integer, minimum: 0 }
         updatedAt: { type: ["string", "null"], format: date-time }
@@ -1173,6 +1212,7 @@ components:
               properties:
                 reveals: { $ref: "#/components/schemas/RevealState" }
         case: { $ref: "#/components/schemas/CaseSnapshot" }
+        discussion: { $ref: "#/components/schemas/StudentReview" }
         role: { type: string }
         status: { type: string }
         reveals: { $ref: "#/components/schemas/RevealState" }
@@ -1243,3 +1283,65 @@ components:
           type: integer
           minimum: 0
           description: Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.
+
+    DiscussionInput:
+      type: object
+      properties:
+        action: { type: string, enum: [comparison, diagnostic] }
+        diagnosticId: { type: string }
+      required: [action]
+    StudentReview:
+      type: object
+      description: Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
+      properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+        comparisonVisible: { type: boolean }
+        comparison:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              diagnosticId: { type: string }
+              label: { type: string }
+              panelCount: { type: integer }
+              panelTotal: { type: integer }
+              panelPercent: { type: number }
+              studentCount: { type: integer }
+              studentTotal: { type: integer }
+              studentPercent: { type: number }
+        corrections:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              diagnosticId: { type: string }
+              label: { type: string }
+              panelCount: { type: integer }
+              represented: { type: boolean }
+              selectedRole: { type: [string, "null"], enum: [main, alternative, null] }
+              score: { type: [number, "null"] }
+              diagnosisScore: { type: [number, "null"] }
+              justificationScore: { type: [number, "null"] }
+              raw: { type: [number, "null"] }
+              maximum: { type: number }
+              ceiling: { type: number }
+              observations:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+                  properties:
+                    observationId: { type: string }
+                    label: { type: string }
+                    category: { type: string }
+                    positive: { type: integer }
+                    negative: { type: integer }
+                    positivePoints: { type: integer }
+                    negativePoints: { type: integer }
+                    studentSign: { type: [string, "null"], enum: ["+", "-", null] }
+                    earnedPoints: { type: number }
+        activeDiagnosticId: { type: [string, "null"] }
+        explanation: { type: string }
+      required: [deliveryMode, comparisonVisible, comparison, corrections]

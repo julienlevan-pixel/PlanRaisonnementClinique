@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { LaunchDeliveryMode } from './launchDeliveryMode';
 import type { LaunchRole } from './launchRole';
 
 export interface Launch {
@@ -16,6 +17,8 @@ export interface Launch {
   prcName?: string;
   caseVersion?: number;
   isTrial?: boolean;
+  guidedReview?: boolean;
+  deliveryMode?: LaunchDeliveryMode;
   code: string;
   status: string;
   createdAt: Date;

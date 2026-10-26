@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { ParticipantActivityStateDeliveryMode } from './participantActivityStateDeliveryMode';
 import type { ParticipantActivityStateRole } from './participantActivityStateRole';
 import type { RevealState } from './revealState';
 
@@ -13,6 +14,8 @@ export interface ParticipantActivityState {
   role: ParticipantActivityStateRole;
   reveals: RevealState;
   published: boolean;
+  guidedReview?: boolean;
+  deliveryMode?: ParticipantActivityStateDeliveryMode;
   responseState: string;
   /** @minimum 0 */
   revision: number;

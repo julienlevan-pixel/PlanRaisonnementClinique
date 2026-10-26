@@ -7,14 +7,19 @@
  */
 import type { JoinInfo } from './joinInfo';
 import type { ParticipantResponse } from './participantResponse';
+import type { ParticipantResultsDeliveryMode } from './participantResultsDeliveryMode';
 import type { ParticipantResultsRole } from './participantResultsRole';
 import type { RevealState } from './revealState';
+import type { StudentReview } from './studentReview';
 import type { VisibleAggregate } from './visibleAggregate';
 import type { VisibleReference } from './visibleReference';
 import type { VisibleScoreComponents } from './visibleScoreComponents';
 
 export interface ParticipantResults {
   published: boolean;
+  guidedReview?: boolean;
+  deliveryMode?: ParticipantResultsDeliveryMode;
+  studentReview?: StudentReview;
   case: JoinInfo;
   response: ParticipantResponse;
   /**

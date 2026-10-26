@@ -21,10 +21,14 @@ import type { AppActions } from "../app/actions";
 import { Btn, Input, Loading, ErrorBox } from "../app/ui";
 import { getError } from "../app/utils";
 import { api } from "../app/api";
+import { StudentReview, type StudentReviewData } from "./StudentReview";
 import "./participant.css";
 
 type Role = "main" | "alternative";
 type CaseData = {
+  guidedReview?: boolean;
+  deliveryMode?: "synchronous" | "asynchronous";
+  requiredChoices?: number | null;
   launchId: string;
   name: string;
   scenario: string;
@@ -50,7 +54,7 @@ type ResponseEnvelope = { response: SavedResponse; joinInfo: CaseData };
 type ActivityState = {
   status: string;
   role: "panel" | "students";
-  reveals: Record<string, boolean>;
+  reveals: Record<string, any>;
   published: boolean;
   responseState: string;
   revision: number;
@@ -80,6 +84,9 @@ type Aggregate = {
   reference?: { explanation?: string; scoring?: Record<string, any> } | null;
 };
 type ParticipantResult = {
+  guidedReview?: boolean;
+  deliveryMode?: "synchronous" | "asynchronous";
+  studentReview?: StudentReviewData;
   published: boolean;
   case: CaseData;
   response: SavedResponse;
@@ -243,6 +250,14 @@ export function Join({ actions }: { actions: AppActions }) {
               reprendre ensuite votre copie, utilisez ce même navigateur ; le
               pseudonyme seul ne donne pas accès à une copie.
             </p>
+            {info.data.guidedReview && (
+              <p className="participant-notice">
+                Deux hypothèses distinctes, cinq données cliniques pour chacune.{" "}
+                {info.data.deliveryMode === "asynchronous"
+                  ? "Votre corrigé personnel sera disponible dès la soumission."
+                  : "Le professeur guidera la correction après la fin du temps de réponse."}
+              </p>
+            )}
             {error && (
               <div className="form-error" role="alert">
                 {error}
@@ -559,11 +574,12 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     ] as const) {
       if (
         choices.length < 1 ||
-        (joinInfo.role === "panel" && choices.length !== 5)
+        ((joinInfo.role === "panel" || joinInfo.requiredChoices === 5) &&
+          choices.length !== 5)
       )
         missing.push({
           message:
-            joinInfo.role === "panel"
+            joinInfo.role === "panel" || joinInfo.requiredChoices === 5
               ? `Sélectionnez exactement cinq observations signées pour l’hypothèse ${name}.`
               : `Sélectionnez au moins une observation signée pour l’hypothèse ${name}.`,
           target: `participant-${role}-counter`,
@@ -770,7 +786,9 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         <p className="body-copy">
           {joinInfo.role === "panel"
             ? "Choisissez exactement cinq données par hypothèse et attribuez à chacune de 1 à 3 points : 1 = peu discriminante, 2 = modérément discriminante, 3 = très discriminante."
-            : "Choisissez de une à cinq données par hypothèse."}{" "}
+            : joinInfo.requiredChoices === 5
+              ? "Choisissez exactement cinq données par hypothèse."
+              : "Choisissez de une à cinq données par hypothèse."}{" "}
           Une même donnée peut soutenir une hypothèse et affaiblir l’autre.
           Cliquez à nouveau sur un signe retenu pour retirer ce choix.
         </p>
@@ -1125,7 +1143,12 @@ export function ParticipantResults() {
       online &&
       visible &&
       waiting,
-    refetchInterval: online && visible && waiting ? 15000 : false,
+    refetchInterval:
+      online && visible && waiting
+        ? results.data?.guidedReview
+          ? 5000
+          : 15000
+        : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
   });
@@ -1169,6 +1192,14 @@ export function ParticipantResults() {
     submitted = data.response.state === "submitted";
   const published =
     role === "students" && data.published && submitted && data.score !== null;
+  const ownCopy = (["main", "alternative"] as const).map((copyRole) => (
+    <OwnHypothesis
+      key={copyRole}
+      role={copyRole}
+      data={data}
+      corrected={published && !data.guidedReview}
+    />
+  ));
   return (
     <div className="participant-layout">
       <ParticipantTop label="Restitution privée" />
@@ -1245,28 +1276,41 @@ export function ParticipantResults() {
           </p>
         ) : null}
         <section className="participant-own-copy">
-          <h2>
-            {submitted
-              ? "Votre réponse définitive"
-              : "Votre brouillon enregistré"}
-          </h2>
-          {(["main", "alternative"] as const).map((copyRole) => (
-            <OwnHypothesis
-              key={copyRole}
-              role={copyRole}
-              data={data}
-              corrected={published}
-            />
-          ))}
+          {data.guidedReview && submitted ? (
+            <details>
+              <summary>
+                Revoir mes deux hypothèses et mes données choisies
+              </summary>
+              {ownCopy}
+            </details>
+          ) : (
+            <>
+              <h2>
+                {submitted
+                  ? "Votre réponse définitive"
+                  : "Votre brouillon enregistré"}
+              </h2>
+              {ownCopy}
+            </>
+          )}
         </section>
+        {data.guidedReview && role === "students" && (
+          <StudentReview
+            review={data.studentReview}
+            submitted={submitted}
+            deliveryMode={data.deliveryMode}
+          />
+        )}
         {role === "panel" && submitted && data.expertPanel && (
           <ExpertComparison data={data} panel={data.expertPanel} />
         )}
-        <AggregateSummary
-          title="Référence du panel révélée"
-          data={data.panel}
-        />
-        {data.class && (
+        {!data.guidedReview && (
+          <AggregateSummary
+            title="Référence du panel révélée"
+            data={data.panel}
+          />
+        )}
+        {!data.guidedReview && data.class && (
           <AggregateSummary
             title="Résultats collectifs révélés"
             data={data.class}

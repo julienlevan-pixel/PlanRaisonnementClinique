@@ -9,6 +9,7 @@ import { Area, AuthenticatedPage, Btn, ErrorBox, Input, Loading, SectionTitle } 
 import { dateLabel, getError } from '../app/utils';
 import { CasePreview } from './CasePreview';
 import { ObservationMatrix } from './Participant';
+import './student-review.css';
 import { clinicalDataCategories, workflowLabel, type Observation, type PrcDetail } from './library-model';
 import './library-editor.css';
 
@@ -33,6 +34,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
   const [bulk, setBulk] = useState('');
   const [history, setHistory] = useState<UndoEntry[]>([]);
   const [preview, setPreview] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState<'synchronous' | 'asynchronous'>('synchronous');
   const [trial, setTrial] = useState<{ invitationUrl: string; code: string; launch: { id: string } } | null>(null);
   const loaded = useRef<string | null>(null);
   const pendingObservationFocus = useRef<string | null>(null);
@@ -112,7 +114,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
         const result = await api<{ invitationUrl: string; code: string; launch: { id: string } }>(`/api/prcs/${document.id}/trial`, 'POST', {});
         setTrial(result); cache.invalidateQueries({ queryKey: ['editor', document.id] });
       } else {
-        const result = await api<{ id: string }>(`/api/prcs/${document.id}/launches`, 'POST', { role });
+        const result = await api<{ id: string }>(`/api/prcs/${document.id}/launches`, 'POST', { role, ...(role === 'students' ? { deliveryMode } : {}) });
         navigate(`/activity/${result.id}`);
       }
     } catch (cause) { setError(getError(cause)); }
@@ -181,7 +183,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
         </details>
       </section>
       <div className="editor-actions"><Btn type="submit" disabled={saving || busy || !dirty && !isNew}><Save size={15} /> Enregistrer le brouillon</Btn><small>L’annulation agit sur le brouillon local ; les anciennes copies restent figées.</small></div>
-    </fieldset><aside className="editor-rail"><div className="rail-card"><div className="eyebrow">PROCHAINE ÉTAPE</div><h3>{query.data?.archived ? 'PRC archivé' : workflowLabel(step)}</h3>{query.data?.archived ? <p>Restaurez ce PRC depuis les archives de la bibliothèque pour lancer une nouvelle activité.</p> : <>{missing.length ? <ul className="editor-missing">{missing.map(item => <li key={item.id}><button type="button" onClick={() => focus(item.id)}>{item.text} <ArrowRight size={13} /></button></li>)}</ul> : <p>{dirty ? 'Les modifications seront enregistrées avant le lancement. Une modification clinique crée une nouvelle version.' : step === 'students' ? 'Le corrigé de cette version est validé. Chaque nouveau groupe sera indépendant.' : step === 'reference' ? 'Consultez les distributions du panel puis validez votre référence.' : 'Le questionnaire est prêt pour le panel.'}</p>}<Btn disabled={saving || busy} onClick={next}>{dirty && step !== 'prepare' ? 'Enregistrer puis continuer' : workflowLabel(step)} <ArrowRight size={15} /></Btn><Btn kind="outline" disabled={saving || busy || missing.length > 0} onClick={() => launch('trial')}><FlaskConical size={16} /> Tester comme participant</Btn></>}</div><div className="rail-card muted-rail"><BookOpen size={18} /><b>Versions et corrigés conservés</b><span>Modifier le cas ne modifie jamais le questionnaire d’un lancement existant. Un nouveau contenu clinique nécessite un nouveau panel.</span></div></aside></form>
+    </fieldset><aside className="editor-rail"><div className="rail-card"><div className="eyebrow">PROCHAINE ÉTAPE</div><h3>{query.data?.archived ? 'PRC archivé' : workflowLabel(step)}</h3>{query.data?.archived ? <p>Restaurez ce PRC depuis les archives de la bibliothèque pour lancer une nouvelle activité.</p> : <>{missing.length ? <ul className="editor-missing">{missing.map(item => <li key={item.id}><button type="button" onClick={() => focus(item.id)}>{item.text} <ArrowRight size={13} /></button></li>)}</ul> : <p>{dirty ? 'Les modifications seront enregistrées avant le lancement. Une modification clinique crée une nouvelle version.' : step === 'students' ? 'Le corrigé de cette version est validé. Chaque nouveau groupe sera indépendant.' : step === 'reference' ? 'Consultez les distributions du panel puis validez votre référence.' : 'Le questionnaire est prêt pour le panel.'}</p>}{step === 'students' && <label className="student-delivery"><span>Modalité du groupe étudiant</span><select aria-label="Modalité du groupe étudiant" value={deliveryMode} disabled={saving || busy} onChange={event => setDeliveryMode(event.target.value as 'synchronous' | 'asynchronous')}><option value="synchronous">Synchrone · correction guidée en séance</option><option value="asynchronous">Asynchrone · corrigé dès la soumission</option></select><small>{deliveryMode === 'synchronous' ? 'Vous terminez le temps de réponse, puis révélez la comparaison et les hypothèses une à une.' : 'Chaque étudiant voit uniquement ses réponses face au corrigé expert et sa note, dès sa soumission.'}</small></label>}<Btn disabled={saving || busy} onClick={next}>{dirty && step !== 'prepare' ? 'Enregistrer puis continuer' : workflowLabel(step)} <ArrowRight size={15} /></Btn><Btn kind="outline" disabled={saving || busy || missing.length > 0} onClick={() => launch('trial')}><FlaskConical size={16} /> Tester comme participant</Btn></>}</div><div className="rail-card muted-rail"><BookOpen size={18} /><b>Versions et corrigés conservés</b><span>Modifier le cas ne modifie jamais le questionnaire d’un lancement existant. Un nouveau contenu clinique nécessite un nouveau panel.</span></div></aside></form>
     {!isNew && <section className="panel-card editor-history" id="history"><div className="eyebrow">HISTORIQUE CONSERVÉ</div><h2>Lancements de ce PRC</h2>{query.data?.launches?.length ? <div className="history-list">{query.data.launches.map(launch => <Link href={`/activity/${launch.id}`} key={launch.id}><span><b>{launch.name || form.name}</b><small>{launch.isTrial ? 'Essai isolé' : launch.role === 'panel' ? 'Panel' : 'Groupe étudiant'} · {dateLabel(launch.createdAt)} · Version {launch.caseVersion || '—'}</small></span><span>{launch.submissionCount}/{launch.participantCount} copies · {launch.status}</span><ArrowRight size={16} /></Link>)}</div> : <p>Aucun lancement. Les futures activités et leurs résultats resteront accessibles ici.</p>}</section>}
   </AuthenticatedPage>;
 }

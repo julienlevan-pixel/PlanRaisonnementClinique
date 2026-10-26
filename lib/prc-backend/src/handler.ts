@@ -27,9 +27,11 @@ import {
 import { demoCase } from "./demo-case.js";
 import { ensureTeacherDemo, DemoSetupError } from "./demo.js";
 import { deploymentDatabaseError } from "./deployment.js";
+import { buildStudentReview, type DeliveryMode } from "./student-review.js";
 
 type JsonRecord = Record<string, unknown>;
 type CaseData = {
+  studentWorkflow?: { deliveryMode: DeliveryMode; requiredChoices: 5 };
   name: string;
   scenario: string;
   instructions: string;
@@ -60,6 +62,9 @@ type LaunchRow = {
   aggregate_snapshot: PanelSnapshot | null;
 };
 type RevealState = {
+  diagnosticComparison?: boolean;
+  correctedDiagnosticIds?: string[];
+  activeDiagnosticId?: string;
   mainDiagnostic: boolean;
   mainArguments: boolean;
   alternativeDiagnostic: boolean;
@@ -255,6 +260,9 @@ function mapLaunch(
     prcName: row.case_snapshot.name,
     caseVersion: row.case_version,
     isTrial: row.is_trial ?? false,
+    guidedReview: !!row.case_snapshot.studentWorkflow,
+    deliveryMode:
+      row.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
     code: row.code,
     status: row.status,
     createdAt: row.created_at,
@@ -604,6 +612,11 @@ function caseForJoin(launch: LaunchRow) {
     role: launch.role,
     name: launch.case_snapshot.name,
     isTrial: launch.is_trial ?? false,
+    guidedReview: !!launch.case_snapshot.studentWorkflow,
+    deliveryMode:
+      launch.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
+    requiredChoices:
+      launch.case_snapshot.studentWorkflow?.requiredChoices ?? null,
     status: launch.status,
     scenario: launch.case_snapshot.scenario,
     instructions: launch.case_snapshot.instructions,
@@ -757,6 +770,58 @@ async function visibleAggregates(launch: LaunchRow, all = false) {
   };
 }
 
+async function studentDiscussion(
+  launch: LaunchRow,
+  response?: ParticipantResponseData,
+  all = false,
+) {
+  const workflow = launch.case_snapshot.studentWorkflow;
+  if (!workflow) return undefined;
+  const asynchronous = workflow.deliveryMode === "asynchronous";
+  const submitted = response?.state === "submitted";
+  if (
+    (!all && asynchronous && !submitted) ||
+    (!all && !asynchronous && launch.status === "open")
+  )
+    return undefined;
+  const reference = await launchReference(launch);
+  if (!reference || reference.status !== "validated")
+    fail(409, "Le corrigé validé est introuvable.");
+  const comparisonVisible =
+    !asynchronous &&
+    (all ||
+      launch.status === "published" ||
+      !!launch.reveals.diagnosticComparison);
+  const diagnosticIds =
+    asynchronous && !all
+      ? [response!.mainDiagnosticId, response!.alternativeDiagnosticId].filter(
+          (id): id is string => !!id,
+        )
+      : all || launch.status === "published"
+        ? launch.case_snapshot.diagnostics.map((row) => row.id)
+        : (launch.reveals.correctedDiagnosticIds ?? []);
+  return {
+    ...buildStudentReview({
+      mode: workflow.deliveryMode,
+      caseData: launch.case_snapshot,
+      panel: reference.snapshot as PanelSnapshot,
+      ...(comparisonVisible
+        ? { classroom: await getPanelSnapshot(launch, 1) }
+        : {}),
+      comparisonVisible,
+      diagnosticIds,
+      activeDiagnosticId: launch.reveals.activeDiagnosticId,
+      ...(submitted ? { response } : {}),
+    }),
+    ...(all ||
+    asynchronous ||
+    launch.status === "published" ||
+    launch.reveals.reference
+      ? { explanation: reference.explanation }
+      : {}),
+  };
+}
+
 async function createLaunch(
   request: Request,
   prcId: string,
@@ -783,6 +848,20 @@ async function createLaunch(
     diagnostics: prc.diagnostics,
     observations: prc.observations,
   };
+  if (input.deliveryMode !== undefined) {
+    if (
+      role !== "students" ||
+      !["synchronous", "asynchronous"].includes(String(input.deliveryMode))
+    )
+      fail(
+        400,
+        "Choisissez une modalité synchrone ou asynchrone pour le groupe étudiant.",
+      );
+    caseSnapshot.studentWorkflow = {
+      deliveryMode: input.deliveryMode as DeliveryMode,
+      requiredChoices: 5,
+    };
+  }
   const missing = missingCase(caseSnapshot);
   if (missing.length) fail(409, missing.join(" "));
   let referenceId: string | null = null;
@@ -1643,7 +1722,7 @@ async function handle(request: Request): Promise<Response> {
   if (path === "/api/participant/state" && method === "GET") {
     const participant = await requireParticipant(request);
     const result = await pool.query(
-      `SELECT l.status,l.role,l.reveals,r.state,r.revision,r.updated_at FROM prc_private.launches l JOIN prc_private.responses r ON r.launch_id=l.id WHERE l.id=$1 AND r.participant_id=$2`,
+      `SELECT l.status,l.role,l.reveals,l.case_snapshot->'studentWorkflow' AS workflow,r.state,r.revision,r.updated_at FROM prc_private.launches l JOIN prc_private.responses r ON r.launch_id=l.id WHERE l.id=$1 AND r.participant_id=$2`,
       [participant.launchId, participant.id],
     );
     const row = result.rows[0];
@@ -1652,7 +1731,13 @@ async function handle(request: Request): Promise<Response> {
       status: row.status,
       role: row.role,
       reveals: row.reveals,
-      published: row.role === "students" && row.status === "published",
+      published:
+        row.role === "students" &&
+        (row.status === "published" ||
+          (row.workflow?.deliveryMode === "asynchronous" &&
+            row.state === "submitted")),
+      guidedReview: !!row.workflow,
+      deliveryMode: row.workflow?.deliveryMode ?? "synchronous",
       responseState: row.state,
       revision: Number(row.revision),
       updatedAt: row.updated_at,
@@ -1829,6 +1914,16 @@ async function handle(request: Request): Promise<Response> {
       }
       let score: number | null = null;
       if (
+        participant.role === "students" &&
+        launch.case_snapshot.studentWorkflow?.requiredChoices === 5 &&
+        (response.main_choices.length !== 5 ||
+          response.alternative_choices.length !== 5)
+      )
+        fail(
+          400,
+          "Choisissez exactement cinq données cliniques pour chacune des deux hypothèses.",
+        );
+      if (
         participant.role === "panel" &&
         [...response.main_choices, ...response.alternative_choices].some(
           (choice: Choice) =>
@@ -1858,6 +1953,7 @@ async function handle(request: Request): Promise<Response> {
           mainChoices: response.main_choices,
           alternativeChoices: response.alternative_choices,
           panel: panelSnapshot.distributions,
+          combineRoles: !!launch.case_snapshot.studentWorkflow,
         });
         score = graded.total;
         components = graded as unknown as JsonRecord;
@@ -1910,6 +2006,50 @@ async function handle(request: Request): Promise<Response> {
       return send(
         mapLaunch(updated.rows[0], await launchCounts(launchId, client)),
       );
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const discussionMatch = match(/^\/api\/launches\/([^/]+)\/discussion$/);
+  if (discussionMatch && method === "POST") {
+    const teacher = await requireTeacher(request);
+    const input = await body(request);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const result = await client.query<LaunchRow>(
+        "SELECT * FROM prc_private.launches WHERE id=$1 AND owner_id=$2 FOR UPDATE",
+        [segment(discussionMatch[1]), teacher.id],
+      );
+      const launch = result.rows[0];
+      if (!launch) fail(404, "Activité introuvable.");
+      if (launch.case_snapshot.studentWorkflow?.deliveryMode !== "synchronous")
+        fail(400, "Cette action concerne une séance étudiante synchrone.");
+      if (launch.status === "open")
+        fail(409, "Terminez le temps de réponse avant la discussion.");
+      const reveals = { ...launch.reveals };
+      if (input.action === "comparison") reveals.diagnosticComparison = true;
+      else if (input.action === "diagnostic") {
+        const id = stringValue(input.diagnosticId, "Hypothèse", 100);
+        if (!launch.case_snapshot.diagnostics.some((row) => row.id === id))
+          fail(400, "Cette hypothèse ne fait pas partie du cas.");
+        if (!reveals.diagnosticComparison)
+          fail(409, "Affichez d’abord la comparaison des hypothèses.");
+        reveals.correctedDiagnosticIds = [
+          ...new Set([...(reveals.correctedDiagnosticIds ?? []), id]),
+        ];
+        reveals.activeDiagnosticId = id;
+      } else fail(400, "Choisissez une étape de discussion valide.");
+      const updated = await client.query<LaunchRow>(
+        "UPDATE prc_private.launches SET reveals=$1::jsonb,status=CASE WHEN status='closed' THEN 'revealed' ELSE status END WHERE id=$2 RETURNING *",
+        [JSON.stringify(reveals), launch.id],
+      );
+      await client.query("COMMIT");
+      return send(mapLaunch(updated.rows[0], await launchCounts(launch.id)));
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -2180,6 +2320,7 @@ async function handle(request: Request): Promise<Response> {
       participantCount: counts.participants,
       case: launch.case_snapshot,
       reveals: launch.reveals,
+      discussion: await studentDiscussion(launch, undefined, true),
       class:
         launch.status !== "open" && launch.role === "students"
           ? await getPanelSnapshot(launch, 1)
@@ -2206,6 +2347,7 @@ async function handle(request: Request): Promise<Response> {
       status: launch.status,
       reveals: launch.reveals,
       ...(await visibleAggregates(launch)),
+      discussion: await studentDiscussion(launch),
     });
   }
 
@@ -2216,9 +2358,12 @@ async function handle(request: Request): Promise<Response> {
       [participant.id],
     );
     const responseRow = result.rows[0];
-    const published =
-      launch.role === "students" && launch.status === "published";
     const submitted = responseRow?.state === "submitted";
+    const workflow = launch.case_snapshot.studentWorkflow;
+    const published =
+      launch.role === "students" &&
+      (launch.status === "published" ||
+        (workflow?.deliveryMode === "asynchronous" && submitted));
     const score =
       published && submitted && responseRow.score !== null
         ? Number(responseRow.score)
@@ -2234,7 +2379,15 @@ async function handle(request: Request): Promise<Response> {
       role: launch.role,
       status: launch.status,
       reveals: launch.reveals,
-      ...(await visibleAggregates(launch, published)),
+      ...(workflow
+        ? { panel: {}, class: {}, reference: null }
+        : await visibleAggregates(launch, published)),
+      guidedReview: !!workflow,
+      deliveryMode: workflow?.deliveryMode ?? "synchronous",
+      studentReview: await studentDiscussion(
+        launch,
+        responseRow ? mapResponse(responseRow) : undefined,
+      ),
       ...(launch.role === "panel" && submitted
         ? { expertPanel: await getPanelSnapshot(launch, 1) }
         : {}),

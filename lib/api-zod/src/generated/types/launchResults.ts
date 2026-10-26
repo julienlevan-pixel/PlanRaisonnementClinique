@@ -9,6 +9,7 @@ import type { CaseSnapshot } from './caseSnapshot';
 import type { Launch } from './launch';
 import type { LaunchParticipantResult } from './launchParticipantResult';
 import type { RevealState } from './revealState';
+import type { StudentReview } from './studentReview';
 import type { VisibleAggregate } from './visibleAggregate';
 
 export interface LaunchResults {
@@ -20,4 +21,5 @@ export interface LaunchResults {
   reveals?: RevealState;
   class?: VisibleAggregate;
   panel?: VisibleAggregate;
+  discussion?: StudentReview;
 }

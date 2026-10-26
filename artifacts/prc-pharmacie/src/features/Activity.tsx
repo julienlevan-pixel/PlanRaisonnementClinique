@@ -28,6 +28,11 @@ import {
 } from "../app/ui";
 import { dateLabel, getError } from "../app/utils";
 import "./activity.css";
+import {
+  DiscussionControls,
+  HypothesisComparison,
+  DiagnosticCorrectionTable,
+} from "./StudentReview";
 
 type Role = "main" | "alternative";
 type Aggregate = {
@@ -396,6 +401,8 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
     reference?.status === "validated" || l.referenceStatus === "validated";
   const closed = l.status !== "open",
     busy = mutate.isPending;
+  const guided = l.role === "students" && l.guidedReview;
+  const asynchronous = guided && l.deliveryMode === "asynchronous";
   const close = () => {
     if (
       window.confirm(
@@ -425,14 +432,16 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
         <Link href={`/prc/${l.prcId}`} className="back-link">
           <ArrowLeft size={15} /> Revenir au PRC
         </Link>
-        <a
-          className="btn btn-outline projection-link"
-          href={`/projection/${launchId}`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <ExternalLink size={16} /> Ouvrir la projection
-        </a>
+        {!asynchronous && (
+          <a
+            className="btn btn-outline projection-link"
+            href={`/projection/${launchId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <ExternalLink size={16} /> Ouvrir la projection
+          </a>
+        )}
       </div>
       <SectionTitle
         eyebrow={
@@ -478,22 +487,30 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
         <div>
           <div className="eyebrow">PROCHAINE ÉTAPE</div>
           <h2>
-            {!closed
-              ? "Recueillir les copies, puis fermer la collecte"
-              : l.role === "panel"
-                ? validated
-                  ? "Le corrigé est validé : lancez un groupe étudiant depuis le PRC"
-                  : reference?.status === "draft"
-                    ? "Consulter les distributions et valider le corrigé"
-                    : "Générer le corrigé à partir du panel fermé"
-                : l.status === "published"
-                  ? "Les copies corrigées sont accessibles dans les espaces privés"
-                  : "Révéler progressivement, puis publier les copies corrigées"}
+            {asynchronous
+              ? "Les étudiants consultent leur corrigé dès la soumission"
+              : guided && !closed
+                ? "Terminer le temps de réponse, puis comparer les hypothèses"
+                : !closed
+                  ? "Recueillir les copies, puis fermer la collecte"
+                  : l.role === "panel"
+                    ? validated
+                      ? "Le corrigé est validé : lancez un groupe étudiant depuis le PRC"
+                      : reference?.status === "draft"
+                        ? "Consulter les distributions et valider le corrigé"
+                        : "Générer le corrigé à partir du panel fermé"
+                    : l.status === "published"
+                      ? "Les copies corrigées sont accessibles dans les espaces privés"
+                      : "Révéler progressivement, puis publier les copies corrigées"}
           </h2>
         </div>
         {!closed && (
           <Btn kind="danger" disabled={busy} onClick={close}>
-            Fermer la collecte
+            {guided
+              ? asynchronous
+                ? "Fermer les accès aux réponses"
+                : "Terminer le temps de réponse"
+              : "Fermer la collecte"}
           </Btn>
         )}
         {closed && l.role === "panel" && validated && (
@@ -593,38 +610,83 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           </Btn>
         </section>
       )}
-      <section className="panel-card">
-        <h2>
-          {l.role === "panel"
-            ? "Distributions du panel"
-            : "Comparer la classe et le panel"}
-        </h2>
-        {!closed ? (
-          <p className="stage-wait">
-            Les résultats collectifs restent masqués pendant la collecte. Seuls
-            les effectifs de participation sont actualisés.
+      {!guided && (
+        <section className="panel-card">
+          <h2>
+            {l.role === "panel"
+              ? "Distributions du panel"
+              : "Comparer la classe et le panel"}
+          </h2>
+          {!closed ? (
+            <p className="stage-wait">
+              Les résultats collectifs restent masqués pendant la collecte.
+              Seuls les effectifs de participation sont actualisés.
+            </p>
+          ) : (panel.isPending && l.role === "panel") ||
+            (results.isPending && l.role === "students") ? (
+            <Loading />
+          ) : (panel.isError && l.role === "panel") ||
+            (results.isError && l.role === "students") ? (
+            <ErrorBox
+              message="Les distributions n’ont pas pu être chargées."
+              retry={() => {
+                panel.refetch();
+                results.refetch();
+              }}
+            />
+          ) : (
+            <AggregateComparison
+              panel={l.role === "panel" ? panel.data : results.data?.panel}
+              classroom={
+                l.role === "students" ? results.data?.class : undefined
+              }
+              caseData={l.case}
+            />
+          )}
+        </section>
+      )}
+      {guided && !closed && (
+        <section className="panel-card">
+          <h2>
+            {asynchronous
+              ? "Corrigé individuel automatique"
+              : "Préparer la discussion"}
+          </h2>
+          <p>
+            {asynchronous
+              ? "Chaque étudiant ayant soumis voit ses deux réponses face aux experts et sa note. Les réponses de ses pairs restent privées."
+              : "Terminez le temps de réponse pour figer les copies. Vous pourrez ensuite afficher la comparaison, puis corriger chaque diagnostic dans l’ordre des choix experts."}
           </p>
-        ) : (panel.isPending && l.role === "panel") ||
-          (results.isPending && l.role === "students") ? (
+        </section>
+      )}
+      {guided &&
+        closed &&
+        !asynchronous &&
+        (results.isPending ? (
           <Loading />
-        ) : (panel.isError && l.role === "panel") ||
-          (results.isError && l.role === "students") ? (
+        ) : results.isError ? (
           <ErrorBox
-            message="Les distributions n’ont pas pu être chargées."
-            retry={() => {
-              panel.refetch();
-              results.refetch();
-            }}
+            message="La discussion n’a pas pu être chargée."
+            retry={() => results.refetch()}
           />
         ) : (
-          <AggregateComparison
-            panel={l.role === "panel" ? panel.data : results.data?.panel}
-            classroom={l.role === "students" ? results.data?.class : undefined}
-            caseData={l.case}
+          <DiscussionControls
+            discussion={results.data?.discussion}
+            reveals={l.reveals ?? {}}
+            busy={busy}
+            onAction={(data) => run("discussion", data)}
           />
-        )}
-      </section>
-      {closed && (
+        ))}
+      {guided && closed && asynchronous && (
+        <section className="panel-card">
+          <h2>Restitutions individuelles disponibles</h2>
+          <p>
+            Les étudiants ayant soumis disposent déjà de leur corrigé expert et
+            de leur note. Les copies non soumises restent sans note.
+          </p>
+        </section>
+      )}
+      {closed && !guided && (
         <section className="panel-card">
           <h2>Révélation progressive</h2>
           <p>
@@ -752,7 +814,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
         Array.isArray(results.data?.participants) && (
           <TeacherCopies participants={results.data.participants} />
         )}
-      {l.role === "students" && (
+      {l.role === "students" && !asynchronous && (
         <section className="publish-row">
           <div>
             <b>Publier les copies corrigées privées</b>
@@ -931,6 +993,35 @@ export function ProjectionPage() {
             {p.launch?.submissionCount ?? 0} soumission(s) sur{" "}
             {p.launch?.participantCount ?? 0} participant(s).
           </p>
+        </section>
+      ) : p.launch?.guidedReview ? (
+        <section className="panel-card">
+          {p.discussion?.activeDiagnosticId ? (
+            <>
+              <details>
+                <summary>Revoir la comparaison des hypothèses</summary>
+                <HypothesisComparison rows={p.discussion.comparison ?? []} />
+              </details>
+              {p.discussion.corrections
+                ?.filter(
+                  (row: any) =>
+                    row.diagnosticId === p.discussion.activeDiagnosticId,
+                )
+                .map((correction: any) => (
+                  <DiagnosticCorrectionTable
+                    key={correction.diagnosticId}
+                    correction={correction}
+                    active
+                  />
+                ))}
+            </>
+          ) : p.discussion?.comparisonVisible ? (
+            <HypothesisComparison rows={p.discussion.comparison} />
+          ) : (
+            <p>
+              La comparaison des hypothèses sera affichée par le professeur.
+            </p>
+          )}
         </section>
       ) : (
         <section className="panel-card">
