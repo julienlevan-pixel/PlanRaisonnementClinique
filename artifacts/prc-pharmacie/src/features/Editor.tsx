@@ -58,7 +58,7 @@ const emptyForm = (): FormData => ({
   name: "",
   scenario: "",
   instructions:
-    "Choisissez deux diagnostics distincts. Pour chaque hypothèse, retenez les données discriminantes et indiquez si elles sont en faveur (+) ou en défaveur (−). Panel : cinq données par hypothèse. Étudiants : de une à cinq.",
+    "Choisissez deux diagnostics distincts. Pour chaque impression clinique, retenez les données discriminantes et indiquez si elles sont en faveur (+) ou en défaveur (−). Panel : cinq données par impression clinique. Étudiants : de une à cinq.",
   diagnostics: [],
   observations: [],
 });
@@ -930,7 +930,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
                         Le professeur choisit la modalité. Les étudiants ne
                         peuvent pas la modifier.{" "}
                         {deliveryMode === "synchronous"
-                          ? "Vous terminez le temps de réponse, puis révélez la comparaison et les hypothèses une à une."
+                          ? "Vous terminez le temps de réponse, puis révélez la comparaison et les impressions cliniques une à une."
                           : "Chaque étudiant voit uniquement ses réponses face au corrigé expert et sa note, dès sa soumission."}
                       </small>
                     </label>

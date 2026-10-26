@@ -23,15 +23,15 @@ async function answerAndSubmit(page: Page, pseudonym: string) {
   await page.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(pseudonym);
   await page.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
   await expect(page).toHaveURL(/\/participant$/);
-  await page.getByLabel('Diagnostic principal', { exact: true }).selectOption({ label: 'Hypothèse navigateur A' });
-  await page.getByLabel('Diagnostic alternatif', { exact: true }).selectOption({ label: 'Hypothèse navigateur B' });
+  await page.getByLabel('Impression clinique', { exact: true }).selectOption({ label: 'Hypothèse navigateur A' });
+  await page.getByLabel('Impression clinique alternative', { exact: true }).selectOption({ label: 'Hypothèse navigateur B' });
   for (let index = 1; index <= 5; index++) {
-    await page.getByRole('button', { name: `Hypothèse principale : En faveur — Observation clinique fictive ${index}`, exact: true }).click();
-    await page.getByRole('button', { name: `Hypothèse alternative : En défaveur — Observation clinique fictive ${index}`, exact: true }).click();
+    await page.getByRole('button', { name: `Impression clinique : En faveur — Observation clinique fictive ${index}`, exact: true }).click();
+    await page.getByRole('button', { name: `Impression clinique alternative : En défaveur — Observation clinique fictive ${index}`, exact: true }).click();
   }
   await expect(page.locator('#participant-main-counter')).toContainText('5/5');
   await expect(page.locator('#participant-alternative-counter')).toContainText('5/5');
-  for (const selector of await page.getByRole('combobox', { name: /^Points hypothèse/ }).all()) await selector.selectOption('3');
+  for (const selector of await page.getByRole('combobox', { name: /^Points impression clinique/ }).all()) await selector.selectOption('3');
   await confirmClick(page, 'Vérifier et transmettre');
   await expect(page).toHaveURL(/\/participant\/results$/);
   await expect(page.getByText('Votre soumission définitive est enregistrée et verrouillée.', { exact: false })).toBeVisible();
@@ -132,8 +132,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
     await test.step('teacher closes, reveals each saved stage, and publishes the private score', async () => {
       await teacher.reload();
       await confirmClick(teacher, 'Terminer le temps de réponse');
-      await teacher.getByRole('button', { name: 'Afficher la comparaison des hypothèses', exact: true }).click();
-      await expect(student.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toBeVisible({ timeout: 12000 });
+      await teacher.getByRole('button', { name: 'Afficher la comparaison des impressions cliniques', exact: true }).click();
+      await expect(student.getByRole('region', { name: 'Comparaison des impressions cliniques', exact: true })).toBeVisible({ timeout: 12000 });
       for (const label of ['Hypothèse navigateur A', 'Hypothèse navigateur B']) {
         await teacher.getByRole('button', { name: `Afficher le corrigé : ${label}`, exact: true }).click();
         await expect(student.getByRole('article', { name: `Corrigé ${label}`, exact: true })).toBeVisible({ timeout: 12000 });
@@ -173,7 +173,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await answerAndSubmit(asyncStudent, 'Étudiant asynchrone fictif');
       await expect(asyncStudent.getByRole('heading', { name: 'Votre résultat', exact: true })).toBeVisible();
       await expect(asyncStudent.locator('.diagnostic-correction')).toHaveCount(2);
-      await expect(asyncStudent.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toHaveCount(0);
+      await expect(asyncStudent.getByRole('region', { name: 'Comparaison des impressions cliniques', exact: true })).toHaveCount(0);
       const result = await (await asyncStudent.request.get('/api/participant/results')).json();
       expect(result.status).toBe('open');
       expect(result.score).toBe(15);
@@ -244,13 +244,13 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
         await participant.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(name);
         await participant.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
         await expect(participant).toHaveURL(/\/participant$/);
-        await participant.getByLabel('Diagnostic principal', { exact: true }).selectOption(demoDocument.diagnostics[0].id);
-        await participant.getByLabel('Diagnostic alternatif', { exact: true }).selectOption(demoDocument.diagnostics[1].id);
+        await participant.getByLabel('Impression clinique', { exact: true }).selectOption(demoDocument.diagnostics[0].id);
+        await participant.getByLabel('Impression clinique alternative', { exact: true }).selectOption(demoDocument.diagnostics[1].id);
         for (let index = 0; index < 5; index++) {
-          await participant.getByRole('button', { name: /^Hypothèse principale : En faveur —/ }).nth(index).click();
-          await participant.getByRole('button', { name: /^Hypothèse alternative : En défaveur —/ }).nth(index).click();
+          await participant.getByRole('button', { name: /^Impression clinique : En faveur —/ }).nth(index).click();
+          await participant.getByRole('button', { name: /^Impression clinique alternative : En défaveur —/ }).nth(index).click();
         }
-        await expect(participant.getByRole('combobox', { name: /^Points hypothèse/ })).toHaveCount(0);
+        await expect(participant.getByRole('combobox', { name: /^Points impression clinique/ })).toHaveCount(0);
         await confirmClick(participant, 'Vérifier et transmettre');
         await expect(participant).toHaveURL(/\/participant\/results$/);
       }
@@ -261,15 +261,15 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       const syncManage = (await syncCard.getByRole('link', { name: 'Gérer la séance et afficher le QR code', exact: true }).getAttribute('href'))!;
       await teacher.goto(syncManage);
       await confirmClick(teacher, 'Terminer le temps de réponse');
-      await teacher.getByRole('button', { name: 'Afficher la comparaison des hypothèses', exact: true }).click();
-      await expect(syncStudent.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toBeVisible({ timeout: 12000 });
+      await teacher.getByRole('button', { name: 'Afficher la comparaison des impressions cliniques', exact: true }).click();
+      await expect(syncStudent.getByRole('region', { name: 'Comparaison des impressions cliniques', exact: true })).toBeVisible({ timeout: 12000 });
       await teacher.getByRole('button', { name: `Afficher le corrigé : ${demoDocument.diagnostics[0].label}`, exact: true }).click();
       await expect(syncStudent.getByRole('article', { name: `Corrigé ${demoDocument.diagnostics[0].label}`, exact: true })).toBeVisible({ timeout: 12000 });
       await teacher.goto(`/activity/${panel.id}`);
       const rubric=teacher.getByRole('region',{name:'Barème personnalisable du professeur',exact:true});
       await expect(rubric).toContainText('Note maximale : 15 points');
       await rubric.locator('.rubric-diagnostic').first().locator('summary').click();
-      await rubric.getByRole('spinbutton',{name:`Diagnostic principal — ${demoDocument.diagnostics[0].label}`,exact:true}).fill('4');
+      await rubric.getByRole('spinbutton',{name:`Impression clinique — ${demoDocument.diagnostics[0].label}`,exact:true}).fill('4');
       await rubric.getByRole('button',{name:'Enregistrer le barème',exact:true}).click();
       await expect(rubric.getByRole('status')).toContainText('version 2');
       await teacher.goto(casePath.replace('/prcs/','/prc/'));

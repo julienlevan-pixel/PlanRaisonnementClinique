@@ -58,8 +58,8 @@ test('builds the final clinical grid one row at a time and saves categories, tex
   });
   await page.goto(`/prc/${id}`);
   const table = page.getByRole('region', { name: 'Création du tableau clinique', exact: true });
-  await expect(table.getByRole('columnheader', { name: 'Hypothèse principale', exact: true })).toBeVisible();
-  await expect(table.getByRole('columnheader', { name: 'Hypothèse alternative', exact: true })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Impression clinique', exact: true })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Impression clinique alternative', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Ajouter une ligne', exact: true }).click();
   await expect(page.getByLabel('Texte de l’observation 1', { exact: true })).toBeFocused();
   await expect(page.getByLabel('Catégorie de l’observation 1', { exact: true }).locator('option')).toHaveText([
@@ -287,9 +287,9 @@ test('public Toux preview unfolds on demand, preserves choices and never creates
   await page.getByRole('link', { name: 'Découvrir l’exemple « Toux »', exact: true }).click();
   await expect(preview).toBeVisible();
   await expect(preview).toContainText('Observation fictive 20');
-  await preview.getByLabel('Diagnostic principal', { exact: true }).selectOption(diagnostics[0].id);
-  await preview.getByLabel('Diagnostic alternatif', { exact: true }).selectOption(diagnostics[1].id);
-  const choice = preview.getByRole('button', { name: 'Hypothèse principale : En faveur — Observation fictive 1', exact: true });
+  await preview.getByLabel('Impression clinique', { exact: true }).selectOption(diagnostics[0].id);
+  await preview.getByLabel('Impression clinique alternative', { exact: true }).selectOption(diagnostics[1].id);
+  const choice = preview.getByRole('button', { name: 'Impression clinique : En faveur — Observation fictive 1', exact: true });
   await choice.click();
   await expect(choice).toHaveAttribute('aria-pressed', 'true');
   const summary = page.locator('.public-demo-disclosure > summary');

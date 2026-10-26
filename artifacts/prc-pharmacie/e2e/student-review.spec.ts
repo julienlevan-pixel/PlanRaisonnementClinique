@@ -51,7 +51,7 @@ test('final anonymous distribution explains the maximum and highlights the stude
   await page.goto('/participant/results');
   await expect(page.locator('.participant-score')).toContainText('3,6');
   await expect(page.locator('.participant-score')).toContainText('/ 20');
-  await expect(page.getByRole('region', { name: 'Comprendre la note maximale du cas', exact: true })).toContainText('les deux impressions les plus choisies');
+  await expect(page.getByRole('region', { name: 'Comprendre la note maximale du cas', exact: true })).toContainText('les deux impressions cliniques les plus choisies');
   const graph = page.getByRole('region', { name: 'Distribution des notes du groupe', exact: true });
   await expect(graph).toContainText('6 copie(s) notée(s)');
   await expect(graph).toContainText('1 copie(s) sans note');
@@ -198,7 +198,7 @@ test("synchronous student follows comparison then each correction with personal 
   await page.clock.fastForward(5_100);
   await expect(
     page.getByRole("region", {
-      name: "Comparaison des hypothèses",
+      name: "Comparaison des impressions cliniques",
       exact: true,
     }),
   ).toBeVisible();
@@ -229,7 +229,7 @@ test("synchronous student follows comparison then each correction with personal 
     name: "Corrigé Hypothèse A",
     exact: true,
   });
-  await expect(chosen).toContainText("Total de cette hypothèse : 3,6 / 10");
+  await expect(chosen).toContainText("Total de cette impression clinique : 3,6 / 10");
   await expect(chosen.locator("tbody tr")).toHaveCount(20);
   await expect(
     page.getByRole("article", { name: "Corrigé Hypothèse E", exact: true }),
@@ -238,7 +238,7 @@ test("synchronous student follows comparison then each correction with personal 
   );
   await expect(page.locator(".participant-score")).toHaveCount(0);
   await page
-    .getByRole("region", { name: "Comparaison des hypothèses", exact: true })
+    .getByRole("region", { name: "Comparaison des impressions cliniques", exact: true })
     .screenshot({
       path: testInfo.outputPath("student-comparison.png"),
       animations: "disabled",
@@ -290,7 +290,7 @@ test("asynchronous student immediately sees only own corrections and private gra
   await expect(page.locator(".diagnostic-correction")).toHaveCount(2);
   await expect(
     page.getByRole("region", {
-      name: "Comparaison des hypothèses",
+      name: "Comparaison des impressions cliniques",
       exact: true,
     }),
   ).toHaveCount(0);
@@ -365,12 +365,12 @@ test("teacher starts with highest expert choice and saves discussion stages", as
   await page.goto("/activity/student-launch");
   await page
     .getByRole("button", {
-      name: "Afficher la comparaison des hypothèses",
+      name: "Afficher la comparaison des impressions cliniques",
       exact: true,
     })
     .click();
   await expect(
-    page.getByRole("combobox", { name: "Hypothèse à corriger", exact: true }),
+    page.getByRole("combobox", { name: "Impression clinique à corriger", exact: true }),
   ).toHaveValue("d1");
   await page
     .getByRole("button", {
@@ -382,7 +382,7 @@ test("teacher starts with highest expert choice and saves discussion stages", as
     page.getByText("1 / 5 corrigé(s) révélé(s).", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByRole("combobox", { name: "Hypothèse à corriger", exact: true }),
+    page.getByRole("combobox", { name: "Impression clinique à corriger", exact: true }),
   ).toHaveValue("d0");
   await page.reload();
   await expect(

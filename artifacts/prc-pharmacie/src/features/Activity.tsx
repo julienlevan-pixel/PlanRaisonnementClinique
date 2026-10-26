@@ -45,9 +45,9 @@ type Aggregate = {
   distributions?: any[];
 };
 const stages = [
-  ["mainDiagnostic", "Hypothèses principales"],
+  ["mainDiagnostic", "Impressions cliniques"],
   ["mainArguments", "Arguments des principales"],
-  ["alternativeDiagnostic", "Hypothèses alternatives"],
+  ["alternativeDiagnostic", "Impressions cliniques alternatives"],
   ["alternativeArguments", "Arguments des alternatives"],
   ["reference", "Corrigé et explications"],
 ] as const;
@@ -155,7 +155,7 @@ export function AggregateComparison({
         )}
       </div>
       <label className="field">
-        <span>Rôle de l’hypothèse</span>
+        <span>Rôle de l’impression clinique</span>
         <select value={role} onChange={(e) => setRole(e.target.value as Role)}>
           <option value="main">Principale</option>
           <option value="alternative">Alternative</option>
@@ -204,7 +204,7 @@ export function AggregateComparison({
         </div>
       ) : (
         <p className="stage-wait">
-          Les hypothèses {main ? "principales" : "alternatives"} n’ont pas
+          Les impressions cliniques {main ? "principales" : "alternatives"} n’ont pas
           encore été révélées.
         </p>
       )}
@@ -500,7 +500,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
             {asynchronous
               ? "Les étudiants consultent leur corrigé dès la soumission"
               : guided && !closed
-                ? "Terminer le temps de réponse, puis comparer les hypothèses"
+                ? "Terminer le temps de réponse, puis comparer les impressions cliniques"
                 : !closed
                   ? "Recueillir les copies, puis fermer la collecte"
                   : l.role === "panel"
@@ -742,7 +742,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
                 reveal("mainDiagnosticTopOnly", e.target.checked)
               }
             />{" "}
-            Montrer d’abord l’hypothèse principale la plus fréquente (toutes les
+            Montrer d’abord l’impression clinique principale la plus fréquente (toutes les
             égalités sont conservées)
           </label>
           {l.role === "panel" && (
@@ -905,12 +905,12 @@ export function ScoringRule({
         Barème pédagogique proposé — {scoring?.version || "V2"} · /20
       </summary>
       <p>
-        Hypothèse principale : diagnostic 2 points + justification 8 points.
-        Hypothèse alternative : diagnostic 2 points + justification 8 points.
+        Impression clinique : diagnostic 2 points + justification 8 points.
+        Impression clinique alternative : diagnostic 2 points + justification 8 points.
       </p>
       <p>
         {newGroups
-          ? "Dans les nouveaux groupes guidés, les deux impressions les plus fréquentes du panel donnent le plein crédit diagnostique, ex æquo acceptés. Les impressions minoritaires gardent un crédit partiel. Les groupes déjà créés conservent leur barème. "
+          ? "Dans les nouveaux groupes guidés, les deux impressions cliniques les plus fréquentes du panel donnent le plein crédit diagnostique, ex æquo acceptés. Les impressions cliniques minoritaires gardent un crédit partiel. Les groupes déjà créés conservent leur barème. "
           : "Dans ce barème historique, un diagnostic est crédité lorsqu’au moins un expert l’a retenu dans le même rôle. "}
         La justification vaut <b>8 × R / C</b> : R est la somme des
         {scoring?.version === "V1"
@@ -923,13 +923,13 @@ export function ScoringRule({
       {scoring?.version !== "V1" && (
         <p>
           Les experts attribuent de 1 à 3 points à chacune des cinq données
-          retenues par hypothèse. Les anciennes réponses sans pondération
+          retenues par impression clinique. Les anciennes réponses sans pondération
           comptent pour un point. Les étudiants choisissent uniquement les
           signes +/−.
         </p>
       )}
       <p>
-        Les désaccords et choix minoritaires sont conservés. Une hypothèse non
+        Les désaccords et choix minoritaires sont conservés. Une impression clinique non
         représentée reçoit zéro ; un choix non crédité n’est pas automatiquement
         une erreur clinique. Cette règle est une proposition pédagogique, pas
         une norme universelle des PRC.
@@ -961,11 +961,11 @@ function TeacherCopies({
               <th>Participant</th>
               <th>Copie</th>
               <th>
-                Diagnostic principal /{grading?.mainDiagnosisMaximum ?? 2}
+                Impression clinique /{grading?.mainDiagnosisMaximum ?? 2}
               </th>
               <th>Justification principale /{grading?.clinicalMaximum ?? 8}</th>
               <th>
-                Diagnostic alternatif /
+                Impression clinique alternative /
                 {grading?.alternativeDiagnosisMaximum ?? 2}
               </th>
               <th>
@@ -1068,7 +1068,7 @@ export function ProjectionPage() {
           {p.discussion?.activeDiagnosticId ? (
             <>
               <details>
-                <summary>Revoir la comparaison des hypothèses</summary>
+                <summary>Revoir la comparaison des impressions cliniques</summary>
                 <HypothesisComparison rows={p.discussion.comparison ?? []} />
               </details>
               {p.discussion.corrections
@@ -1088,7 +1088,7 @@ export function ProjectionPage() {
             <HypothesisComparison rows={p.discussion.comparison} />
           ) : (
             <p>
-              La comparaison des hypothèses sera affichée par le professeur.
+              La comparaison des impressions cliniques sera affichée par le professeur.
             </p>
           )}
         </section>

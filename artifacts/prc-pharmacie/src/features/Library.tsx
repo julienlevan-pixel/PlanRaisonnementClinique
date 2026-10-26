@@ -203,7 +203,7 @@ export function Home({
           name,
           scenario: "",
           instructions:
-            "Choisissez deux diagnostics distincts. Pour chaque hypothèse, retenez les données discriminantes et indiquez si elles sont en faveur (+) ou en défaveur (−).",
+            "Choisissez deux diagnostics distincts. Pour chaque impression clinique, retenez les données discriminantes et indiquez si elles sont en faveur (+) ou en défaveur (−).",
           diagnostics: [],
           observations: [],
         },
@@ -272,7 +272,7 @@ export function Home({
               <p className="public-prc-description">
                 Une application pour enseigner le raisonnement clinique en
                 pharmacie. Créez des cas, recueillez l’avis d’experts et aidez
-                les étudiants à justifier leurs hypothèses grâce aux données
+                les étudiants à justifier leurs impressions cliniques grâce aux données
                 cliniques.
               </p>
               <form className="public-join" onSubmit={join}>
@@ -318,7 +318,7 @@ export function Home({
                   Découvrir un exemple : Toux
                 </span>
                 <span className="demo-summary-description">
-                  Un cas clinique · 20 données · Deux hypothèses
+                  Un cas clinique · 20 données · Deux impressions cliniques
                 </span>
               </span>
               <span className="demo-summary-action">

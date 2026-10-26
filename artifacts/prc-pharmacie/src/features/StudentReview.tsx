@@ -79,15 +79,15 @@ export function MaximumScoreGuide({
           <strong>{number(grading.maximum)} points</strong>
         </div>
         <p>
-          Impression principale : diagnostic sur{" "}
+          Impression clinique : diagnostic sur{" "}
           {number(grading.mainDiagnosisMaximum)} + données sur{" "}
-          {number(grading.clinicalMaximum)}. Impression alternative : diagnostic
+          {number(grading.clinicalMaximum)}. Impression clinique alternative : diagnostic
           sur {number(grading.alternativeDiagnosisMaximum)} + données sur{" "}
           {number(grading.clinicalMaximum)}.
         </p>
         <p>
-          Retenez deux impressions distinctes et cinq données signées par
-          impression. Les points des données s’additionnent jusqu’au plafond
+          Retenez deux impressions cliniques distinctes et cinq données signées par
+          impression clinique. Les points des données s’additionnent jusqu’au plafond
           indiqué. Les valeurs sont celles du barème enregistré par le
           professeur pour cette séance, proposé à partir des fréquences du panel
           puis personnalisable.
@@ -117,14 +117,14 @@ export function MaximumScoreGuide({
       </p>
       <p>
         {topTwo
-          ? "Pour obtenir 20 / 20 : retenir les deux impressions les plus choisies par le panel et, pour chacune, une meilleure sélection de cinq données avec les signes + ou − du corrigé. Les ex æquo au deuxième rang et parmi les données sont acceptés."
+          ? "Pour obtenir 20 / 20 : retenir les deux impressions cliniques les plus choisies par le panel et, pour chacune, une meilleure sélection de cinq données avec les signes + ou − du corrigé. Les ex æquo au deuxième rang et parmi les données sont acceptés."
           : "Le diagnostic doit être représenté dans le panel. Le plein pointage des données correspond aux cinq meilleurs poids experts, avec les bons signes + ou −. Cette séance conserve son barème historique."}
       </p>
       {topTwo && (
         <small>
-          Les impressions moins fréquentes gardent des points diagnostiques
+          Les impressions cliniques moins fréquentes gardent des points diagnostiques
           partiels selon leur fréquence et les deux meilleurs effectifs du
-          panel. Une impression qu’aucun expert n’a retenue ne rapporte aucun
+          panel. Une impression clinique qu’aucun expert n’a retenue ne rapporte aucun
           point, y compris pour les données.
         </small>
       )}
@@ -140,9 +140,9 @@ export function HypothesisComparison({
   return (
     <section
       className="hypothesis-comparison"
-      aria-label="Comparaison des hypothèses"
+      aria-label="Comparaison des impressions cliniques"
     >
-      <h2>Quelles hypothèses ont été retenues ?</h2>
+      <h2>Quelles impressions cliniques ont été retenues ?</h2>
       <p>
         Les diagnostics proposés sont classés du plus au moins choisi par les
         experts.
@@ -150,7 +150,7 @@ export function HypothesisComparison({
       <div
         className="review-table-scroll"
         role="region"
-        aria-label="Effectifs et pourcentages par hypothèse"
+        aria-label="Effectifs et pourcentages par impression clinique"
         tabIndex={0}
       >
         <table className="review-table hypothesis-comparison-table">
@@ -159,7 +159,7 @@ export function HypothesisComparison({
           </caption>
           <thead>
             <tr>
-              <th scope="col">Hypothèse diagnostique</th>
+              <th scope="col">Impression clinique</th>
               <th scope="col">Étudiants</th>
               <th scope="col">Experts cliniques</th>
             </tr>
@@ -203,7 +203,7 @@ export function HypothesisComparison({
       </div>
       <p className="review-note">
         Le pourcentage indique la proportion des participants ayant retenu ce
-        diagnostic. Chacun choisit deux hypothèses distinctes : la somme des
+        diagnostic. Chacun choisit deux impressions cliniques distinctes : la somme des
         pourcentages peut donc atteindre 200 %.
       </p>
     </section>
@@ -233,7 +233,7 @@ export function DiagnosticCorrectionTable({
             <small className="review-best">
               {correction.topDiagnosis
                 ? "Top 2 du panel · diagnostic sur 2 points"
-                : "Impression minoritaire · crédit diagnostique partiel"}
+                : "Impression clinique minoritaire · crédit diagnostique partiel"}
             </small>
           )}
         </div>
@@ -250,7 +250,7 @@ export function DiagnosticCorrectionTable({
       )}
       {chosen && (
         <p>
-          Votre hypothèse{" "}
+          Votre impression clinique{" "}
           {correction.selectedRole === "main" ? "principale" : "alternative"} ·{" "}
           {correction.panelCount} expert(s) ont retenu ce diagnostic.
         </p>
@@ -260,8 +260,8 @@ export function DiagnosticCorrectionTable({
           {correction.observations.some(
             (row) => row.positiveScorePoints !== undefined,
           )
-            ? "Cette hypothèse ne rapporte aucun point dans ce corrigé : 0 pour le diagnostic et 0 pour les données cliniques."
-            : "Aucun clinicien du panel n’a retenu cette hypothèse : 0 point pour le diagnostic et 0 point pour les données cliniques."}
+            ? "Cette impression clinique ne rapporte aucun point dans ce corrigé : 0 pour le diagnostic et 0 pour les données cliniques."
+            : "Aucun clinicien du panel n’a retenu cette impression clinique : 0 point pour le diagnostic et 0 point pour les données cliniques."}
         </p>
       )}
       <div
@@ -363,7 +363,7 @@ export function DiagnosticCorrectionTable({
           ) ? (
             <p>
               Points des données avant plafonnement :{" "}
-              <b>{number(correction.raw)}</b> · plafond de cette impression :{" "}
+              <b>{number(correction.raw)}</b> · plafond de cette impression clinique :{" "}
               <b>{correction.clinicalMaximum ?? 5}</b>.
             </p>
           ) : (
@@ -391,7 +391,7 @@ export function DiagnosticCorrectionTable({
               </b>
             </span>
             <strong>
-              Total de cette hypothèse : {number(correction.score)} /{" "}
+              Total de cette impression clinique : {number(correction.score)} /{" "}
               {correction.maximum}
             </strong>
           </div>
@@ -436,7 +436,7 @@ export function StudentReview({
           {(review?.deliveryMode ?? deliveryMode) === "asynchronous"
             ? "Le corrigé individuel est réservé aux copies soumises."
             : review?.comparisonVisible
-              ? "La comparaison est affichée. Le professeur va ouvrir le corrigé de la première hypothèse."
+              ? "La comparaison est affichée. Le professeur va ouvrir le corrigé de la première impression clinique."
               : "Votre copie est conservée. Le professeur terminera le temps de réponse, puis affichera la comparaison et les corrigés, étape par étape."}
         </p>
       )}
@@ -487,9 +487,9 @@ export function DiscussionControls({
   return (
     <section className="discussion-controls panel-card">
       <div className="eyebrow">ANIMER LA DISCUSSION</div>
-      <h2>Une hypothèse à la fois</h2>
+      <h2>Une impression clinique à la fois</h2>
       <p>
-        1. Affichez la comparaison. 2. Corrigez les hypothèses dans l’ordre des
+        1. Affichez la comparaison. 2. Corrigez les impressions cliniques dans l’ordre des
         choix experts. Les étudiants suivent les mêmes étapes sur leur écran,
         avec leur propre réponse et leurs points.
       </p>
@@ -499,12 +499,12 @@ export function DiscussionControls({
       >
         {visible
           ? "Comparaison affichée aux étudiants"
-          : "Afficher la comparaison des hypothèses"}
+          : "Afficher la comparaison des impressions cliniques"}
       </Btn>
       <label className="discussion-diagnostic">
-        <span>Hypothèse à corriger</span>
+        <span>Impression clinique à corriger</span>
         <select
-          aria-label="Hypothèse à corriger"
+          aria-label="Impression clinique à corriger"
           disabled={busy || !visible}
           value={id}
           onChange={(event) => setSelection(event.target.value)}
@@ -524,7 +524,7 @@ export function DiscussionControls({
           setSelection("");
         }}
       >
-        Afficher le corrigé : {current?.label ?? "hypothèse"}
+        Afficher le corrigé : {current?.label ?? "impression clinique"}
       </Btn>
       <p className="review-note">
         {corrected.length} / {discussion.comparison.length} corrigé(s)

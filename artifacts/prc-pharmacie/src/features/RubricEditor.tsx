@@ -183,12 +183,12 @@ export function RubricEditor({
         </p>
         <ul>
           <li>
-            Impression principale : 3 points pour la plus choisie par le panel,
-            y compris les ex æquo ; 1 point pour une autre impression retenue
+            Impression clinique : 3 points pour la plus choisie par le panel,
+            y compris les ex æquo ; 1 point pour une autre impression clinique retenue
             par au moins un expert ; sinon 0.
           </li>
           <li>
-            Impression alternative : 2 points si au moins un expert l’a retenue
+            Impression clinique alternative : 2 points si au moins un expert l’a retenue
             ; sinon 0.
           </li>
           <li>
@@ -199,7 +199,7 @@ export function RubricEditor({
             Le pourcentage est calculé parmi les experts ayant retenu ce
             diagnostic, en principale ou en alternative. Les cinq données de
             l’étudiant s’additionnent, avec un plafond de 5 points par
-            impression par défaut.
+            impression clinique par défaut.
           </li>
         </ul>
         <p>
@@ -211,7 +211,7 @@ export function RubricEditor({
         </p>
       </details>
       {input(
-        "Plafond des données cliniques par impression",
+        "Plafond des données cliniques par impression clinique",
         draft.clinicalMaximum,
         (value) => edit({ ...draft, clinicalMaximum: value }),
       )}
@@ -249,12 +249,12 @@ export function RubricEditor({
             </p>
             <div className="rubric-diagnosis-points">
               {input(
-                `Diagnostic principal — ${label}`,
+                `Impression clinique — ${label}`,
                 diagnostic.mainPoints,
                 (value) => update({ ...diagnostic, mainPoints: value }),
               )}
               {input(
-                `Diagnostic alternatif — ${label}`,
+                `Impression clinique alternative — ${label}`,
                 diagnostic.alternativePoints,
                 (value) => update({ ...diagnostic, alternativePoints: value }),
               )}

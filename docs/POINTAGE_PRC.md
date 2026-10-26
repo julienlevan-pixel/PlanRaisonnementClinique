@@ -4,20 +4,20 @@ Le professeur trouve le barème dans **Corrigé du panel → Barème personnalis
 
 ## Proposition par défaut
 
-- Impression principale : 3 points pour le diagnostic le plus fréquent du panel (tous les ex æquo), 1 point pour tout autre diagnostic retenu par au moins un expert, 0 sinon.
-- Impression alternative : 2 points pour un diagnostic retenu par au moins un expert, 0 sinon.
+- Impression clinique : 3 points pour le diagnostic le plus fréquent du panel (tous les ex æquo), 1 point pour tout autre diagnostic retenu par au moins un expert, 0 sinon.
+- Impression clinique alternative : 2 points pour un diagnostic retenu par au moins un expert, 0 sinon.
 - Pour chaque diagnostic et chaque signe : 75 % et plus donne 1 point ; 50 % à moins de 75 % donne 0,5 ; moins de 50 % donne 0.
 - Le dénominateur est le nombre d’experts ayant retenu ce diagnostic, en principale ou en alternative. Un expert ne choisit pas deux fois le même diagnostic. Les signes + et − sont évalués séparément.
-- Les cinq données choisies par impression s’additionnent, avec un plafond de 5 points par impression. Aucun calcul proportionnel supplémentaire n’est appliqué.
+- Les cinq données choisies par impression clinique s’additionnent, avec un plafond de 5 points par impression clinique. Aucun calcul proportionnel supplémentaire n’est appliqué.
 - Le plafond proposé est donc **15 points : 3 + 2 + 5 + 5**.
 
 Les notes d’importance expertes de 1 à 3 restent conservées et disponibles pour la discussion. Les points proposés par ce barème sont calculés à partir des fréquences de sélection, et non en multipliant ces notes d’importance.
 
 ## Personnaliser
 
-Le professeur peut modifier les points de chaque diagnostic en principale et en alternative, les points de chaque donnée pour les signes + et −, et le plafond clinique par impression. Le maximum se met à jour. Les valeurs acceptent deux décimales, restent positives ou nulles et le total ne dépasse pas 100. Le bouton **Rétablir les valeurs proposées** remet les suggestions dans le formulaire ; **Enregistrer le barème** les applique aux prochains groupes.
+Le professeur peut modifier les points de chaque diagnostic en principale et en alternative, les points de chaque donnée pour les signes + et −, et le plafond clinique par impression clinique. Le maximum se met à jour. Les valeurs acceptent deux décimales, restent positives ou nulles et le total ne dépasse pas 100. Le bouton **Rétablir les valeurs proposées** remet les suggestions dans le formulaire ; **Enregistrer le barème** les applique aux prochains groupes.
 
-Le professeur voit aussi le meilleur score réellement réalisable avec deux diagnostics distincts et cinq données par impression. Si les seuils produisent moins de cinq données créditées, ce score peut être inférieur au plafond annoncé. L’écran le précise pour permettre un ajustement pédagogique ; aucune remise à l’échelle automatique ne transforme une donnée à 0,5 en une donnée à 1.
+Le professeur voit aussi le meilleur score réellement réalisable avec deux diagnostics distincts et cinq données par impression clinique. Si les seuils produisent moins de cinq données créditées, ce score peut être inférieur au plafond annoncé. L’écran le précise pour permettre un ajustement pédagogique ; aucune remise à l’échelle automatique ne transforme une donnée à 0,5 en une donnée à 1.
 
 ## Versions et groupes existants
 

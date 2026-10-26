@@ -437,13 +437,13 @@ function validateParticipantResponse(
   const mainDiagnosticId =
     input.mainDiagnosticId == null
       ? null
-      : stringValue(input.mainDiagnosticId, "Diagnostic principal", 100);
+      : stringValue(input.mainDiagnosticId, "Impression clinique", 100);
   const alternativeDiagnosticId =
     input.alternativeDiagnosticId == null
       ? null
       : stringValue(
           input.alternativeDiagnosticId,
-          "Diagnostic alternatif",
+          "Impression clinique alternative",
           100,
         );
   const validIds = new Set(
@@ -459,7 +459,7 @@ function validateParticipantResponse(
     alternativeDiagnosticId &&
     mainDiagnosticId === alternativeDiagnosticId
   ) {
-    fail(400, "Les deux hypothèses doivent être différentes.");
+    fail(400, "Les deux impressions cliniques doivent être différentes.");
   }
   const parseChoices = (value: unknown, field: string): Choice[] =>
     arrayValue(value, field).map((item) => {
@@ -516,13 +516,13 @@ function validateParticipantResponse(
     ) {
       fail(
         400,
-        "Chaque hypothèse accepte au maximum cinq observations distinctes.",
+        "Chaque impression clinique accepte au maximum cinq observations distinctes.",
       );
     }
   }
   const maxRole = participant.role === "panel" ? 5 : 5;
   if (mainChoices.length > maxRole || alternativeChoices.length > maxRole) {
-    fail(400, "Le maximum est de cinq observations par hypothèse.");
+    fail(400, "Le maximum est de cinq observations par impression clinique.");
   }
 
   return {
@@ -988,7 +988,7 @@ async function createLaunch(
     }
     if (reuseDemoSession) {
       caseSnapshot.instructions =
-        "Choisissez deux diagnostics distincts. Pour chaque hypothèse, sélectionnez exactement cinq données cliniques en précisant leur signe (+ ou −). Vous n’avez pas de note d’importance à attribuer : les pondérations viennent du panel fictif. Les réponses et le corrigé de cette démonstration sont fictifs.";
+        "Choisissez deux diagnostics distincts. Pour chaque impression clinique, sélectionnez exactement cinq données cliniques en précisant leur signe (+ ou −). Vous n’avez pas de note d’importance à attribuer : les pondérations viennent du panel fictif. Les réponses et le corrigé de cette démonstration sont fictifs.";
     }
     const missing = missingCase(caseSnapshot);
     if (missing.length) fail(409, missing.join(" "));
@@ -2253,11 +2253,11 @@ async function handle(request: Request): Promise<Response> {
       if (!response.main_diagnostic_id || !response.alternative_diagnostic_id) {
         fail(
           400,
-          "Choisissez une hypothèse principale et une hypothèse alternative.",
+          "Choisissez une impression clinique principale et une impression clinique alternative.",
         );
       }
       if (response.main_diagnostic_id === response.alternative_diagnostic_id) {
-        fail(400, "Les deux hypothèses doivent être différentes.");
+        fail(400, "Les deux impressions cliniques doivent être différentes.");
       }
       if (
         response.main_choices.length < 1 ||
@@ -2265,7 +2265,7 @@ async function handle(request: Request): Promise<Response> {
       ) {
         fail(
           400,
-          "Sélectionnez au moins une observation pour chaque hypothèse.",
+          "Sélectionnez au moins une observation pour chaque impression clinique.",
         );
       }
       if (
@@ -2275,7 +2275,7 @@ async function handle(request: Request): Promise<Response> {
       ) {
         fail(
           400,
-          "Le panel doit choisir exactement cinq observations par hypothèse.",
+          "Le panel doit choisir exactement cinq observations par impression clinique.",
         );
       }
       let score: number | null = null;
@@ -2287,7 +2287,7 @@ async function handle(request: Request): Promise<Response> {
       )
         fail(
           400,
-          "Choisissez exactement cinq données cliniques pour chacune des deux hypothèses.",
+          "Choisissez exactement cinq données cliniques pour chacune des deux impressions cliniques.",
         );
       if (
         participant.role === "panel" &&
@@ -2300,7 +2300,7 @@ async function handle(request: Request): Promise<Response> {
       )
         fail(
           400,
-          "Attribuez de 1 à 3 points à chacune des cinq données choisies pour chaque hypothèse.",
+          "Attribuez de 1 à 3 points à chacune des cinq données choisies pour chaque impression clinique.",
         );
       let components: JsonRecord | null = null;
       if (participant.role === "students") {
@@ -2403,11 +2403,11 @@ async function handle(request: Request): Promise<Response> {
       const reveals = { ...launch.reveals };
       if (input.action === "comparison") reveals.diagnosticComparison = true;
       else if (input.action === "diagnostic") {
-        const id = stringValue(input.diagnosticId, "Hypothèse", 100);
+        const id = stringValue(input.diagnosticId, "Impression clinique", 100);
         if (!launch.case_snapshot.diagnostics.some((row) => row.id === id))
-          fail(400, "Cette hypothèse ne fait pas partie du cas.");
+          fail(400, "Cette impression clinique ne fait pas partie du cas.");
         if (!reveals.diagnosticComparison)
-          fail(409, "Affichez d’abord la comparaison des hypothèses.");
+          fail(409, "Affichez d’abord la comparaison des impressions cliniques.");
         reveals.correctedDiagnosticIds = [
           ...new Set([...(reveals.correctedDiagnosticIds ?? []), id]),
         ];
@@ -2676,7 +2676,7 @@ async function handle(request: Request): Promise<Response> {
       )
         fail(
           409,
-          "Validation bloquée : une hypothèse représentée n’a aucune donnée cotable (C = 0).",
+          "Validation bloquée : une impression clinique représentée n’a aucune donnée cotable (C = 0).",
         );
       const updated = await client.query(
         "UPDATE prc_private.references SET status='validated',explanation=$1,validated_at=clock_timestamp() WHERE id=$2 RETURNING *",

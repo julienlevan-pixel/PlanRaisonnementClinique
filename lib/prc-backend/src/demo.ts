@@ -217,7 +217,7 @@ export async function ensureTeacherDemo(request: Request, invoke: Invoke): Promi
     if (panel.referenceStatus !== "validated") {
       await call(`/api/launches/${panelId}/reference/generate`, "POST", { minimumPanelSize: demoExperts.length });
       await call(`/api/launches/${panelId}/reference/validate`, "POST", {
-        explanation: "Démonstration — données fictives. Cette référence a été calculée à partir des dix copies expertes simulées par le moteur habituel. Elle conserve les hypothèses et signes minoritaires. Le lien temporel avec le ramipril, les symptômes ORL et les symptômes de reflux soutiennent des discussions distinctes ; un choix non crédité n’est pas automatiquement une erreur clinique.",
+        explanation: "Démonstration — données fictives. Cette référence a été calculée à partir des dix copies expertes simulées par le moteur habituel. Elle conserve les impressions cliniques et signes minoritaires. Le lien temporel avec le ramipril, les symptômes ORL et les symptômes de reflux soutiennent des discussions distinctes ; un choix non crédité n’est pas automatiquement une erreur clinique.",
       });
     }
     const reveals = { mainDiagnostic: true, mainArguments: true, alternativeDiagnostic: true, alternativeArguments: true, reference: true };

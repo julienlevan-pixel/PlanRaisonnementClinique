@@ -14,7 +14,7 @@ export function CasePreview({ data, title = 'Aperçu du questionnaire' }: { data
     if (selected?.sign === sign) set(choices.filter(choice => choice.observationId !== id));
     else if (selected) set(choices.map(choice => choice.observationId === id ? { observationId: id, sign } : choice));
     else if (choices.length < 5) set([...choices, { observationId: id, sign }]);
-    else { setError('Cinq données au maximum par hypothèse. Retirez un choix pour en sélectionner un autre.'); return; }
+    else { setError('Cinq données au maximum par impression clinique. Retirez un choix pour en sélectionner un autre.'); return; }
     setError('');
   };
   return <section className="case-preview" aria-label={title}>
