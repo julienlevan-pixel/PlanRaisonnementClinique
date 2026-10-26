@@ -502,6 +502,35 @@ export const RemovePrcCollaboratorResponse = zod.object({
 })
 
 
+/**
+ * Le professeur ouvre ou retrouve une séance étudiante de démonstration pour la version actuelle, avec un code distinct par modalité. Une séance asynchrone nécessite son choix explicite. Ne modifie pas les anciennes copies illustratives.
+ */
+export const OpenDemoStudentSessionParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const OpenDemoStudentSessionBody = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).describe('Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants.')
+})
+
+export const OpenDemoStudentSessionResponse = zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "guidedReview": zod.boolean().optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int()
+})
+
+
 export const CreateLaunchParams = zod.object({
   "prcId": zod.coerce.string()
 })

@@ -327,6 +327,33 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/CollaborationRemoved" }
+  /prcs/{prcId}/demo-session:
+    post:
+      operationId: openDemoStudentSession
+      tags: [prcs]
+      description: Le professeur ouvre ou retrouve une séance étudiante de démonstration pour la version actuelle, avec un code distinct par modalité. Une séance asynchrone nécessite son choix explicite. Ne modifie pas les anciennes copies illustratives.
+      parameters:
+        - in: path
+          name: prcId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DemoSessionInput" }
+      responses:
+        "200":
+          description: Séance ouverte, prête à accueillir des étudiants
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Launch" }
+        "401":
+          description: Connexion enseignante requise
+        "404":
+          description: PRC introuvable ou gestion des séances non autorisée
+        "409":
+          description: PRC archivé, hors démonstration ou corrigé non validé pour cette version
   /prcs/{prcId}/launches:
     post:
       operationId: createLaunch
@@ -1152,6 +1179,14 @@ components:
         panelLaunchId: { type: ["string", "null"] }
         referenceStatus: { type: ["string", "null"] }
       required: [step, missing, panelLaunchId, referenceStatus]
+    DemoSessionInput:
+      type: object
+      properties:
+        deliveryMode:
+          type: string
+          enum: [synchronous, asynchronous]
+          description: Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants.
+      required: [deliveryMode]
     DeletePrcInput:
       type: object
       properties:

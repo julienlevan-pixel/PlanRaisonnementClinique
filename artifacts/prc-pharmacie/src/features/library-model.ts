@@ -58,6 +58,9 @@ export interface PrcDetail extends PrcSummary, CasePreviewData {
     participantCount: number;
     isTrial?: boolean;
     caseVersion?: number;
+    code?: string;
+    deliveryMode?: 'synchronous' | 'asynchronous';
+    guidedReview?: boolean;
   }>;
 }
 

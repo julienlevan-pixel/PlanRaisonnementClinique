@@ -221,6 +221,58 @@ test('resumes the bounded demonstration initialization before opening it', async
   expect(requests).toBe(3);
 });
 
+test('teacher opens both Toux student modes explicitly and finds the same access codes on reload', async ({ page }, testInfo) => {
+  await authenticate(page);
+  let data: any = { ...fixture(), isDemo: true, workflow: { step: 'students', missing: [], panelLaunchId: 'panel-demo', referenceStatus: 'validated' } };
+  await page.route(`**/api/prcs/${id}`, route => route.fulfill({ json: data }));
+  let modes: string[] = [];
+  await page.route(`**/api/prcs/${id}/demo-session`, async route => {
+    expect(route.request().method()).toBe('POST');
+    const { deliveryMode } = route.request().postDataJSON();
+    modes.push(deliveryMode);
+    const session = { id: `session-${deliveryMode}`, code: deliveryMode === 'synchronous' ? 'SYN123' : 'ASY456', role: 'students', caseVersion: 1, status: 'open', guidedReview: true, deliveryMode, name: 'Toux', createdAt: '2026-01-01T00:00:00Z', participantCount: 0, submissionCount: 0 };
+    data = { ...data, launches: [...data.launches, session] };
+    await route.fulfill({ json: session });
+  });
+  await page.goto(`/prc/${id}`);
+  const demo = page.getByRole('region', { name: 'Essayer Toux avec des étudiants', exact: true });
+  await expect(demo).toContainText('dix experts fictifs');
+  expect(modes).toEqual([]);
+  await expect(page.getByLabel('Modalité du groupe étudiant', { exact: true })).toHaveValue('synchronous');
+  await demo.getByRole('button', { name: 'Ouvrir la séance synchrone', exact: true }).click();
+  await expect(demo).toContainText('SYN123');
+  await expect(demo.getByRole('link', { name: 'Ouvrir le questionnaire étudiant', exact: true })).toHaveAttribute('href', '/join/SYN123');
+  await page.reload();
+  await expect(demo).toContainText('SYN123');
+  expect(modes).toEqual(['synchronous']);
+  await expect(demo).not.toContainText('ASY456');
+  await demo.getByRole('button', { name: 'Autoriser la séance asynchrone', exact: true }).click();
+  await expect(demo).toContainText('ASY456');
+  expect(modes).toEqual(['synchronous', 'asynchronous']);
+  await expect(demo.getByRole('link', { name: 'Ouvrir le questionnaire étudiant', exact: true })).toHaveCount(2);
+  await demo.screenshot({ path: testInfo.outputPath('demo-student-modes-desktop.png'), animations: 'disabled' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  const layout = await page.evaluate(() => ({
+    fits: document.documentElement.scrollWidth <= innerWidth,
+    overflow: [...document.querySelectorAll('main *')].filter(element => element.getBoundingClientRect().right > innerWidth).slice(0, 12).map(element => `${element.tagName}.${element.className}`),
+  }));
+  expect(layout.fits, JSON.stringify(layout.overflow)).toBe(true);
+  await demo.screenshot({ path: testInfo.outputPath('demo-student-modes-mobile.png'), animations: 'disabled' });
+});
+
+test('demo modes stay disabled without a current validated correction and are hidden from content-only collaborators', async ({ page }) => {
+  await authenticate(page);
+  let data: any = { ...fixture(), isDemo: true, workflow: { step: 'reference', missing: [], panelLaunchId: 'panel-demo', referenceStatus: 'draft' } };
+  await page.route(`**/api/prcs/${id}`, route => route.fulfill({ json: data }));
+  await page.goto(`/prc/${id}`);
+  const demo = page.getByRole('region', { name: 'Essayer Toux avec des étudiants', exact: true });
+  await expect(demo.getByRole('button', { name: 'Ouvrir la séance synchrone', exact: true })).toBeDisabled();
+  await expect(demo.getByRole('button', { name: 'Autoriser la séance asynchrone', exact: true })).toBeDisabled();
+  data.permissions = { edit: true, share: false, archive: false, delete: false, manageSessions: false };
+  await page.reload();
+  await expect(demo).toHaveCount(0);
+});
+
 test('public Toux preview unfolds on demand, preserves choices and never creates a copy', async ({ page }, testInfo) => {
   await page.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { error: 'Connexion requise.' } }));
   const demo = { ...fixture(), name: 'Toux', demonstrationLabel: 'Démonstration — données fictives', observations: Array.from({ length: 20 }, (_, index) => ({ ...observations[0], id: `preview-${index}`, text: `Observation fictive ${index + 1}`, position: index })) };

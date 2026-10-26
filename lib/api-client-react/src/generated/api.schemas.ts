@@ -729,6 +729,22 @@ export interface ErrorResponse {
   error: string;
 }
 
+/**
+ * Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants.
+ */
+export type DemoSessionInputDeliveryMode = typeof DemoSessionInputDeliveryMode[keyof typeof DemoSessionInputDeliveryMode];
+
+
+export const DemoSessionInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export interface DemoSessionInput {
+  /** Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants. */
+  deliveryMode: DemoSessionInputDeliveryMode;
+}
+
 export interface DeletePrcInput {
   confirm: true;
 }

@@ -209,5 +209,53 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(teacher.getByText('Accès retiré.', { exact: true })).toBeVisible();
       expect((await colleague.request.get(`/api${prcPath.replace('/prc/', '/prcs/')}`)).status()).toBe(404);
     });
+    await test.step('Toux is ready with ten fictitious experts and students can try both teacher-controlled modes', async () => {
+      await teacher.goto('/prcs');
+      await teacher.getByRole('button', { name: 'Ouvrir ma démonstration Toux', exact: true }).click();
+      const demo = teacher.getByRole('region', { name: 'Essayer Toux avec des étudiants', exact: true });
+      await expect(demo).toBeVisible({ timeout: 30000 });
+      const casePath = new URL(teacher.url()).pathname.replace('/prc/', '/prcs/');
+      const demoDocument = await (await teacher.request.get(`/api${casePath}`)).json();
+      const panel = demoDocument.launches.find((launch: any) => launch.role === 'panel');
+      const panelResults = await (await teacher.request.get(`/api/launches/${panel.id}/panel-results`)).json();
+      expect(panelResults.totalSubmissions).toBe(10);
+      expect(demoDocument.launches.some((launch: any) => launch.deliveryMode === 'asynchronous')).toBe(false);
+      await demo.getByRole('button', { name: 'Ouvrir la séance synchrone', exact: true }).click();
+      const syncCard = demo.locator('.demo-session-card').filter({ has: teacher.getByRole('heading', { name: 'En séance synchrone', exact: true }) });
+      const syncJoin = syncCard.getByRole('link', { name: 'Ouvrir le questionnaire étudiant', exact: true });
+      await expect(syncJoin).toBeVisible();
+      await demo.getByRole('button', { name: 'Autoriser la séance asynchrone', exact: true }).click();
+      const asyncCard = demo.locator('.demo-session-card').filter({ has: teacher.getByRole('heading', { name: 'En autonomie asynchrone', exact: true }) });
+      const asyncJoin = asyncCard.getByRole('link', { name: 'Ouvrir le questionnaire étudiant', exact: true });
+      await expect(asyncJoin).toBeVisible();
+      expect(await syncJoin.getAttribute('href')).not.toBe(await asyncJoin.getAttribute('href'));
+      const syncStudent = await page(), asyncStudent = await page();
+      for (const [participant, joinLink, name] of [[syncStudent, syncJoin, 'Toux synchrone'], [asyncStudent, asyncJoin, 'Toux asynchrone']] as const) {
+        await participant.goto((await joinLink.getAttribute('href'))!);
+        await participant.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(name);
+        await participant.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
+        await expect(participant).toHaveURL(/\/participant$/);
+        await participant.getByLabel('Diagnostic principal', { exact: true }).selectOption(demoDocument.diagnostics[0].id);
+        await participant.getByLabel('Diagnostic alternatif', { exact: true }).selectOption(demoDocument.diagnostics[1].id);
+        for (let index = 0; index < 5; index++) {
+          await participant.getByRole('button', { name: /^Hypothèse principale : En faveur —/ }).nth(index).click();
+          await participant.getByRole('button', { name: /^Hypothèse alternative : En défaveur —/ }).nth(index).click();
+        }
+        await expect(participant.getByRole('combobox', { name: /^Points hypothèse/ })).toHaveCount(0);
+        await confirmClick(participant, 'Vérifier et transmettre');
+        await expect(participant).toHaveURL(/\/participant\/results$/);
+      }
+      await expect(syncStudent.getByRole('heading', { name: 'Votre résultat', exact: true })).toHaveCount(0);
+      await expect(asyncStudent.getByRole('heading', { name: 'Votre résultat', exact: true })).toBeVisible();
+      await expect(asyncStudent.locator('.diagnostic-correction')).toHaveCount(2);
+      expect((await asyncStudent.request.post(`/api${casePath}/demo-session`, { headers: { origin: baseURL }, data: { deliveryMode: 'asynchronous' } })).status()).toBe(401);
+      const syncManage = (await syncCard.getByRole('link', { name: 'Gérer la séance et afficher le QR code', exact: true }).getAttribute('href'))!;
+      await teacher.goto(syncManage);
+      await confirmClick(teacher, 'Terminer le temps de réponse');
+      await teacher.getByRole('button', { name: 'Afficher la comparaison des hypothèses', exact: true }).click();
+      await expect(syncStudent.getByRole('region', { name: 'Comparaison des hypothèses', exact: true })).toBeVisible({ timeout: 12000 });
+      await teacher.getByRole('button', { name: `Afficher le corrigé : ${demoDocument.diagnostics[0].label}`, exact: true }).click();
+      await expect(syncStudent.getByRole('article', { name: `Corrigé ${demoDocument.diagnostics[0].label}`, exact: true })).toBeVisible({ timeout: 12000 });
+    });
   } finally { await Promise.all(contexts.map(context => context.close())); }
 });

@@ -31,6 +31,7 @@ import {
 import { dateLabel, getError } from "../app/utils";
 import { CasePreview } from "./CasePreview";
 import { Sharing } from "./Sharing";
+import { DemoStudentSessions } from "./DemoStudentSessions";
 import { ObservationMatrix } from "./Participant";
 import "./student-review.css";
 import {
@@ -125,6 +126,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
       setDirty(false);
       setHistory([]);
       setTrial(null);
+      setDeliveryMode("synchronous");
       setError("");
       setStatus("");
       loaded.current = prcId;
@@ -485,6 +487,13 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
         </section>
       )}
       {sharingOpen && !isNew && <Sharing prcId={prcId} />}
+
+      {query.data?.isDemo && canManageSessions && (
+        <DemoStudentSessions
+          document={query.data}
+          blocked={dirty || saving || busy || conflict || newerVersion}
+        />
+      )}
 
       {trial && (
         <section className="trial-banner" role="status">
@@ -904,10 +913,12 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
                         Synchrone · correction guidée en séance
                       </option>
                       <option value="asynchronous">
-                        Asynchrone · corrigé dès la soumission
+                        Asynchrone · autoriser le corrigé dès la soumission
                       </option>
                     </select>
                     <small>
+                      Le professeur choisit la modalité. Les étudiants ne
+                      peuvent pas la modifier.{" "}
                       {deliveryMode === "synchronous"
                         ? "Vous terminez le temps de réponse, puis révélez la comparaison et les hypothèses une à une."
                         : "Chaque étudiant voit uniquement ses réponses face au corrigé expert et sa note, dès sa soumission."}
