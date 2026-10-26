@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { CaseSnapshot } from './caseSnapshot';
+import type { GradeDistribution } from './gradeDistribution';
 import type { ProjectionLaunch } from './projectionLaunch';
 import type { RevealState } from './revealState';
 import type { StudentReview } from './studentReview';
@@ -19,6 +20,7 @@ export interface Projection {
   launch: ProjectionLaunch;
   case: CaseSnapshot;
   discussion?: StudentReview;
+  gradeDistribution?: GradeDistribution;
   role: string;
   status: string;
   reveals: RevealState;

@@ -3,6 +3,7 @@ import { Btn } from "../app/ui";
 import "./student-review.css";
 
 export type DiagnosticComparison = {
+  topDiagnosis?: boolean;
   diagnosticId: string;
   label: string;
   panelCount: number;
@@ -13,6 +14,7 @@ export type DiagnosticComparison = {
   studentTotal: number;
 };
 export type DiagnosticCorrection = {
+  topDiagnosis?: boolean;
   diagnosticId: string;
   label: string;
   panelCount: number;
@@ -34,9 +36,15 @@ export type DiagnosticCorrection = {
     negativePoints: number;
     studentSign?: "+" | "-" | null;
     earnedPoints?: number;
+    earnedScorePoints?: number;
+    referenceScorePoints?: number;
+    topClinical?: boolean;
+    bestSigns?: string[];
   }[];
 };
 export type StudentReviewData = {
+  scoringVersion?: string;
+  maximum?: number;
   deliveryMode: "synchronous" | "asynchronous";
   comparisonVisible: boolean;
   comparison: DiagnosticComparison[];
@@ -46,6 +54,42 @@ export type StudentReviewData = {
 };
 const number = (value: number | null | undefined) =>
   Number(value ?? 0).toLocaleString("fr-CA", { maximumFractionDigits: 2 });
+
+export function MaximumScoreGuide({
+  scoringVersion,
+}: {
+  scoringVersion?: string;
+}) {
+  const topTwo = scoringVersion === "top-two-v1";
+  return (
+    <section
+      className="maximum-score-guide"
+      aria-label="Comprendre la note maximale du cas"
+    >
+      <div>
+        <span>NOTE MAXIMALE DU CAS</span>
+        <strong>20 points</strong>
+      </div>
+      <p>
+        <b>Deux impressions cliniques, 10 points chacune :</b> 2 points pour le
+        diagnostic et 8 points pour ses cinq données cliniques.
+      </p>
+      <p>
+        {topTwo
+          ? "Pour obtenir 20 / 20 : retenir les deux impressions les plus choisies par le panel et, pour chacune, une meilleure sélection de cinq données avec les signes + ou − du corrigé. Les ex æquo au deuxième rang et parmi les données sont acceptés."
+          : "Le diagnostic doit être représenté dans le panel. Le plein pointage des données correspond aux cinq meilleurs poids experts, avec les bons signes + ou −. Cette séance conserve son barème historique."}
+      </p>
+      {topTwo && (
+        <small>
+          Les impressions moins fréquentes gardent des points diagnostiques
+          partiels selon leur fréquence et les deux meilleurs effectifs du
+          panel. Une impression qu’aucun expert n’a retenue ne rapporte aucun
+          point, y compris pour les données.
+        </small>
+      )}
+    </section>
+  );
+}
 
 export function HypothesisComparison({
   rows,
@@ -84,6 +128,11 @@ export function HypothesisComparison({
               <tr key={row.diagnosticId}>
                 <th scope="row">
                   {row.label}
+                  {row.topDiagnosis && (
+                    <small className="review-best">
+                      Top 2 du panel · candidat au plein crédit
+                    </small>
+                  )}
                   {!row.panelCount && (
                     <small>Aucun expert · aucun point au barème</small>
                   )}
@@ -139,6 +188,13 @@ export function DiagnosticCorrectionTable({
         <div>
           {active && <div className="eyebrow">CORRECTION EN COURS</div>}
           <h3>{correction.label}</h3>
+          {correction.topDiagnosis !== undefined && correction.represented && (
+            <small className="review-best">
+              {correction.topDiagnosis
+                ? "Top 2 du panel · diagnostic sur 2 points"
+                : "Impression minoritaire · crédit diagnostique partiel"}
+            </small>
+          )}
         </div>
         {personal && chosen && (
           <span className="hypothesis-score">
@@ -180,7 +236,7 @@ export function DiagnosticCorrectionTable({
               <th scope="col">Donnée clinique</th>
               {personal && <th scope="col">Votre réponse</th>}
               <th scope="col">Corrigé des experts</th>
-              {personal && chosen && <th scope="col">Points concordants</th>}
+              {personal && chosen && <th scope="col">Points obtenus</th>}
             </tr>
           </thead>
           <tbody>
@@ -192,6 +248,12 @@ export function DiagnosticCorrectionTable({
                 <th scope="row">
                   <small>{row.category}</small>
                   {row.label}
+                  {row.topClinical && (
+                    <small className="review-best">
+                      Meilleure sélection de cinq · signe{" "}
+                      {row.bestSigns?.join(" ou ")}
+                    </small>
+                  )}
                 </th>
                 {personal && (
                   <td>
@@ -210,7 +272,32 @@ export function DiagnosticCorrectionTable({
                     − : {row.negative} réponse(s) · {row.negativePoints} pt
                   </span>
                 </td>
-                {personal && chosen && <td>{row.earnedPoints ?? 0} pt</td>}
+                {personal && chosen && (
+                  <td>
+                    {number(
+                      row.earnedScorePoints ??
+                        (correction.ceiling
+                          ? (8 * (row.earnedPoints ?? 0)) / correction.ceiling
+                          : 0),
+                    )}{" "}
+                    pt
+                    <small>
+                      sur{" "}
+                      {number(
+                        row.referenceScorePoints ??
+                          (correction.ceiling
+                            ? (8 *
+                                Math.max(
+                                  row.positivePoints,
+                                  row.negativePoints,
+                                )) /
+                              correction.ceiling
+                            : 0),
+                      )}{" "}
+                      possible(s) pour cette donnée
+                    </small>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

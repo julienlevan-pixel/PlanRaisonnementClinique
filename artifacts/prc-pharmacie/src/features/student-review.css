@@ -1,6 +1,45 @@
 .student-review {
   margin: 26px 0;
 }
+.maximum-score-guide {
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid #b2cfc5;
+  border-radius: 8px;
+  background: #eef7f3;
+}
+.maximum-score-guide > div {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.maximum-score-guide > div > span {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.maximum-score-guide strong {
+  font-size: 26px;
+}
+.maximum-score-guide p {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 10px 0;
+}
+.maximum-score-guide small {
+  font-size: 12px;
+  line-height: 1.65;
+  color: hsl(var(--muted-foreground));
+}
+.review-table .review-best,
+.review-best {
+  display: block;
+  color: #246348;
+  font-size: 12px;
+  font-weight: 600;
+  margin-top: 6px;
+}
 .review-table-scroll {
   width: 100%;
   overflow-x: auto;

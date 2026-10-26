@@ -33,6 +33,62 @@ const own = {
     .slice(5, 10)
     .map((row) => ({ observationId: row.id, sign: "-" })),
 };
+
+const gradeDistribution = {
+  maximum: 20, gradedCount: 6, excludedCount: 1,
+  average: 65.6 / 6, median: 12, lowest: 0, highest: 20,
+  bins: [1, 1, 0, 0, 0, 1, 0, 1, 0, 2].map((count, i) => ({ lower: i * 2, upper: (i + 1) * 2, upperInclusive: i === 9, count, percentage: count * 100 / 6 })),
+};
+
+test('final anonymous distribution explains the maximum and highlights the student’s grade on desktop and mobile', async ({ page }, testInfo) => {
+  await page.route('**/api/participant/results', route => route.fulfill({ json: {
+    role: 'students', guidedReview: true, deliveryMode: 'synchronous', published: true, status: 'published',
+    case: { ...caseData, scoringVersion: 'top-two-v1' }, response: own,
+    score: 3.6, percentage: 18, components: { mainDiagnosis: 2, mainJustification: 1.6, alternativeDiagnosis: 0, alternativeJustification: 0 },
+    panel: {}, class: {}, gradeDistribution,
+    studentReview: { scoringVersion: 'top-two-v1', deliveryMode: 'synchronous', comparisonVisible: true, comparison, corrections: [correction('d0'), correction('d4')] },
+  } }));
+  await page.goto('/participant/results');
+  await expect(page.locator('.participant-score')).toContainText('3,6');
+  await expect(page.locator('.participant-score')).toContainText('/ 20');
+  await expect(page.getByRole('region', { name: 'Comprendre la note maximale du cas', exact: true })).toContainText('les deux impressions les plus choisies');
+  const graph = page.getByRole('region', { name: 'Distribution des notes du groupe', exact: true });
+  await expect(graph).toContainText('6 copie(s) notée(s)');
+  await expect(graph).toContainText('1 copie(s) sans note');
+  await expect(graph.locator('.distribution-own')).toHaveCount(1);
+  await expect(graph.locator('.distribution-own')).toContainText('2–4');
+  await expect(graph).toContainText('Votre note : 3,6 / 20');
+  await graph.getByRole('button', { name: /^18 à 20 inclus/ }).click();
+  await expect(graph.getByRole('status')).toContainText('2 copie(s)');
+  await expect(graph.getByRole('status')).toContainText('33,33 %');
+  await graph.screenshot({ path: testInfo.outputPath('grade-distribution-desktop.png'), animations: 'disabled' });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await graph.screenshot({ path: testInfo.outputPath('grade-distribution-mobile.png'), animations: 'disabled' });
+});
+
+test('asynchronous students receive the collective graph only when the professor publishes the final review', async ({ page }) => {
+  await page.clock.install();
+  let finished = false;
+  await page.route('**/api/participant/results', route => route.fulfill({ json: {
+    role: 'students', guidedReview: true, deliveryMode: 'asynchronous', published: true,
+    status: finished ? 'published' : 'open', reveals: {}, case: { ...caseData, scoringVersion: 'top-two-v1' },
+    response: own, score: 3.6, components: {}, panel: {}, class: {},
+    ...(finished ? { gradeDistribution } : {}),
+    studentReview: { deliveryMode: 'asynchronous', comparisonVisible: false, comparison: [], corrections: [correction('d0'), correction('d4')] },
+  } }));
+  await page.route('**/api/participant/state', route => route.fulfill({ json: {
+    status: finished ? 'published' : 'open', role: 'students', reveals: {}, published: true,
+    guidedReview: true, deliveryMode: 'asynchronous', responseState: 'submitted', revision: 1,
+  } }));
+  await page.goto('/participant/results');
+  await expect(page.getByRole('heading', { name: 'Votre résultat', exact: true })).toBeVisible();
+  const graph = page.getByRole('region', { name: 'Distribution des notes du groupe', exact: true });
+  await expect(graph).toHaveCount(0);
+  finished = true;
+  await page.clock.fastForward(5100);
+  await expect(graph).toBeVisible();
+});
 const comparison = [1, 0, 2, 3, 4].map((index, rank) => ({
   diagnosticId: diagnostics[index].id,
   label: diagnostics[index].label,
@@ -202,6 +258,9 @@ test("synchronous student follows comparison then each correction with personal 
 test("asynchronous student immediately sees only own corrections and private grade", async ({
   page,
 }) => {
+  await page.route('**/api/participant/state', route => route.fulfill({ json: {
+    status: 'open', role: 'students', reveals: {}, published: true, responseState: 'submitted', revision: 1,
+  } }));
   await page.route("**/api/participant/results", (route) =>
     route.fulfill({
       json: {

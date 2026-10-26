@@ -61,6 +61,7 @@ export interface PrcDetail extends PrcSummary, CasePreviewData {
     code?: string;
     deliveryMode?: 'synchronous' | 'asynchronous';
     guidedReview?: boolean;
+    scoringVersion?: string;
   }>;
 }
 

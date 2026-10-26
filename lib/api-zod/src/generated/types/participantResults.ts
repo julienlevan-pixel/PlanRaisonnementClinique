@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { GradeDistribution } from './gradeDistribution';
 import type { JoinInfo } from './joinInfo';
 import type { ParticipantResponse } from './participantResponse';
 import type { ParticipantResultsDeliveryMode } from './participantResultsDeliveryMode';
@@ -20,6 +21,8 @@ export interface ParticipantResults {
   guidedReview?: boolean;
   deliveryMode?: ParticipantResultsDeliveryMode;
   studentReview?: StudentReview;
+  /** Bilan anonyme du groupe uniquement après publication finale par le professeur. */
+  gradeDistribution?: GradeDistribution;
   case: JoinInfo;
   response: ParticipantResponse;
   /**

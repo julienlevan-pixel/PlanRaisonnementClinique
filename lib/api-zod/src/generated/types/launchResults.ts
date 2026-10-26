@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { CaseSnapshot } from './caseSnapshot';
+import type { GradeDistribution } from './gradeDistribution';
 import type { Launch } from './launch';
 import type { LaunchParticipantResult } from './launchParticipantResult';
 import type { RevealState } from './revealState';
@@ -22,4 +23,5 @@ export interface LaunchResults {
   class?: VisibleAggregate;
   panel?: VisibleAggregate;
   discussion?: StudentReview;
+  gradeDistribution?: GradeDistribution;
 }

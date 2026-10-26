@@ -13,6 +13,8 @@ import type { StudentReviewDeliveryMode } from './studentReviewDeliveryMode';
  * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
  */
 export interface StudentReview {
+  scoringVersion?: string;
+  maximum?: number;
   deliveryMode: StudentReviewDeliveryMode;
   comparisonVisible: boolean;
   comparison: StudentReviewComparisonItem[];

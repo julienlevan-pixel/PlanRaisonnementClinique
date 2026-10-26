@@ -146,6 +146,7 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -162,6 +163,7 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -313,6 +315,7 @@ export const GetPrcResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -398,6 +401,7 @@ export const UpdatePrcResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -522,6 +526,7 @@ export const OpenDemoStudentSessionResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -555,6 +560,7 @@ export const CreateLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -603,6 +609,7 @@ export const GetLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -703,6 +710,7 @@ export const AdvanceDiscussionResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -760,6 +768,7 @@ export const GetJoinInfoResponse = zod.object({
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(getJoinInfoResponseTwoRequiredChoicesMax).nullish()
 }))
@@ -835,6 +844,7 @@ export const JoinLaunchResponse = zod.object({
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(joinLaunchResponseJoinInfoTwoRequiredChoicesMax).nullish()
 }))
@@ -889,6 +899,7 @@ export const GetParticipantResponseResponse = zod.object({
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(getParticipantResponseResponseJoinInfoTwoRequiredChoicesMax).nullish()
 })),
@@ -978,6 +989,7 @@ export const SaveParticipantResponseResponse = zod.object({
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(saveParticipantResponseResponseJoinInfoTwoRequiredChoicesMax).nullish()
 })),
@@ -1038,6 +1050,7 @@ export const CloseLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1069,6 +1082,7 @@ export const RevealLaunchResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1318,6 +1332,7 @@ export const PublishResultsResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1391,6 +1406,7 @@ export const GetLaunchResultsResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -1545,6 +1561,8 @@ export const GetLaunchResultsResponse = zod.object({
 }),zod.null()]).optional()
 }).optional().describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
   "discussion": zod.object({
+  "scoringVersion": zod.string().optional(),
+  "maximum": zod.number().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
   "comparison": zod.array(zod.object({
@@ -1562,6 +1580,7 @@ export const GetLaunchResultsResponse = zod.object({
   "label": zod.string().optional(),
   "panelCount": zod.number().int().optional(),
   "represented": zod.boolean().optional(),
+  "topDiagnosis": zod.boolean().optional(),
   "selectedRole": zod.union([zod.literal('main'),zod.literal('alternative'),zod.literal(null)]).nullish(),
   "score": zod.number().nullish(),
   "diagnosisScore": zod.number().nullish(),
@@ -1578,12 +1597,32 @@ export const GetLaunchResultsResponse = zod.object({
   "positivePoints": zod.number().int().optional(),
   "negativePoints": zod.number().int().optional(),
   "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
-  "earnedPoints": zod.number().optional()
+  "earnedPoints": zod.number().optional(),
+  "earnedScorePoints": zod.number().optional(),
+  "referenceScorePoints": zod.number().optional(),
+  "topClinical": zod.boolean().optional(),
+  "bestSigns": zod.array(zod.enum(['+', '-'])).optional()
 })).optional()
 })),
   "activeDiagnosticId": zod.string().nullish(),
   "explanation": zod.string().optional()
-}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.')
+}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+  "gradeDistribution": zod.object({
+  "maximum": zod.number(),
+  "gradedCount": zod.number().int(),
+  "excludedCount": zod.number().int(),
+  "average": zod.number().nullable(),
+  "median": zod.number().nullable(),
+  "lowest": zod.number().nullable(),
+  "highest": zod.number().nullable(),
+  "bins": zod.array(zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "upperInclusive": zod.boolean(),
+  "count": zod.number().int(),
+  "percentage": zod.number()
+}))
+}).optional().describe('Effectifs anonymes sans identifiants, noms ou copies. Un brouillon ou une copie sans note est exclu, jamais remplacé par zéro.')
 })
 
 
@@ -1683,6 +1722,8 @@ export const GetParticipantResultsResponse = zod.object({
   "guidedReview": zod.boolean().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "studentReview": zod.object({
+  "scoringVersion": zod.string().optional(),
+  "maximum": zod.number().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
   "comparison": zod.array(zod.object({
@@ -1700,6 +1741,7 @@ export const GetParticipantResultsResponse = zod.object({
   "label": zod.string().optional(),
   "panelCount": zod.number().int().optional(),
   "represented": zod.boolean().optional(),
+  "topDiagnosis": zod.boolean().optional(),
   "selectedRole": zod.union([zod.literal('main'),zod.literal('alternative'),zod.literal(null)]).nullish(),
   "score": zod.number().nullish(),
   "diagnosisScore": zod.number().nullish(),
@@ -1716,12 +1758,32 @@ export const GetParticipantResultsResponse = zod.object({
   "positivePoints": zod.number().int().optional(),
   "negativePoints": zod.number().int().optional(),
   "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
-  "earnedPoints": zod.number().optional()
+  "earnedPoints": zod.number().optional(),
+  "earnedScorePoints": zod.number().optional(),
+  "referenceScorePoints": zod.number().optional(),
+  "topClinical": zod.boolean().optional(),
+  "bestSigns": zod.array(zod.enum(['+', '-'])).optional()
 })).optional()
 })),
   "activeDiagnosticId": zod.string().nullish(),
   "explanation": zod.string().optional()
 }).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+  "gradeDistribution": zod.object({
+  "maximum": zod.number(),
+  "gradedCount": zod.number().int(),
+  "excludedCount": zod.number().int(),
+  "average": zod.number().nullable(),
+  "median": zod.number().nullable(),
+  "lowest": zod.number().nullable(),
+  "highest": zod.number().nullable(),
+  "bins": zod.array(zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "upperInclusive": zod.boolean(),
+  "count": zod.number().int(),
+  "percentage": zod.number()
+}))
+}).optional().describe('Bilan anonyme du groupe uniquement après publication finale par le professeur.'),
   "case": zod.object({
   "name": zod.string(),
   "scenario": zod.string(),
@@ -1742,6 +1804,7 @@ export const GetParticipantResultsResponse = zod.object({
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "requiredChoices": zod.number().int().min(1).max(getParticipantResultsResponseCaseTwoRequiredChoicesMax).nullish()
 })),
@@ -2030,6 +2093,7 @@ export const CreateTrialResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -2139,6 +2203,7 @@ export const GetLaunchProjectionResponse = zod.object({
   "caseVersion": zod.number().int().optional(),
   "isTrial": zod.boolean().optional(),
   "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional().describe('Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "code": zod.string(),
   "status": zod.string(),
@@ -2174,6 +2239,8 @@ export const GetLaunchProjectionResponse = zod.object({
 }))
 }),
   "discussion": zod.object({
+  "scoringVersion": zod.string().optional(),
+  "maximum": zod.number().optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
   "comparison": zod.array(zod.object({
@@ -2191,6 +2258,7 @@ export const GetLaunchProjectionResponse = zod.object({
   "label": zod.string().optional(),
   "panelCount": zod.number().int().optional(),
   "represented": zod.boolean().optional(),
+  "topDiagnosis": zod.boolean().optional(),
   "selectedRole": zod.union([zod.literal('main'),zod.literal('alternative'),zod.literal(null)]).nullish(),
   "score": zod.number().nullish(),
   "diagnosisScore": zod.number().nullish(),
@@ -2207,12 +2275,32 @@ export const GetLaunchProjectionResponse = zod.object({
   "positivePoints": zod.number().int().optional(),
   "negativePoints": zod.number().int().optional(),
   "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
-  "earnedPoints": zod.number().optional()
+  "earnedPoints": zod.number().optional(),
+  "earnedScorePoints": zod.number().optional(),
+  "referenceScorePoints": zod.number().optional(),
+  "topClinical": zod.boolean().optional(),
+  "bestSigns": zod.array(zod.enum(['+', '-'])).optional()
 })).optional()
 })),
   "activeDiagnosticId": zod.string().nullish(),
   "explanation": zod.string().optional()
 }).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+  "gradeDistribution": zod.object({
+  "maximum": zod.number(),
+  "gradedCount": zod.number().int(),
+  "excludedCount": zod.number().int(),
+  "average": zod.number().nullable(),
+  "median": zod.number().nullable(),
+  "lowest": zod.number().nullable(),
+  "highest": zod.number().nullable(),
+  "bins": zod.array(zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "upperInclusive": zod.boolean(),
+  "count": zod.number().int(),
+  "percentage": zod.number()
+}))
+}).optional().describe('Effectifs anonymes sans identifiants, noms ou copies. Un brouillon ou une copie sans note est exclu, jamais remplacé par zéro.'),
   "role": zod.string(),
   "status": zod.string(),
   "reveals": zod.object({

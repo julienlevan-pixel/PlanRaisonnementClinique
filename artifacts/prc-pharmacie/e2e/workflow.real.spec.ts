@@ -145,6 +145,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(student.getByRole('region', { name: 'Votre correction guidée', exact: true })).toBeVisible();
       await teacher.getByRole('button', { name: 'Publier les résultats', exact: true }).click();
       await expect(teacher.getByRole('button', { name: 'Résultats publiés', exact: true })).toBeDisabled();
+      await expect(teacher.getByRole('region', { name: 'Distribution des notes du groupe', exact: true })).toContainText('1 copie(s) notée(s)');
       await student.reload();
       await expect(student.getByRole('heading', { name: 'Votre résultat', exact: true })).toBeVisible();
       await expect(student.locator('.participant-score')).toContainText('100 %');
@@ -153,6 +154,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       const own = await (await student.request.get('/api/participant/results')).json();
       expect(own.score).toBe(20);
       expect(own.response.state).toBe('submitted');
+      expect(own.gradeDistribution.gradedCount).toBe(1);
+      await expect(student.getByRole('region', { name: 'Distribution des notes du groupe', exact: true })).toBeVisible();
       expect(own).not.toHaveProperty('participants');
       expect(own).not.toHaveProperty('password_hash');
       expect((await student.request.get('/api/teachers')).status()).toBe(401);
@@ -174,6 +177,10 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       expect(result.status).toBe('open');
       expect(result.score).toBe(20);
       expect(result.class).toEqual({});
+      expect(result.gradeDistribution).toBeUndefined();
+      await confirmClick(teacher, 'Fermer les accès aux réponses');
+      await teacher.getByRole('button', { name: 'Publier les résultats', exact: true }).click();
+      await expect(asyncStudent.getByRole('region', { name: 'Distribution des notes du groupe', exact: true })).toBeVisible({ timeout: 12000 });
     });
     await test.step('two teachers edit the same shared PRC and the owner can revoke access', async () => {
       const colleagueName = `browser_colleague_${Date.now()}`;

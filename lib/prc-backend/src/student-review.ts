@@ -1,6 +1,9 @@
 import {
   combineDiagnostic,
   scoreRole,
+  diagnosisConsensus,
+  diagnosisPairCredits,
+  TOP_TWO_SCORING_VERSION,
   type Choice,
   type PanelDistribution,
 } from "./scoring.js";
@@ -31,7 +34,17 @@ export function buildStudentReview(input: {
   diagnosticIds: string[];
   activeDiagnosticId?: string;
   response?: ReviewResponse;
+  scoringVersion?: string;
 }) {
+  const topTwo = input.scoringVersion === TOP_TWO_SCORING_VERSION;
+  const pairCredits =
+    topTwo && input.response
+      ? diagnosisPairCredits(
+          input.panel.distributions,
+          input.response.mainDiagnosticId ?? "",
+          input.response.alternativeDiagnosticId ?? "",
+        )
+      : undefined;
   const counts = (snapshot: ReviewSnapshot | undefined, id: string) => {
     const row = snapshot?.diagnostics.find((row) => row.diagnosticId === id);
     return Number(row?.mainCount ?? 0) + Number(row?.alternativeCount ?? 0);
@@ -41,6 +54,14 @@ export function buildStudentReview(input: {
       diagnosticId: diagnostic.id,
       label: diagnostic.label,
       panelCount: counts(input.panel, diagnostic.id),
+      ...(topTwo
+        ? {
+            topDiagnosis: diagnosisConsensus(
+              input.panel.distributions,
+              diagnostic.id,
+            ).topDiagnosis,
+          }
+        : {}),
       panelTotal: input.panel.totalSubmissions,
       panelPercent: input.panel.totalSubmissions
         ? (counts(input.panel, diagnostic.id) * 100) /
@@ -78,13 +99,39 @@ export function buildStudentReview(input: {
             diagnosisId: diagnostic.diagnosticId,
             choices,
             distribution,
+            strictMaximum: topTwo,
+            ...(topTwo
+              ? {
+                  diagnosisPoints:
+                    ownRole === "main"
+                      ? pairCredits!.main
+                      : pairCredits!.alternative,
+                }
+              : {}),
           })
         : null;
+      const topFiveThreshold =
+        distribution.observations
+          .map((row) =>
+            Math.max(
+              row.positivePoints ?? row.positive,
+              row.negativePoints ?? row.negative,
+            ),
+          )
+          .sort((a, b) => b - a)[4] ?? 0;
       return {
         diagnosticId: diagnostic.diagnosticId,
         label: diagnostic.label,
         panelCount: distribution.expertCount,
         represented: distribution.expertCount > 0,
+        ...(topTwo
+          ? {
+              topDiagnosis: diagnosisConsensus(
+                input.panel.distributions,
+                diagnostic.diagnosticId,
+              ).topDiagnosis,
+            }
+          : {}),
         ...(input.response
           ? {
               selectedRole: ownRole,
@@ -107,6 +154,13 @@ export function buildStudentReview(input: {
           );
           const positivePoints = row?.positivePoints ?? row?.positive ?? 0;
           const negativePoints = row?.negativePoints ?? row?.negative ?? 0;
+          const bestPoints = Math.max(positivePoints, negativePoints);
+          const earnedPoints =
+            choice && distribution.expertCount
+              ? choice.sign === "+"
+                ? positivePoints
+                : negativePoints
+              : 0;
           return {
             observationId: observation.id,
             label: observation.text,
@@ -115,15 +169,23 @@ export function buildStudentReview(input: {
             negative: row?.negative ?? 0,
             positivePoints,
             negativePoints,
+            topClinical: bestPoints > 0 && bestPoints >= topFiveThreshold,
+            bestSigns: bestPoints
+              ? [
+                  ...(positivePoints === bestPoints ? ["+"] : []),
+                  ...(negativePoints === bestPoints ? ["-"] : []),
+                ]
+              : [],
+            referenceScorePoints: distribution.ceiling
+              ? (8 * bestPoints) / distribution.ceiling
+              : 0,
             ...(input.response
               ? {
                   studentSign: choice?.sign ?? null,
-                  earnedPoints:
-                    choice && distribution.expertCount
-                      ? choice.sign === "+"
-                        ? positivePoints
-                        : negativePoints
-                      : 0,
+                  earnedPoints: earnedPoints,
+                  earnedScorePoints: distribution.ceiling
+                    ? (8 * earnedPoints) / distribution.ceiling
+                    : 0,
                 }
               : {}),
           };
@@ -131,6 +193,8 @@ export function buildStudentReview(input: {
       };
     });
   return {
+    maximum: 20,
+    scoringVersion: input.scoringVersion ?? "panel-weighted-v2",
     deliveryMode: input.mode,
     comparisonVisible: input.comparisonVisible,
     comparison: input.comparisonVisible ? ranked : [],

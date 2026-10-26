@@ -21,6 +21,7 @@ import {
 import {
   computeCeiling,
   scoreSubmission,
+  TOP_TWO_SCORING_VERSION,
   type Choice,
   type PanelDistribution,
 } from "./scoring.js";
@@ -28,10 +29,15 @@ import { demoCase } from "./demo-case.js";
 import { ensureTeacherDemo, DemoSetupError } from "./demo.js";
 import { deploymentDatabaseError } from "./deployment.js";
 import { buildStudentReview, type DeliveryMode } from "./student-review.js";
+import { gradeDistribution } from "./grade-distribution.js";
 
 type JsonRecord = Record<string, unknown>;
 type CaseData = {
-  studentWorkflow?: { deliveryMode: DeliveryMode; requiredChoices: 5 };
+  studentWorkflow?: {
+    deliveryMode: DeliveryMode;
+    requiredChoices: 5;
+    scoringVersion?: string;
+  };
   name: string;
   scenario: string;
   instructions: string;
@@ -274,6 +280,7 @@ function mapLaunch(
     caseVersion: row.case_version,
     isTrial: row.is_trial ?? false,
     guidedReview: !!row.case_snapshot.studentWorkflow,
+    scoringVersion: row.case_snapshot.studentWorkflow?.scoringVersion,
     deliveryMode:
       row.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
     code: row.code,
@@ -662,6 +669,7 @@ function caseForJoin(launch: LaunchRow) {
     name: launch.case_snapshot.name,
     isTrial: launch.is_trial ?? false,
     guidedReview: !!launch.case_snapshot.studentWorkflow,
+    scoringVersion: launch.case_snapshot.studentWorkflow?.scoringVersion,
     deliveryMode:
       launch.case_snapshot.studentWorkflow?.deliveryMode ?? "synchronous",
     requiredChoices:
@@ -819,6 +827,25 @@ async function visibleAggregates(launch: LaunchRow, all = false) {
   };
 }
 
+async function launchGradeDistribution(
+  launch: LaunchRow,
+  teacherPreview = false,
+) {
+  if (
+    launch.role !== "students" ||
+    (launch.status !== "published" &&
+      !(teacherPreview && launch.status !== "open"))
+  )
+    return undefined;
+  const result = await pool.query<{ state: string; score: string | null }>(
+    `SELECT COALESCE(r.state,'draft') AS state, r.score
+      FROM prc_private.participants p LEFT JOIN prc_private.responses r ON r.participant_id=p.id
+      WHERE p.launch_id=$1 AND p.role='students'`,
+    [launch.id],
+  );
+  return gradeDistribution(result.rows);
+}
+
 async function studentDiscussion(
   launch: LaunchRow,
   response?: ParticipantResponseData,
@@ -860,6 +887,7 @@ async function studentDiscussion(
       comparisonVisible,
       diagnosticIds,
       activeDiagnosticId: launch.reveals.activeDiagnosticId,
+      scoringVersion: workflow.scoringVersion,
       ...(submitted ? { response } : {}),
     }),
     ...(all ||
@@ -916,6 +944,7 @@ async function createLaunch(
       caseSnapshot.studentWorkflow = {
         deliveryMode: input.deliveryMode as DeliveryMode,
         requiredChoices: 5,
+        scoringVersion: TOP_TWO_SCORING_VERSION,
       };
     }
     if (reuseDemoSession) {
@@ -944,8 +973,14 @@ async function createLaunch(
         `SELECT * FROM prc_private.launches WHERE prc_id=$1 AND case_version=$2
           AND role='students' AND NOT is_trial AND status='open'
           AND case_snapshot->'studentWorkflow'->>'deliveryMode'=$3
+          AND case_snapshot->'studentWorkflow'->>'scoringVersion'=$4
           ORDER BY created_at DESC LIMIT 1`,
-        [prcId, prc.current_version, input.deliveryMode],
+        [
+          prcId,
+          prc.current_version,
+          input.deliveryMode,
+          TOP_TWO_SCORING_VERSION,
+        ],
       );
       if (existing.rows[0]) {
         await client.query("COMMIT");
@@ -2236,6 +2271,7 @@ async function handle(request: Request): Promise<Response> {
           alternativeChoices: response.alternative_choices,
           panel: panelSnapshot.distributions,
           combineRoles: !!launch.case_snapshot.studentWorkflow,
+          scoringVersion: launch.case_snapshot.studentWorkflow?.scoringVersion,
         });
         score = graded.total;
         components = graded as unknown as JsonRecord;
@@ -2599,6 +2635,7 @@ async function handle(request: Request): Promise<Response> {
       case: launch.case_snapshot,
       reveals: launch.reveals,
       discussion: await studentDiscussion(launch, undefined, true),
+      gradeDistribution: await launchGradeDistribution(launch, true),
       class:
         launch.status !== "open" && launch.role === "students"
           ? await getPanelSnapshot(launch, 1)
@@ -2626,6 +2663,7 @@ async function handle(request: Request): Promise<Response> {
       reveals: launch.reveals,
       ...(await visibleAggregates(launch)),
       discussion: await studentDiscussion(launch),
+      gradeDistribution: await launchGradeDistribution(launch),
     });
   }
 
@@ -2662,6 +2700,7 @@ async function handle(request: Request): Promise<Response> {
         : await visibleAggregates(launch, published)),
       guidedReview: !!workflow,
       deliveryMode: workflow?.deliveryMode ?? "synchronous",
+      gradeDistribution: await launchGradeDistribution(launch),
       studentReview: await studentDiscussion(
         launch,
         responseRow ? mapResponse(responseRow) : undefined,

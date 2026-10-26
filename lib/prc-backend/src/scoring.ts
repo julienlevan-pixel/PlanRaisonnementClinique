@@ -1,5 +1,6 @@
 export type Role = "main" | "alternative";
 export type Sign = "+" | "-";
+export const TOP_TWO_SCORING_VERSION = "top-two-v1";
 
 export interface Choice {
   observationId: string;
@@ -33,6 +34,8 @@ export interface ScoreComponent {
 }
 
 export interface ScoreResult {
+  maximum: number;
+  scoringVersion: string;
   mainDiagnosis: number;
   mainJustification: number;
   alternativeDiagnosis: number;
@@ -102,10 +105,79 @@ export function computeCeiling(
     .reduce((sum, value) => sum + value, 0);
 }
 
+/** Candidates for the two best frequencies, including ties at rank 2. */
+export function diagnosisConsensus(
+  panel: PanelDistribution[],
+  diagnosticId: string,
+) {
+  const counts = new Map<string, number>();
+  for (const row of panel)
+    counts.set(
+      row.diagnosticId,
+      (counts.get(row.diagnosticId) ?? 0) + row.expertCount,
+    );
+  const positive = [...counts.values()]
+    .filter((count) => count > 0)
+    .sort((a, b) => b - a);
+  const threshold = positive[Math.min(1, positive.length - 1)] ?? 0;
+  const count = counts.get(diagnosticId) ?? 0;
+  return {
+    count,
+    threshold,
+    topDiagnosis: count > 0 && count >= threshold,
+  };
+}
+
+/** Preserve each good diagnosis's credit while requiring a genuinely optimal pair for 4/4. */
+export function diagnosisPairCredits(
+  panel: PanelDistribution[],
+  mainId: string,
+  alternativeId: string,
+) {
+  const counts = new Map<string, number>();
+  for (const row of panel)
+    counts.set(
+      row.diagnosticId,
+      (counts.get(row.diagnosticId) ?? 0) + row.expertCount,
+    );
+  const best = [...counts.values()]
+    .filter((value) => value > 0)
+    .sort((a, b) => b - a);
+  const mainCount = counts.get(mainId) ?? 0;
+  const alternativeCount = counts.get(alternativeId) ?? 0;
+  const credit = (count: number, reference: number) =>
+    count > 0 && reference > 0
+      ? count >= reference
+        ? 2
+        : Math.min(1.99, (2 * count) / reference)
+      : 0;
+  const threshold = best[Math.min(1, best.length - 1)] ?? 0;
+  if (
+    threshold > 0 &&
+    mainCount >= threshold &&
+    alternativeCount >= threshold &&
+    Math.max(mainCount, alternativeCount) < best[0]
+  ) {
+    // Two runners-up tied for the second slot cannot replace the sole leader.
+    // Share the pair's partial credit equally, without a main/alternative bias.
+    const shared = Math.min(
+      1.99,
+      (credit(mainCount, best[0]) + credit(alternativeCount, threshold)) / 2,
+    );
+    return { main: shared, alternative: shared };
+  }
+  return {
+    main: credit(mainCount, threshold),
+    alternative: credit(alternativeCount, threshold),
+  };
+}
+
 export function scoreRole(input: {
   diagnosisId: string;
   choices: Choice[];
   distribution?: PanelDistribution;
+  diagnosisPoints?: number;
+  strictMaximum?: boolean;
 }): ScoreComponent {
   const distribution = input.distribution;
   if (!distribution || distribution.expertCount === 0) {
@@ -133,10 +205,22 @@ export function scoreRole(input: {
     );
   }, 0);
   const ceiling = distribution.ceiling;
+  const diagnosis = input.diagnosisPoints ?? 2;
+  const justification =
+    ceiling > 0
+      ? Math.min(
+          input.strictMaximum && raw < ceiling ? 7.99 : 8,
+          (8 * raw) / ceiling,
+        )
+      : 0;
+  const rounded = (value: number) =>
+    Math.round((value + Number.EPSILON) * 100) / 100;
 
   return {
-    diagnosis: 2,
-    justification: ceiling > 0 ? (8 * raw) / ceiling : 0,
+    diagnosis: input.strictMaximum
+      ? Math.min(diagnosis < 2 ? 1.99 : 2, rounded(diagnosis))
+      : diagnosis,
+    justification: input.strictMaximum ? rounded(justification) : justification,
     represented: true,
     raw,
     ceiling,
@@ -150,14 +234,24 @@ export function scoreSubmission(input: {
   alternativeChoices: Choice[];
   panel: PanelDistribution[];
   combineRoles?: boolean;
+  scoringVersion?: string;
 }): ScoreResult {
-  const mainDistribution = input.combineRoles
+  const topTwo = input.scoringVersion === TOP_TWO_SCORING_VERSION;
+  const pairCredits = topTwo
+    ? diagnosisPairCredits(
+        input.panel,
+        input.mainDiagnosticId ?? "",
+        input.alternativeDiagnosticId ?? "",
+      )
+    : undefined;
+  const combineRoles = topTwo || input.combineRoles;
+  const mainDistribution = combineRoles
     ? combineDiagnostic(input.panel, input.mainDiagnosticId ?? "")
     : input.panel.find(
         (row) =>
           row.role === "main" && row.diagnosticId === input.mainDiagnosticId,
       );
-  const alternativeDistribution = input.combineRoles
+  const alternativeDistribution = combineRoles
     ? combineDiagnostic(input.panel, input.alternativeDiagnosticId ?? "")
     : input.panel.find(
         (row) =>
@@ -168,23 +262,44 @@ export function scoreSubmission(input: {
     diagnosisId: input.mainDiagnosticId ?? "",
     choices: input.mainChoices,
     distribution: mainDistribution,
+    strictMaximum: topTwo,
+    ...(topTwo
+      ? {
+          diagnosisPoints: pairCredits!.main,
+        }
+      : {}),
   });
   const alternative = scoreRole({
     diagnosisId: input.alternativeDiagnosticId ?? "",
     choices: input.alternativeChoices,
     distribution: alternativeDistribution,
+    strictMaximum: topTwo,
+    ...(topTwo
+      ? {
+          diagnosisPoints: pairCredits!.alternative,
+        }
+      : {}),
   });
   const mainDiagnosis = main.diagnosis;
   const mainJustification = main.justification;
   const alternativeDiagnosis = alternative.diagnosis;
   const alternativeJustification = alternative.justification;
-  const total =
+  const summed =
     mainDiagnosis +
     mainJustification +
     alternativeDiagnosis +
     alternativeJustification;
+  const total = topTwo
+    ? Math.round((summed + Number.EPSILON) * 100) / 100
+    : summed;
 
   return {
+    maximum: 20,
+    scoringVersion: topTwo
+      ? TOP_TWO_SCORING_VERSION
+      : combineRoles
+        ? "panel-weighted-v2"
+        : "role-weighted-v2",
     mainDiagnosis,
     mainJustification,
     alternativeDiagnosis,

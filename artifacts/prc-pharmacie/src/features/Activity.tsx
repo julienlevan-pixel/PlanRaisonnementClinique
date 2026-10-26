@@ -28,10 +28,12 @@ import {
 } from "../app/ui";
 import { dateLabel, getError } from "../app/utils";
 import "./activity.css";
+import { GradeDistribution } from "./GradeDistribution";
 import {
   DiscussionControls,
   HypothesisComparison,
   DiagnosticCorrectionTable,
+  MaximumScoreGuide,
 } from "./StudentReview";
 
 type Role = "main" | "alternative";
@@ -483,6 +485,9 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           <b>{unsent}</b>
         </div>
       </div>
+      {l.role === "students" && (
+        <MaximumScoreGuide scoringVersion={l.scoringVersion} />
+      )}
       <section className="next-command panel-card">
         <div>
           <div className="eyebrow">PROCHAINE ÉTAPE</div>
@@ -742,7 +747,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
               value={reference?.status ?? l.referenceStatus ?? "à générer"}
             />
           </div>
-          <ScoringRule scoring={reference?.scoring} />
+          <ScoringRule scoring={reference?.scoring} newGroups />
           {validated ? (
             <>
               <p className="reference-locked">
@@ -814,12 +819,21 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
         Array.isArray(results.data?.participants) && (
           <TeacherCopies participants={results.data.participants} />
         )}
-      {l.role === "students" && !asynchronous && (
+      {results.data?.gradeDistribution && (
+        <GradeDistribution
+          data={results.data.gradeDistribution}
+          preview={l.status !== "published"}
+        />
+      )}
+      {l.role === "students" && (
         <section className="publish-row">
           <div>
-            <b>Publier les copies corrigées privées</b>
+            <b>Terminer la révision et partager le bilan</b>
             <p>
-              Chaque étudiant voit seulement sa copie et ses quatre composantes.
+              Chaque étudiant voit sa note sur 20 et la distribution anonyme du
+              groupe.
+              {asynchronous &&
+                " Le corrigé individuel reste disponible dès la soumission ; le bilan collectif attend votre publication."}
               Les {unsent} copies non soumises restent sans note.
             </p>
           </div>
@@ -844,7 +858,13 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
   );
 }
 
-export function ScoringRule({ scoring }: { scoring?: any }) {
+export function ScoringRule({
+  scoring,
+  newGroups = false,
+}: {
+  scoring?: any;
+  newGroups?: boolean;
+}) {
   return (
     <details className="scoring-rule" open>
       <summary>
@@ -855,8 +875,10 @@ export function ScoringRule({ scoring }: { scoring?: any }) {
         Hypothèse alternative : diagnostic 2 points + justification 8 points.
       </p>
       <p>
-        Un diagnostic est crédité lorsqu’au moins un expert l’a retenu dans le
-        même rôle. La justification vaut <b>8 × R / C</b> : R est la somme des
+        {newGroups
+          ? "Dans les nouveaux groupes guidés, les deux impressions les plus fréquentes du panel donnent le plein crédit diagnostique, ex æquo acceptés. Les impressions minoritaires gardent un crédit partiel. Les groupes déjà créés conservent leur barème. "
+          : "Dans ce barème historique, un diagnostic est crédité lorsqu’au moins un expert l’a retenu dans le même rôle. "}
+        La justification vaut <b>8 × R / C</b> : R est la somme des
         {scoring?.version === "V1"
           ? "effectifs experts"
           : "points attribués par les experts"}{" "}
@@ -874,9 +896,9 @@ export function ScoringRule({ scoring }: { scoring?: any }) {
       )}
       <p>
         Les désaccords et choix minoritaires sont conservés. Une hypothèse non
-        représentée reçoit zéro dans ce rôle ; un choix non crédité n’est pas
-        automatiquement une erreur clinique. Cette règle est une proposition
-        pédagogique, pas une norme universelle des PRC.
+        représentée reçoit zéro ; un choix non crédité n’est pas automatiquement
+        une erreur clinique. Cette règle est une proposition pédagogique, pas
+        une norme universelle des PRC.
       </p>
     </details>
   );
@@ -1043,6 +1065,7 @@ export function ProjectionPage() {
           )}
         </section>
       )}
+      {p.gradeDistribution && <GradeDistribution data={p.gradeDistribution} />}
       <footer>
         Les étapes affichées sont pilotées depuis l’écran d’animation du
         professeur.
