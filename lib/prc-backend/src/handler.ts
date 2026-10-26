@@ -876,6 +876,7 @@ async function createLaunch(
   prcId: string,
   input: JsonRecord,
   forceTrial = false,
+  reuseDemoSession = false,
 ) {
   const teacher = await requireTeacher(request);
   const role = forceTrial ? "panel" : validRole(input.role);
@@ -885,7 +886,7 @@ async function createLaunch(
     await client.query("BEGIN");
     await lockPrcAccess(client, prcId, teacher.id, true);
     const prcResult = await client.query(
-      `SELECT p.owner_id, p.current_version, p.archived_at, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
+      `SELECT p.owner_id, p.current_version, p.archived_at, p.is_demo, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
        FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id = p.id AND v.version = p.current_version
       WHERE p.id = $1 AND prc_private.can_access_prc(p.id, $2, true)`,
       [prcId, teacher.id],
@@ -894,6 +895,8 @@ async function createLaunch(
     if (!prc) fail(404, "PRC introuvable.");
     if (prc.archived_at)
       fail(409, "Restaurez ce PRC archivé avant de le lancer.");
+    if (reuseDemoSession && (!prc.is_demo || role !== "students" || isTrial))
+      fail(409, "Ce lancement est réservé à la démonstration étudiante.");
     const caseSnapshot: CaseData = {
       name: prc.name,
       scenario: prc.scenario,
@@ -915,6 +918,10 @@ async function createLaunch(
         requiredChoices: 5,
       };
     }
+    if (reuseDemoSession) {
+      caseSnapshot.instructions =
+        "Choisissez deux diagnostics distincts. Pour chaque hypothèse, sélectionnez exactement cinq données cliniques en précisant leur signe (+ ou −). Vous n’avez pas de note d’importance à attribuer : les pondérations viennent du panel fictif. Les réponses et le corrigé de cette démonstration sont fictifs.";
+    }
     const missing = missingCase(caseSnapshot);
     if (missing.length) fail(409, missing.join(" "));
     let referenceId: string | null = null;
@@ -931,6 +938,19 @@ async function createLaunch(
           "Fermez un panel, générez puis validez un corrigé pour cette version du PRC avant de lancer les étudiants.",
         );
       referenceId = reference.rows[0].id;
+    }
+    if (reuseDemoSession) {
+      const existing = await client.query<LaunchRow>(
+        `SELECT * FROM prc_private.launches WHERE prc_id=$1 AND case_version=$2
+          AND role='students' AND NOT is_trial AND status='open'
+          AND case_snapshot->'studentWorkflow'->>'deliveryMode'=$3
+          ORDER BY created_at DESC LIMIT 1`,
+        [prcId, prc.current_version, input.deliveryMode],
+      );
+      if (existing.rows[0]) {
+        await client.query("COMMIT");
+        return existing.rows[0];
+      }
     }
     const result = await client.query<LaunchRow>(
       `INSERT INTO prc_private.launches
@@ -1574,7 +1594,10 @@ async function handle(request: Request): Promise<Response> {
     const teacher = await requireTeacher(request);
     const input = await body(request);
     if (input.confirm !== true)
-      fail(400, "Confirmez la suppression définitive du PRC et de ses activités.");
+      fail(
+        400,
+        "Confirmez la suppression définitive du PRC et de ses activités.",
+      );
     const prcId = segment(prcMatch[1]);
     const client = await pool.connect();
     try {
@@ -1589,7 +1612,10 @@ async function handle(request: Request): Promise<Response> {
         [prcId, teacher.id],
       );
       if (!owned.rows[0]) fail(404, "PRC introuvable.");
-      await client.query("DELETE FROM prc_private.demo_installations WHERE prc_id=$1", [prcId]);
+      await client.query(
+        "DELETE FROM prc_private.demo_installations WHERE prc_id=$1",
+        [prcId],
+      );
       // Student launches reference their panel's correction: break that link
       // before removing corrections, then delete the complete activity tree.
       await client.query(
@@ -1600,7 +1626,9 @@ async function handle(request: Request): Promise<Response> {
         "DELETE FROM prc_private.references WHERE launch_id IN (SELECT id FROM prc_private.launches WHERE prc_id=$1)",
         [prcId],
       );
-      await client.query("DELETE FROM prc_private.launches WHERE prc_id=$1", [prcId]);
+      await client.query("DELETE FROM prc_private.launches WHERE prc_id=$1", [
+        prcId,
+      ]);
       await client.query("DELETE FROM prc_private.prcs WHERE id=$1", [prcId]);
       // Foreign keys also remove versions, collaborators, invitations,
       // participants, responses and the deleted participants' sessions.
@@ -1704,6 +1732,30 @@ async function handle(request: Request): Promise<Response> {
     } finally {
       client.release();
     }
+  }
+
+  const demoSessionMatch = match(/^\/api\/prcs\/([^/]+)\/demo-session$/);
+  if (demoSessionMatch && method === "POST") {
+    await requireTeacher(request);
+    const input = await body(request);
+    if (!["synchronous", "asynchronous"].includes(String(input.deliveryMode)))
+      fail(400, "Le professeur doit choisir la modalité de la démonstration.");
+    // The teacher's explicit mode choice authorizes asynchronous access.
+    // Students can only join the resulting immutable, server-configured mode.
+    return send(
+      mapLaunch(
+        await createLaunch(
+          request,
+          segment(demoSessionMatch[1]),
+          {
+            role: "students",
+            deliveryMode: input.deliveryMode,
+          },
+          false,
+          true,
+        ),
+      ),
+    );
   }
 
   const launchesForPrc = match(/^\/api\/prcs\/([^/]+)\/launches$/);

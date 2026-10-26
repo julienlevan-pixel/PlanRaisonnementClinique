@@ -17,6 +17,8 @@ export * from './currentUser';
 export * from './deletePrcInput';
 export * from './deletePrcResult';
 export * from './demoCase';
+export * from './demoSessionInput';
+export * from './demoSessionInputDeliveryMode';
 export * from './demoSetupResult';
 export * from './demoSetupResultProgress';
 export * from './diagnostic';

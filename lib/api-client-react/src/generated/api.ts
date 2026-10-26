@@ -33,6 +33,7 @@ import type {
   DeletePrcInput,
   DeletePrcResult,
   DemoCase,
+  DemoSessionInput,
   DemoSetupResult,
   DiscussionInput,
   DuplicatePrcResult,
@@ -1675,6 +1676,92 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRemovePrcCollaboratorMutationOptions(options), queryClient);
+    }
+
+export const getOpenDemoStudentSessionUrl = (prcId: string,) => {
+
+
+
+
+  return `/api/prcs/${prcId}/demo-session`
+}
+
+/**
+ * Le professeur ouvre ou retrouve une séance étudiante de démonstration pour la version actuelle, avec un code distinct par modalité. Une séance asynchrone nécessite son choix explicite. Ne modifie pas les anciennes copies illustratives.
+ */
+export const openDemoStudentSession = async (prcId: string,
+    demoSessionInput: DemoSessionInput, options?: Parameters<typeof customFetch>[1]): Promise<Launch> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Launch>(getOpenDemoStudentSessionUrl(prcId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(demoSessionInput)
+  }
+);}
+
+
+
+
+
+export const getOpenDemoStudentSessionMutationKey = () => ['openDemoStudentSession'] as const;
+
+export const getOpenDemoStudentSessionMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openDemoStudentSession>>, TError,OpenDemoStudentSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof openDemoStudentSession>>, TError,OpenDemoStudentSessionMutationVariables, TContext> => {
+
+const mutationKey = getOpenDemoStudentSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof openDemoStudentSession>>, OpenDemoStudentSessionMutationVariables> = (props) => {
+          const {prcId,data} = props ?? {};
+
+          return  openDemoStudentSession(prcId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpenDemoStudentSessionMutationResult = NonNullable<Awaited<ReturnType<typeof openDemoStudentSession>>>
+    export type OpenDemoStudentSessionMutationBody = BodyType<DemoSessionInput>
+    export type OpenDemoStudentSessionMutationError = ErrorType<void>
+    export type OpenDemoStudentSessionMutationVariables = {prcId: string;data: BodyType<DemoSessionInput>}
+
+    export const useOpenDemoStudentSession = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openDemoStudentSession>>, TError,OpenDemoStudentSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof openDemoStudentSession>>,
+        TError,
+        OpenDemoStudentSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpenDemoStudentSessionMutationOptions(options), queryClient);
     }
 
 export const getCreateLaunchUrl = (prcId: string,) => {

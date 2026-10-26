@@ -161,9 +161,15 @@
 }
 .student-delivery {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
   gap: 9px;
   margin: 18px 0;
   font-size: 14px;
+}
+.student-delivery select {
+  width: 100%;
+  min-width: 0;
 }
 @media (max-width: 640px) {
   .diagnostic-correction {
