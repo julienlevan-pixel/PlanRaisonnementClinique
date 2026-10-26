@@ -74,7 +74,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await teacher.getByRole('textbox', { name: 'Diagnostic 1', exact: true }).fill('Hypothèse navigateur A');
       await teacher.getByRole('button', { name: 'Ajouter un diagnostic', exact: true }).click();
       await teacher.getByRole('textbox', { name: 'Diagnostic 2', exact: true }).fill('Hypothèse navigateur B');
-      await teacher.getByRole('textbox', { name: 'Coller les observations, une par ligne', exact: true }).fill(Array.from({ length: 20 }, (_, index) => `Observation clinique fictive ${index + 1} | Examen`).join('\n'));
+      await teacher.getByText('Importer plusieurs données (facultatif)', { exact: true }).click();
+      await teacher.getByRole('textbox', { name: 'Coller les observations, une par ligne', exact: true }).fill(Array.from({ length: 20 }, (_, index) => `Observation clinique fictive ${index + 1} | Examen physique`).join('\n'));
       await teacher.getByRole('button', { name: 'Importer les lignes', exact: true }).click();
       await expect(teacher.getByRole('textbox', { name: 'Texte de l’observation 20', exact: true })).toBeVisible();
       await teacher.getByRole('button', { name: 'Enregistrer', exact: true }).click();

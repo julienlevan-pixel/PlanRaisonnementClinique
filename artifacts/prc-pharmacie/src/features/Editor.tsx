@@ -8,7 +8,8 @@ import { api } from '../app/api';
 import { Area, AuthenticatedPage, Btn, ErrorBox, Input, Loading, SectionTitle } from '../app/ui';
 import { dateLabel, getError } from '../app/utils';
 import { CasePreview } from './CasePreview';
-import { workflowLabel, type Observation, type PrcDetail } from './library-model';
+import { ObservationMatrix } from './Participant';
+import { clinicalDataCategories, workflowLabel, type Observation, type PrcDetail } from './library-model';
 import './library-editor.css';
 
 type FormData = { name: string; scenario: string; instructions: string; diagnostics: string[]; observations: Observation[] };
@@ -34,6 +35,12 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
   const [preview, setPreview] = useState(false);
   const [trial, setTrial] = useState<{ invitationUrl: string; code: string; launch: { id: string } } | null>(null);
   const loaded = useRef<string | null>(null);
+  const pendingObservationFocus = useRef<string | null>(null);
+  useEffect(() => {
+    if (!pendingObservationFocus.current) return;
+    document.getElementById(`editor-observation-${pendingObservationFocus.current}`)?.focus();
+    pendingObservationFocus.current = null;
+  }, [form.observations]);
   useEffect(() => {
     if (loaded.current === prcId) return;
     if (isNew || query.data) {
@@ -44,6 +51,11 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
   }, [prcId, isNew, query.data]);
   const update = <K extends keyof FormData>(key: K, value: FormData[K]) => { setForm(previous => ({ ...previous, [key]: value })); setDirty(true); setStatus('Modifications non enregistrées'); };
   const remember = (entry: UndoEntry) => setHistory(previous => [...previous.slice(-19), entry]);
+  const addObservation = () => {
+    const id = crypto.randomUUID();
+    pendingObservationFocus.current = id;
+    update('observations', [...form.observations, { id, text: '', category: 'Autre', position: form.observations.length }]);
+  };
   const undo = () => {
     const entry = history.at(-1); if (!entry) return;
     setHistory(previous => previous.slice(0, -1));
@@ -124,7 +136,50 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
     <form id="prc-form" onSubmit={submitSave} className="editor-layout"><fieldset className="editor-main editor-fieldset" disabled={saving || busy}>
       <section className="panel-card editor-card"><div className="editor-section-head"><span className="step-number">01</span><div><h2>Le cas clinique</h2><p>Un seul nom accompagnera le panel, le corrigé et chaque groupe étudiant.</p></div></div><Input id="prc-name" label="Nom du PRC" maxLength={160} value={form.name} onChange={event => update('name', event.target.value)} placeholder="Ex. Toux" /><Area id="prc-scenario" label="Scénario clinique" maxLength={20000} rows={8} value={form.scenario} onChange={event => update('scenario', event.target.value)} placeholder="Présentez la situation, les antécédents et le contexte de consultation…" /><details className="editor-advanced"><summary>Consignes aux participants</summary><Area label="Consignes" maxLength={5000} rows={4} value={form.instructions} onChange={event => update('instructions', event.target.value)} /></details></section>
       <section className="panel-card editor-card" id="prc-diagnostics" tabIndex={-1}><div className="editor-section-head"><span className="step-number">02</span><div><h2>Diagnostics proposés</h2><p>Au moins deux possibilités distinctes. Aucune bonne réponse ni point n’est défini avant le panel.</p></div></div><div className="editable-list">{form.diagnostics.map((diagnostic, index) => <div className="editable-row" key={index}><span className="list-number">{String(index + 1).padStart(2, '0')}</span><input value={diagnostic} maxLength={240} onChange={event => update('diagnostics', form.diagnostics.map((value, position) => position === index ? event.target.value : value))} aria-label={`Diagnostic ${index + 1}`} data-testid={`input-diagnostic-${index}`} /><button type="button" aria-label={`Supprimer le diagnostic ${index + 1}`} onClick={() => { remember({ label: 'la suppression du diagnostic', diagnostics: [...form.diagnostics] }); update('diagnostics', form.diagnostics.filter((_, position) => position !== index)); }}><X size={16} /></button></div>)}</div><button type="button" className="add-row" onClick={() => update('diagnostics', [...form.diagnostics, ''])}><Plus size={15} /> Ajouter un diagnostic</button></section>
-      <section className="panel-card editor-card" id="prc-observations" tabIndex={-1}><div className="editor-section-head"><span className="step-number">03</span><div><h2>Observations cliniques</h2><p>Collez environ 20 lignes. Vous pouvez ensuite modifier, supprimer ou déplacer chacune des données.</p></div></div><Area label="Coller les observations, une par ligne" value={bulk} onChange={event => setBulk(event.target.value)} rows={5} placeholder={'Toux sèche depuis trois semaines | Symptômes\nAbsence de fièvre | Examen'} /><small className="field-hint">Catégorie facultative après le caractère |. La catégorie par défaut est « Autre ».</small><div className="editor-actions"><Btn kind="outline" onClick={importObservations} disabled={!bulk.trim()}>Importer les lignes</Btn><Btn kind="quiet" onClick={() => update('observations', [...form.observations, ...Array.from({ length: 20 }, (_, index) => ({ id: crypto.randomUUID(), text: '', category: 'Autre', position: form.observations.length + index }))])}>Créer 20 lignes vides</Btn></div><div className="observations-editor">{form.observations.map((observation, index) => <div className="observation-edit" key={observation.id}><div className="obs-topline"><span>Observation {String(index + 1).padStart(2, '0')}</span><div className="obs-order"><button type="button" disabled={index === 0} aria-label={`Monter l’observation ${index + 1}`} onClick={() => move(index, -1)}>↑</button><button type="button" disabled={index === form.observations.length - 1} aria-label={`Descendre l’observation ${index + 1}`} onClick={() => move(index, 1)}>↓</button><button type="button" aria-label={`Supprimer l’observation ${index + 1}`} onClick={() => { remember({ label: 'la suppression de l’observation', observations: structuredClone(form.observations) }); update('observations', normalizeOrder(form.observations.filter((_, position) => position !== index))); }}><X size={15} /></button></div></div><Area label={`Texte de l’observation ${index + 1}`} value={observation.text} onChange={event => update('observations', form.observations.map(value => value.id === observation.id ? { ...value, text: event.target.value } : value))} rows={3} /><Input label={`Catégorie de l’observation ${index + 1}`} value={observation.category} onChange={event => update('observations', form.observations.map(value => value.id === observation.id ? { ...value, category: event.target.value } : value))} /></div>)}</div><button type="button" className="add-row" onClick={() => update('observations', [...form.observations, { id: crypto.randomUUID(), text: '', category: 'Autre', position: form.observations.length }])}><Plus size={15} /> Ajouter une observation</button></section>
+    </fieldset><fieldset className="editor-fieldset clinical-builder" disabled={saving || busy}>
+      <section className="panel-card editor-card clinical-table-editor" id="prc-observations" tabIndex={-1}>
+        <div className="editor-section-head"><span className="step-number">03</span><div>
+          <h2>Données cliniques · tableau du questionnaire</h2>
+          <p>Ajoutez une ligne, choisissez son type et saisissez la donnée clinique. Vous construisez directement la grille que verront les participants.</p>
+        </div></div>
+        <div className="clinical-table-toolbar">
+          <Btn kind="outline" onClick={addObservation}><Plus size={15} /> Ajouter une ligne</Btn>
+          <span>{form.observations.length} ligne(s) · {form.observations.filter(observation => observation.text.trim()).length} donnée(s) renseignée(s)</span>
+        </div>
+        <p className="field-hint">Les colonnes + et − montrent le questionnaire final. Les participants y indiqueront leurs propres choix.</p>
+        <ObservationMatrix observations={form.observations} mainChoices={[]} alternativeChoices={[]}
+          setMainChoices={() => {}} setAlternativeChoices={() => {}} selectSign={() => {}}
+          disabled={saving || busy} hasAlternative
+          renderObservation={(observation, index) => <div className="clinical-row-fields">
+            <div className="clinical-row-heading"><b>Donnée {String(index + 1).padStart(2, '0')}</b>
+              <div className="obs-order">
+                <button type="button" disabled={index === 0} aria-label={`Monter l’observation ${index + 1}`} onClick={() => move(index, -1)}>↑</button>
+                <button type="button" disabled={index === form.observations.length - 1} aria-label={`Descendre l’observation ${index + 1}`} onClick={() => move(index, 1)}>↓</button>
+                <button type="button" aria-label={`Supprimer l’observation ${index + 1}`} onClick={() => { remember({ label: 'la suppression de l’observation', observations: structuredClone(form.observations) }); update('observations', normalizeOrder(form.observations.filter(value => value.id !== observation.id))); }}><X size={15} /></button>
+              </div>
+            </div>
+            <label className="clinical-category"><span>Type de donnée clinique</span>
+              <select aria-label={`Catégorie de l’observation ${index + 1}`} value={observation.category || 'Autre'}
+                onChange={event => update('observations', form.observations.map(value => value.id === observation.id ? { ...value, category: event.target.value } : value))}>
+                {observation.category && !clinicalDataCategories.some(category => category === observation.category) && <option value={observation.category}>{observation.category} (catégorie existante)</option>}
+                {clinicalDataCategories.map(category => <option key={category} value={category}>{category}</option>)}
+              </select>
+            </label>
+            <div className="clinical-row-text"><label htmlFor={`editor-observation-${observation.id}`} className="sr-only">Texte de l’observation {index + 1}</label>
+              <textarea id={`editor-observation-${observation.id}`} rows={3} value={observation.text}
+                placeholder="Ex. Température à 38,5 °C, mesurée à la consultation"
+                onChange={event => update('observations', form.observations.map(value => value.id === observation.id ? { ...value, text: event.target.value } : value))} />
+            </div>
+          </div>} />
+        {form.observations.length > 0 && <button type="button" className="add-row" onClick={addObservation}><Plus size={15} /> Ajouter la ligne suivante</button>}
+        <details className="editor-advanced clinical-bulk-import"><summary>Importer plusieurs données (facultatif)</summary>
+          <Area label="Coller les observations, une par ligne" value={bulk} onChange={event => setBulk(event.target.value)} rows={5} placeholder={'Toux sèche depuis trois semaines | Description de la plainte\nAbsence de fièvre | Examen physique'} />
+          <small className="field-hint">Type facultatif après le caractère |. Le type par défaut est « Autre ».</small>
+          <div className="editor-actions"><Btn kind="outline" onClick={importObservations} disabled={!bulk.trim()}>Importer les lignes</Btn>
+            <Btn kind="quiet" onClick={() => update('observations', [...form.observations, ...Array.from({ length: 20 }, (_, index) => ({ id: crypto.randomUUID(), text: '', category: 'Autre', position: form.observations.length + index }))])}>Créer 20 lignes vides</Btn>
+          </div>
+        </details>
+      </section>
       <div className="editor-actions"><Btn type="submit" disabled={saving || busy || !dirty && !isNew}><Save size={15} /> Enregistrer le brouillon</Btn><small>L’annulation agit sur le brouillon local ; les anciennes copies restent figées.</small></div>
     </fieldset><aside className="editor-rail"><div className="rail-card"><div className="eyebrow">PROCHAINE ÉTAPE</div><h3>{query.data?.archived ? 'PRC archivé' : workflowLabel(step)}</h3>{query.data?.archived ? <p>Restaurez ce PRC depuis les archives de la bibliothèque pour lancer une nouvelle activité.</p> : <>{missing.length ? <ul className="editor-missing">{missing.map(item => <li key={item.id}><button type="button" onClick={() => focus(item.id)}>{item.text} <ArrowRight size={13} /></button></li>)}</ul> : <p>{dirty ? 'Les modifications seront enregistrées avant le lancement. Une modification clinique crée une nouvelle version.' : step === 'students' ? 'Le corrigé de cette version est validé. Chaque nouveau groupe sera indépendant.' : step === 'reference' ? 'Consultez les distributions du panel puis validez votre référence.' : 'Le questionnaire est prêt pour le panel.'}</p>}<Btn disabled={saving || busy} onClick={next}>{dirty && step !== 'prepare' ? 'Enregistrer puis continuer' : workflowLabel(step)} <ArrowRight size={15} /></Btn><Btn kind="outline" disabled={saving || busy || missing.length > 0} onClick={() => launch('trial')}><FlaskConical size={16} /> Tester comme participant</Btn></>}</div><div className="rail-card muted-rail"><BookOpen size={18} /><b>Versions et corrigés conservés</b><span>Modifier le cas ne modifie jamais le questionnaire d’un lancement existant. Un nouveau contenu clinique nécessite un nouveau panel.</span></div></aside></form>
     {!isNew && <section className="panel-card editor-history" id="history"><div className="eyebrow">HISTORIQUE CONSERVÉ</div><h2>Lancements de ce PRC</h2>{query.data?.launches?.length ? <div className="history-list">{query.data.launches.map(launch => <Link href={`/activity/${launch.id}`} key={launch.id}><span><b>{launch.name || form.name}</b><small>{launch.isTrial ? 'Essai isolé' : launch.role === 'panel' ? 'Panel' : 'Groupe étudiant'} · {dateLabel(launch.createdAt)} · Version {launch.caseVersion || '—'}</small></span><span>{launch.submissionCount}/{launch.participantCount} copies · {launch.status}</span><ArrowRight size={16} /></Link>)}</div> : <p>Aucun lancement. Les futures activités et leurs résultats resteront accessibles ici.</p>}</section>}

@@ -23,6 +23,7 @@ test('imports twenty observations, preserves IDs and allows undo before saving',
     await route.fulfill({ json: data });
   });
   await page.goto(`/prc/${id}`);
+  await page.getByText('Importer plusieurs données (facultatif)', { exact: true }).click();
   await page.getByLabel('Coller les observations, une par ligne').fill(Array.from({ length: 20 }, (_, index) => `Observation importée ${index + 1} | Symptômes`).join('\n'));
   await page.getByRole('button', { name: 'Importer les lignes', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Texte de l’observation 25', exact: true })).toHaveValue('Observation importée 20');
@@ -41,6 +42,70 @@ test('imports twenty observations, preserves IDs and allows undo before saving',
   for (const observation of saved) expect(observation.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
   await page.getByRole('button', { name: 'Prévisualiser le questionnaire' }).click();
   await expect(page.getByRole('region', { name: 'Prévisualisation du questionnaire' })).toContainText('Observation importée 20');
+});
+
+test('builds the final clinical grid one row at a time and saves categories, text and order', async ({ page }, testInfo) => {
+  await authenticate(page);
+  let data: any = { ...fixture(), observations: [] };
+  let saved: typeof observations = [];
+  await page.route(`**/api/prcs/${id}`, async route => {
+    if (route.request().method() === 'PUT') {
+      const input = route.request().postDataJSON();
+      saved = input.observations;
+      data = { ...data, ...input, diagnostics, version: 2 };
+    }
+    await route.fulfill({ json: data });
+  });
+  await page.goto(`/prc/${id}`);
+  const table = page.getByRole('region', { name: 'Création du tableau clinique', exact: true });
+  await expect(table.getByRole('columnheader', { name: 'Hypothèse principale', exact: true })).toBeVisible();
+  await expect(table.getByRole('columnheader', { name: 'Hypothèse alternative', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Ajouter une ligne', exact: true }).click();
+  await expect(page.getByLabel('Texte de l’observation 1', { exact: true })).toBeFocused();
+  await expect(page.getByLabel('Catégorie de l’observation 1', { exact: true }).locator('option')).toHaveText([
+    'Démographie', 'Description de la plainte', 'Examen physique', 'Laboratoires', 'Médicaments', 'Antécédents', 'Autre',
+  ]);
+  await page.getByLabel('Catégorie de l’observation 1', { exact: true }).selectOption('Démographie');
+  await page.getByLabel('Texte de l’observation 1', { exact: true }).fill('Femme de 54 ans');
+  await page.getByRole('button', { name: 'Ajouter la ligne suivante', exact: true }).click();
+  await page.getByLabel('Catégorie de l’observation 2', { exact: true }).selectOption('Laboratoires');
+  await page.getByLabel('Texte de l’observation 2', { exact: true }).fill('Créatinine à 135 µmol/L');
+  await expect(table.locator('tbody tr')).toHaveCount(2);
+  await expect(table.getByRole('button', { name: /En faveur — Femme de 54 ans/ }).first()).toBeDisabled();
+  await page.getByRole('button', { name: 'Descendre l’observation 1', exact: true }).click();
+  await expect(page.getByLabel('Catégorie de l’observation 1', { exact: true })).toHaveValue('Laboratoires');
+  await page.getByRole('button', { name: 'Annuler le déplacement', exact: true }).click();
+  await expect(page.getByLabel('Texte de l’observation 1', { exact: true })).toHaveValue('Femme de 54 ans');
+  expect(await table.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('editor-desktop.png'), fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: 'Enregistrer', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Enregistré en base' })).toBeVisible();
+  expect(saved.map(row => [row.text, row.category, row.position])).toEqual([
+    ['Femme de 54 ans', 'Démographie', 0], ['Créatinine à 135 µmol/L', 'Laboratoires', 1],
+  ]);
+  await page.reload();
+  await expect(page.getByLabel('Catégorie de l’observation 2', { exact: true })).toHaveValue('Laboratoires');
+  await page.getByRole('button', { name: 'Prévisualiser le questionnaire', exact: true }).click();
+  const preview = page.getByRole('region', { name: 'Prévisualisation du questionnaire', exact: true });
+  await expect(preview).toContainText('Femme de 54 ans');
+  await expect(preview).toContainText('Créatinine à 135 µmol/L');
+  await page.getByRole('button', { name: 'Fermer l’aperçu', exact: true }).click();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await table.scrollIntoViewIfNeeded();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath('editor-mobile.png'), animations: 'disabled' });
+});
+
+test('preserves existing custom clinical categories when editing an old case', async ({ page }) => {
+  await authenticate(page);
+  const data = fixture();
+  data.observations[0].category = 'Symptômes historiques';
+  await page.route(`**/api/prcs/${id}`, route => route.fulfill({ json: data }));
+  await page.goto(`/prc/${id}`);
+  const category = page.getByLabel('Catégorie de l’observation 1', { exact: true });
+  await expect(category).toHaveValue('Symptômes historiques');
+  await category.selectOption('Description de la plainte');
+  await expect(category).toHaveValue('Description de la plainte');
 });
 
 test('archives and restores a PRC while retaining its history', async ({ page }) => {

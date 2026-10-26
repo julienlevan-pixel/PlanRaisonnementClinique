@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -878,6 +879,7 @@ export function ObservationMatrix({
   alternativeDiagnosticId,
   onDiagnosisChange,
   expertPoints = false,
+  renderObservation,
 }: {
   observations: { id: string; text: string; category: string }[];
   mainChoices: Choice[];
@@ -898,6 +900,10 @@ export function ObservationMatrix({
   alternativeDiagnosticId?: string | null;
   onDiagnosisChange?: (role: Role, value: string | null) => void;
   expertPoints?: boolean;
+  renderObservation?: (
+    observation: { id: string; text: string; category: string },
+    index: number,
+  ) => ReactNode;
 }) {
   const points = (
     observation: { id: string; text: string },
@@ -950,7 +956,7 @@ export function ObservationMatrix({
     return (
       <button
         type="button"
-        disabled={disabled}
+        disabled={disabled || !!renderObservation}
         aria-label={`${role === "main" ? "Hypothèse principale" : "Hypothèse alternative"} : ${sign === "+" ? "En faveur" : "En défaveur"} — ${observation.text}`}
         aria-pressed={selected}
         className={`sign-choice ${selected ? `active ${sign === "+" ? "positive" : "negative"}` : ""}`}
@@ -973,22 +979,32 @@ export function ObservationMatrix({
   return (
     <section
       className="observation-choices prc-matrix-scroll"
-      aria-label="Justification des deux hypothèses"
+      aria-label={
+        renderObservation
+          ? "Création du tableau clinique"
+          : "Justification des deux hypothèses"
+      }
     >
-      <table className="prc-response-table">
+      <table
+        className={`prc-response-table${renderObservation ? " clinical-authoring-table" : ""}`}
+      >
         <caption>
-          Une liste de données cliniques, deux hypothèses indépendantes
+          {renderObservation
+            ? "Votre tableau clinique se construit ici, ligne par ligne"
+            : "Une liste de données cliniques, deux hypothèses indépendantes"}
         </caption>
         <thead>
           <tr>
             <th scope="col">Donnée clinique</th>
             <th scope="col">
               <span
-                id="participant-main-counter"
+                id={renderObservation ? undefined : "participant-main-counter"}
                 tabIndex={-1}
                 className="matrix-counter"
               >
-                Principale · {mainChoices.length}/5
+                {renderObservation
+                  ? "Hypothèse principale"
+                  : `Principale · ${mainChoices.length}/5`}
               </span>
               {diagnostics && onDiagnosisChange && (
                 <DiagnosticSelect
@@ -1005,11 +1021,17 @@ export function ObservationMatrix({
             {hasAlternative && (
               <th scope="col">
                 <span
-                  id="participant-alternative-counter"
+                  id={
+                    renderObservation
+                      ? undefined
+                      : "participant-alternative-counter"
+                  }
                   tabIndex={-1}
                   className="matrix-counter"
                 >
-                  Alternative · {alternativeChoices.length}/5
+                  {renderObservation
+                    ? "Hypothèse alternative"
+                    : `Alternative · ${alternativeChoices.length}/5`}
                 </span>
                 {diagnostics && onDiagnosisChange && (
                   <DiagnosticSelect
@@ -1032,10 +1054,16 @@ export function ObservationMatrix({
           {observations.map((observation, index) => (
             <tr key={observation.id}>
               <th scope="row">
-                <small>
-                  {observation.category || "Autre"} · {index + 1}
-                </small>
-                <span>{observation.text}</span>
+                {renderObservation ? (
+                  renderObservation(observation, index)
+                ) : (
+                  <>
+                    <small>
+                      {observation.category || "Autre"} · {index + 1}
+                    </small>
+                    <span>{observation.text}</span>
+                  </>
+                )}
               </th>
               <td>
                 <div className="matrix-signs">

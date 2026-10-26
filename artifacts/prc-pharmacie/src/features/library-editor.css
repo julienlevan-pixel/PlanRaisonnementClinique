@@ -30,3 +30,21 @@
 .public-demo-section .public-demo-intro{border-top:0;padding-top:0}
 @media(max-width:900px){.public-prc-hero{grid-template-columns:1fr 1fr}.reasoning-statement{padding:36px 26px;min-height:530px}.reasoning-words{font-size:clamp(48px,6vw,64px)}.public-prc-welcome{padding:30px 24px}.reasoning-description{font-size:15px}.reasoning-desktop-break{display:none}}
 @media(max-width:700px){.public-prc-hero{grid-template-columns:1fr;margin-bottom:42px}.reasoning-statement{min-height:0;padding:36px 30px 40px}.reasoning-words{font-size:clamp(52px,13.7vw,76px);margin-bottom:26px}.reasoning-line{margin:25px 0}.reasoning-description{font-size:16px;max-width:340px}.public-prc-welcome{padding:30px 24px}.public-prc-welcome h1{font-size:34px}.public-prc-welcome .public-join{padding:17px}.reasoning-kicker{font-size:11px}}
+
+.clinical-table-editor { min-width: 0; }
+.clinical-table-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; }
+.clinical-table-toolbar > span { color: hsl(var(--muted-foreground)); font-size: 12px; }
+.clinical-builder { grid-column: 1 / -1; }
+.editor-layout > .editor-rail { grid-column: 2; grid-row: 1; }
+.clinical-table-editor .clinical-authoring-table { min-width: 620px; }
+.clinical-table-editor .clinical-authoring-table thead th:first-child { width: 50%; }
+.clinical-table-editor .clinical-authoring-table thead th:not(:first-child) { width: 25%; }
+.clinical-table-editor .clinical-authoring-table td { vertical-align: middle; }
+.clinical-row-fields { display: grid; gap: 10px; font-weight: normal; }
+.clinical-row-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 12px; }
+.clinical-category { display: grid; gap: 5px; font-size: 12px; }
+.clinical-category select, .clinical-row-text textarea { box-sizing: border-box; display: block; width: 100%; min-width: 0; padding: 10px; border: 1px solid hsl(var(--input)); border-radius: 6px; background: hsl(var(--background)); color: hsl(var(--foreground)); font: inherit; }
+.clinical-row-text textarea { min-height: 90px; resize: vertical; line-height: 1.5; }
+.clinical-category select:focus-visible, .clinical-row-text textarea:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.clinical-bulk-import { margin-top: 20px; }
+@media (max-width: 767px) { .editor-layout > .editor-rail { grid-column: auto; grid-row: 1; } }
