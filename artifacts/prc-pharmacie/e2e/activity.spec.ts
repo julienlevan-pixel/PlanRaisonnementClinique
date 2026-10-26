@@ -84,6 +84,38 @@ async function authenticated(page: Page) {
   );
 }
 
+test("open panel shows a shared QR and link while retaining optional individual invitations", async ({
+  page,
+}) => {
+  await authenticated(page);
+  await page.route("**/api/launches/launch-1", (route) =>
+    route.fulfill({ json: { ...makeLaunch("open"), role: "panel" } }),
+  );
+  await page.goto("/activity/launch-1");
+  await expect(
+    page.getByText("ACCÈS AU PANEL · SANS COMPTE", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("img", {
+      name: "Rejoindre le panel d’experts",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".access-card a")).toHaveAttribute(
+    "href",
+    /\/join\/TOUX1234$/,
+  );
+  await expect(
+    page.getByRole("button", { name: "Copier le lien", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", {
+      name: "Invitation individuelle (facultative)",
+      exact: true,
+    }),
+  ).toBeVisible();
+});
+
 test("a closed student activity can publish without a reveal prerequisite", async ({
   page,
 }) => {

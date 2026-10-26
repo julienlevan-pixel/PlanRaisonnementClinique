@@ -1516,7 +1516,18 @@ async function handle(request: Request): Promise<Response> {
         }
       }
       let invitationId: string | null = null;
-      if (launch.role === "panel") {
+      if (launch.role === "panel" && !input.invitationToken) {
+        const code = stringValue(
+          input.code,
+          "Code de séance",
+          100,
+        ).toUpperCase();
+        if (!code || code !== launch.code)
+          fail(
+            403,
+            "Saisissez le code de séance ou utilisez votre invitation individuelle.",
+          );
+      } else if (launch.role === "panel") {
         const invitationToken = stringValue(
           input.invitationToken,
           "Invitation",
@@ -1530,7 +1541,7 @@ async function handle(request: Request): Promise<Response> {
         if (!invitation.rows[0])
           fail(
             403,
-            "Une invitation individuelle valide est requise pour le panel.",
+            "Cette invitation individuelle est invalide. Utilisez le lien reçu ou rejoignez la séance avec son code, sans invitation.",
           );
         if (invitation.rows[0].used_by) {
           const participantId = invitation.rows[0].used_by;

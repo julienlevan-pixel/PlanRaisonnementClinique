@@ -548,7 +548,7 @@ export const GetJoinInfoResponse = zod.object({
 
 
 /**
- * Crée ou reprend une participation sans compte enseignant. Un panel exige une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet la reprise d’un accès étudiant et rend une nouvelle tentative de jonction idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
+ * Crée ou reprend une participation sans compte enseignant. Un panel exige le code de séance ou une invitation individuelle valide. Un joinKey UUIDv4 aléatoire permet la reprise d’une participation et rend une nouvelle tentative de jonction idempotente. Ce jeton est un secret de reprise, jamais un pseudonyme.
  */
 export const JoinLaunchParams = zod.object({
   "launchId": zod.coerce.string()
@@ -556,11 +556,14 @@ export const JoinLaunchParams = zod.object({
 
 export const joinLaunchBodyPseudonymMax = 100;
 
+export const joinLaunchBodyCodeMax = 100;
+
 
 
 export const JoinLaunchBody = zod.object({
   "pseudonym": zod.string().min(1).max(joinLaunchBodyPseudonymMax),
-  "invitationToken": zod.string().optional().describe('Secret individuel obligatoire pour rejoindre un panel.'),
+  "invitationToken": zod.string().optional().describe('Invitation individuelle facultative pour rejoindre ou reprendre un panel.'),
+  "code": zod.string().max(joinLaunchBodyCodeMax).optional().describe('Code de séance requis pour rejoindre un panel sans invitation individuelle.'),
   "joinKey": zod.string().uuid().optional().describe('UUIDv4 aléatoire conservé localement pour reprendre sa participation ; ne pas publier ni journaliser.')
 })
 

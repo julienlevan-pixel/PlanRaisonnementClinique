@@ -30,6 +30,60 @@ function draft(overrides: Record<string, any> = {}) {
     ...overrides,
   };
 }
+
+for (const invitation of [false, true]) {
+  test(`expert joins without an account using ${invitation ? "an individual invitation" : "the shared session code"}`, async ({
+    page,
+  }) => {
+    const info = { ...caseData, role: "panel", launchId: "panel-launch" };
+    await page.route("**/api/auth/me", (route) =>
+      route.fulfill({ status: 401, json: { error: "Non connecté" } }),
+    );
+    await page.route("**/api/join/PANEL123", (route) =>
+      route.fulfill({ json: info }),
+    );
+    let input: any;
+    await page.route("**/api/launches/panel-launch/join", (route) => {
+      input = route.request().postDataJSON();
+      return route.fulfill({
+        json: { participantId: "expert-1", response: draft(), joinInfo: info },
+      });
+    });
+    await page.route("**/api/participant/response", (route) =>
+      route.fulfill({ json: { response: draft(), joinInfo: info } }),
+    );
+    await page.route("**/api/participant/state", (route) =>
+      route.fulfill({
+        json: {
+          role: "panel",
+          status: "open",
+          reveals: {},
+          responseState: "draft",
+          revision: 0,
+        },
+      }),
+    );
+    await page.goto(
+      `/join/PANEL123${invitation ? "?invite=personal-token" : ""}`,
+    );
+    await expect(
+      page.getByText("Aucun compte à créer.", { exact: false }),
+    ).toBeVisible();
+    await page
+      .getByLabel("Votre nom ou pseudonyme", { exact: true })
+      .fill("Expert test");
+    await page.getByRole("button", { name: "Rejoindre l’activité" }).click();
+    await expect(page).toHaveURL("/participant");
+    await expect(
+      page.getByRole("heading", { name: caseData.name, exact: true }),
+    ).toBeVisible();
+    expect(input.code).toBe("PANEL123");
+    expect(input.invitationToken).toBe(
+      invitation ? "personal-token" : undefined,
+    );
+    expect(input.joinKey).toMatch(/^[a-f0-9-]{36}$/);
+  });
+}
 async function questionnaire(
   page: Page,
   options: {

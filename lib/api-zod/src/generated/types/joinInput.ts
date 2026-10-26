@@ -12,8 +12,13 @@ export interface JoinInput {
      * @maxLength 100
      */
   pseudonym: string;
-  /** Secret individuel obligatoire pour rejoindre un panel. */
+  /** Invitation individuelle facultative pour rejoindre ou reprendre un panel. */
   invitationToken?: string;
+  /**
+     * Code de séance requis pour rejoindre un panel sans invitation individuelle.
+     * @maxLength 100
+     */
+  code?: string;
   /** UUIDv4 aléatoire conservé localement pour reprendre sa participation ; ne pas publier ni journaliser. */
   joinKey?: string;
 }

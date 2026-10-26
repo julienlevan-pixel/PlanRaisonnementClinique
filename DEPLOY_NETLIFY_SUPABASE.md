@@ -80,6 +80,16 @@ Définir les secrets par **deploy context**. La production utilise sa base réel
 
 Une protection d'accès Netlify (« Log in with Netlify ») est distincte de l'authentification PRC. Si elle reste activée, des experts/étudiants sans compte Netlify ne pourront pas atteindre l'application. Choisir explicitement les règles d'accès de la production et des previews selon le public prévu ; les comptes PRC et les autorisations serveur restent nécessaires.
 
+### Accès des experts sans compte
+
+Dans le tableau de bord du projet Netlify, ouvrir **Project configuration → Access & security → Visitor access**. Dans **Password Protection**, désactiver la protection exigeant une connexion Netlify pour le site de **production** (selon l’interface : « No protection » ou protection limitée aux déploiements hors production). Enregistrer. Ce réglage d’hébergement ne se modifie pas dans `netlify.toml` et exige un accès au compte Netlify.
+
+Vérifier en navigation privée que l’accueil et un lien `/join/CODE` s’ouvrent sans écran Netlify. Le professeur continue à utiliser sa connexion PRC pour créer, fermer ou consulter une séance. Ne pas communiquer son compte aux experts.
+
+Pour un panel en séance : ouvrir l’activité, afficher le QR commun ou copier son lien. L’expert scanne le QR ou saisit le code sur l’accueil, indique son nom ou pseudonyme et rejoint directement le cas. Le code de séance est vérifié côté serveur ; les nouvelles participations sont refusées après fermeture. Une nouvelle tentative dans le même navigateur reprend la même participation, sans utiliser le nom comme preuve d’identité. Les invitations individuelles restent disponibles pour retrouver une copie depuis un autre navigateur. Les réponses des autres experts restent masquées pendant la collecte.
+
+Ce changement utilise les tables existantes et ne nécessite aucune migration SQL. Le réglage Netlify doit être effectué séparément de la fusion du code.
+
 ## 6. Contrôler le déploiement
 
 Après `Published`, vérifier dans des sessions de navigateur distinctes :
@@ -88,7 +98,7 @@ Après `Published`, vérifier dans des sessions de navigateur distinctes :
 2. L'accueil et un lien direct vers un PRC fonctionnent après actualisation.
 3. Un mauvais mot de passe affiche une erreur ; le bon ouvre le tableau de bord ; le changement initial et la déconnexion fonctionnent.
 4. Le cookie enseignant est HttpOnly, Secure en production et SameSite ; un participant ne reçoit aucun droit enseignant. Un essai enseignant conserve sa session enseignante.
-5. Les liens et QR emploient le domaine attendu, le panel exige une invitation individuelle et aucune distribution n'est envoyée pendant la collecte.
+5. Les liens et QR emploient le domaine attendu ; le panel accepte son code commun ou une invitation individuelle, sans compte Netlify ; aucune distribution n'est envoyée pendant la collecte.
 6. Panel → fermeture → référence validée → groupe étudiant → soumission → révélations → publication privée fonctionne. Une copie non soumise reste sans note.
 7. La projection ne révèle ni identité ni score individuel ; les enseignants ne voient pas les PRC d'autrui.
 

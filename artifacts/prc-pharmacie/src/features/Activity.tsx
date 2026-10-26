@@ -502,16 +502,24 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           </Link>
         )}
       </section>
-      {l.role === "students" ? (
+      {(l.role === "students" || !closed) && (
         <section className="access-card">
           <QRCodeSVG
             value={accessUrl}
             size={132}
             level="M"
-            title="Rejoindre ce groupe étudiant"
+            title={
+              l.role === "panel"
+                ? "Rejoindre le panel d’experts"
+                : "Rejoindre ce groupe étudiant"
+            }
           />
           <div>
-            <div className="eyebrow">ACCÈS ÉTUDIANT</div>
+            <div className="eyebrow">
+              {l.role === "panel"
+                ? "ACCÈS AU PANEL · SANS COMPTE"
+                : "ACCÈS ÉTUDIANT"}
+            </div>
             <b>{l.code}</b>
             <p>
               <a href={accessUrl}>{accessUrl}</a>
@@ -519,36 +527,42 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
             <Btn kind="outline" onClick={() => copy(accessUrl)}>
               <Copy size={15} /> Copier le lien
             </Btn>
+            {l.role === "panel" && (
+              <p>
+                Partagez ce QR code ou ce lien avec tout le panel. Chaque expert
+                indique son nom, puis répond au cas. Le code peut aussi être
+                saisi sur la page d’accueil.
+              </p>
+            )}
           </div>
         </section>
-      ) : (
-        !closed && (
-          <section className="panel-card">
-            <h2>Inviter un expert</h2>
-            <p>
-              Chaque contribution nécessite son propre lien d’invitation. Le
-              code seul ne donne pas accès au panel.
-            </p>
-            <form
-              className="invitation-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                createInvitation();
-              }}
-            >
-              <Input
-                label="Nom de l’invitation"
-                value={invitationName}
-                maxLength={160}
-                onChange={(e) => setInvitationName(e.target.value)}
-                placeholder="Ex. Expert 1"
-              />
-              <Btn type="submit" disabled={busy}>
-                <Users size={15} /> Créer une invitation
-              </Btn>
-            </form>
-          </section>
-        )
+      )}
+      {l.role === "panel" && !closed && (
+        <section className="panel-card">
+          <h2>Invitation individuelle (facultative)</h2>
+          <p>
+            Pour un expert à distance, créez un lien personnel qui permet de
+            retrouver sa copie depuis un autre navigateur. Aucun compte à créer.
+          </p>
+          <form
+            className="invitation-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              createInvitation();
+            }}
+          >
+            <Input
+              label="Nom de l’invitation"
+              value={invitationName}
+              maxLength={160}
+              onChange={(e) => setInvitationName(e.target.value)}
+              placeholder="Ex. Expert 1"
+            />
+            <Btn type="submit" disabled={busy}>
+              <Users size={15} /> Créer une invitation
+            </Btn>
+          </form>
+        </section>
       )}
       {invitation && (
         <section className="invitation-banner">
