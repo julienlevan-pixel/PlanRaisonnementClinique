@@ -32,7 +32,10 @@ export const demoExperts: DemoAnswer[] = [
   answer(2, 1, [1, 8, 9, 10, 16], [1, 2, 3, 19, [11, "-"]]),
   answer(3, 2, [1, 10, 11, 12, 13], [8, 9, 10, 16, [12, "-"]]),
   answer(4, 1, [1, 13, 16, [15, "-"], [20, "-"]], [1, 2, 3, 6, 19]),
-];
+].map(response => ({ ...response,
+  mainChoices: response.mainChoices.map((choice, index) => ({ ...choice, points: 3 - index % 3 })),
+  alternativeChoices: response.alternativeChoices.map((choice, index) => ({ ...choice, points: 3 - index % 3 })),
+}));
 
 export const demoStudents: Array<{ answer: DemoAnswer; submitted: boolean }> = [
   { answer: answer(1, 2, [1, 2, 3, 6, 19], [8, 9, 10, 13, 16]), submitted: true },

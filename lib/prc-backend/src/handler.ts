@@ -409,7 +409,23 @@ function validateParticipantResponse(
       if (choice.sign !== "+" && choice.sign !== "-") {
         fail(400, "Chaque observation retenue doit avoir un signe + ou −.");
       }
-      return { observationId, sign: choice.sign };
+      if (
+        choice.points !== undefined &&
+        (participant.role !== "panel" ||
+          typeof choice.points !== "number" ||
+          !Number.isInteger(choice.points) ||
+          choice.points < 1 ||
+          choice.points > 3)
+      )
+        fail(
+          400,
+          "Les points sont réservés aux experts et doivent être un entier de 1 à 3.",
+        );
+      return {
+        observationId,
+        sign: choice.sign,
+        ...(choice.points !== undefined ? { points: choice.points } : {}),
+      };
     });
   const mainChoices = parseChoices(
     input.mainChoices,
@@ -515,6 +531,8 @@ async function getPanelSnapshot(
         (observation) => {
           let positive = 0;
           let negative = 0;
+          let positivePoints = 0;
+          let negativePoints = 0;
           for (const response of matching) {
             const choices = (
               role === "main"
@@ -524,8 +542,15 @@ async function getPanelSnapshot(
             const choice = choices.find(
               (item) => item.observationId === observation.id,
             );
-            if (choice?.sign === "+") positive++;
-            if (choice?.sign === "-") negative++;
+            // Historical submitted responses without weights retain one point.
+            if (choice?.sign === "+") {
+              positive++;
+              positivePoints += choice.points ?? 1;
+            }
+            if (choice?.sign === "-") {
+              negative++;
+              negativePoints += choice.points ?? 1;
+            }
           }
           return {
             observationId: observation.id,
@@ -533,6 +558,8 @@ async function getPanelSnapshot(
             category: observation.category,
             positive,
             negative,
+            positivePoints,
+            negativePoints,
             notSelected: matching.length - positive - negative,
             positivePercent: matching.length
               ? (positive / matching.length) * 100
@@ -1676,7 +1703,8 @@ async function handle(request: Request): Promise<Response> {
           right.some(
             (other) =>
               choice.observationId === other.observationId &&
-              choice.sign === other.sign,
+              choice.sign === other.sign &&
+              choice.points === other.points,
           ),
         );
       const identical =
@@ -1800,6 +1828,19 @@ async function handle(request: Request): Promise<Response> {
         );
       }
       let score: number | null = null;
+      if (
+        participant.role === "panel" &&
+        [...response.main_choices, ...response.alternative_choices].some(
+          (choice: Choice) =>
+            !Number.isInteger(choice.points) ||
+            Number(choice.points) < 1 ||
+            Number(choice.points) > 3,
+        )
+      )
+        fail(
+          400,
+          "Attribuez de 1 à 3 points à chacune des cinq données choisies pour chaque hypothèse.",
+        );
       let components: JsonRecord | null = null;
       if (participant.role === "students") {
         if (!launch.reference_id)
@@ -1982,14 +2023,14 @@ async function handle(request: Request): Promise<Response> {
         caseVersion: launch.case_version,
         case: launch.case_snapshot,
         scoring: {
-          version: "V1",
+          version: "V2",
           mainDiagnosis: 2,
           mainJustification: 8,
           alternativeDiagnosis: 2,
           alternativeJustification: 8,
           total: 20,
           description:
-            "Proposition pédagogique V1 : diagnostic représenté dans le même rôle = 2 points ; justification = 8 × R/C. C conserve les cinq meilleurs effectifs directionnels du panel, quel que soit le nombre de choix étudiant.",
+            "Diagnostic représenté dans le même rôle = 2 points ; justification = 8 × R/C. R additionne les points experts concordant avec les signes retenus ; C additionne les cinq plus grands totaux directionnels. Les anciennes réponses sans pondération comptent pour un point par donnée. L’étudiant n’attribue aucun point.",
         },
       };
       const result = await client.query(
@@ -2194,6 +2235,9 @@ async function handle(request: Request): Promise<Response> {
       status: launch.status,
       reveals: launch.reveals,
       ...(await visibleAggregates(launch, published)),
+      ...(launch.role === "panel" && submitted
+        ? { expertPanel: await getPanelSnapshot(launch, 1) }
+        : {}),
     });
   }
 

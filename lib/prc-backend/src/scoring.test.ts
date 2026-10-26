@@ -79,7 +79,9 @@ test("an unrepresented diagnosis earns zero in that role", () => {
         diagnosticId: "D2",
         role: "alternative",
         expertCount: 2,
-        observations: [{ observationId: "a", positive: 1, negative: 1, notSelected: 0 }],
+        observations: [
+          { observationId: "a", positive: 1, negative: 1, notSelected: 0 },
+        ],
         ceiling: 1,
       },
     ],
@@ -88,4 +90,57 @@ test("an unrepresented diagnosis earns zero in that role", () => {
   assert.equal(result.main.justification, 0);
   assert.equal(result.main.represented, false);
   assert.equal(result.alternative.diagnosis, 2);
+});
+
+test("expert weights change credit without changing response counts or trusting student weights", () => {
+  const observations = [
+    {
+      observationId: "a",
+      positive: 1,
+      negative: 1,
+      positivePoints: 3,
+      negativePoints: 1,
+      notSelected: 0,
+    },
+    {
+      observationId: "b",
+      positive: 1,
+      negative: 0,
+      positivePoints: 1,
+      negativePoints: 0,
+      notSelected: 1,
+    },
+  ];
+  const ceiling = computeCeiling(observations);
+  assert.equal(ceiling, 4);
+  const panel: PanelDistribution[] = [
+    { diagnosticId: "D1", role: "main", expertCount: 2, observations, ceiling },
+  ];
+  const grade = (choices: any[]) =>
+    scoreSubmission({
+      mainDiagnosticId: "D1",
+      alternativeDiagnosticId: null,
+      mainChoices: choices,
+      alternativeChoices: [],
+      panel,
+    });
+  assert.equal(
+    grade([{ observationId: "a", sign: "+" }]).main.justification,
+    6,
+  );
+  assert.equal(
+    grade([{ observationId: "b", sign: "+" }]).main.justification,
+    2,
+  );
+  assert.equal(
+    grade([{ observationId: "a", sign: "-", points: 3 }]).main.justification,
+    2,
+  );
+  assert.equal(
+    grade([
+      { observationId: "a", sign: "+" },
+      { observationId: "b", sign: "+" },
+    ]).main.justification,
+    8,
+  );
 });

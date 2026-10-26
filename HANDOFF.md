@@ -13,7 +13,7 @@ Les données réelles et les secrets ne sont pas transportés par Git. Aucun tra
 - `src/features/` : bibliothèque/édition et prévisualisation, accès/administration, activité/projection et parcours participant/résultats.
 - `lib/prc-backend/src/handler.ts` : routes HTTP et règles d'accès ; PostgreSQL paramétré via `@workspace/db`.
 - `security.ts` : scrypt, empreintes de jetons, cookies opaques, sessions SQL et limitation persistée des connexions.
-- `scoring.ts` : barème V1 2+8+2+8. Le plafond de justification est calculé par donnée sur les cinq plus grands maxima de directions ; aucune normalisation par le nombre de choix étudiant.
+- `scoring.ts` : barème V2 2+8+2+8 pondéré par les points experts (1 à 3 par donnée). Le plafond de justification est calculé sur les cinq plus grands maxima directionnels de points ; aucune normalisation par le nombre de choix étudiant. Les anciennes distributions sans points utilisent les effectifs V1 ; les références validées restent immuables.
 - `demo-case.ts`, `demo-responses.ts`, `demo.ts` : cas Toux fictif de 20 observations, dix experts, quatre copies étudiantes soumises et une copie non soumise. Référence et scores passent par les moteurs ordinaires.
 - `deployment.ts` : refuse une configuration SQL absente et une preview qui n'a pas explicitement déclaré sa base de test.
 - `artifacts/prc-pharmacie/netlify/functions/api.ts` : adaptateur Request/Response actuel.

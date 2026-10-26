@@ -172,3 +172,49 @@
     margin-top: 24px;
   }
 }
+
+.expert-points {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.expert-points select {
+  width: 100%;
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  background: hsl(var(--background));
+  color: inherit;
+}
+.expert-comparison {
+  margin-top: 30px;
+}
+.expert-diagnostic {
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--card));
+}
+.expert-comparison-table {
+  min-width: 760px;
+}
+.expert-comparison-table caption {
+  text-align: left;
+  padding: 10px 0;
+}
+.expert-comparison-table small {
+  display: block;
+  font-weight: normal;
+  margin-top: 4px;
+}
+.expert-own-selection {
+  background: hsl(var(--primary) / 0.07);
+}
+@media (max-width: 640px) {
+  .expert-diagnostic {
+    padding: 12px;
+  }
+}

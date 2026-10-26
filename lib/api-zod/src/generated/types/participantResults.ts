@@ -35,6 +35,8 @@ export interface ParticipantResults {
   status?: string;
   reveals?: RevealState;
   panel: VisibleAggregate;
+  /** Agrégats anonymes des réponses définitives du panel, vous compris ; accessibles uniquement à un expert ayant soumis sa copie, même pendant la collecte. */
+  expertPanel?: VisibleAggregate;
   class?: VisibleAggregate;
   reference?: VisibleReference | null;
 }

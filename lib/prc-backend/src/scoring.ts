@@ -4,6 +4,7 @@ export type Sign = "+" | "-";
 export interface Choice {
   observationId: string;
   sign: Sign;
+  points?: number;
 }
 
 export interface PanelDistribution {
@@ -16,6 +17,8 @@ export interface PanelDistribution {
     category?: string;
     positive: number;
     negative: number;
+    positivePoints?: number;
+    negativePoints?: number;
     notSelected: number;
   }>;
   ceiling: number;
@@ -41,10 +44,20 @@ export interface ScoreResult {
 }
 
 export function computeCeiling(
-  observations: Array<{ positive: number; negative: number }>,
+  observations: Array<{
+    positive: number;
+    negative: number;
+    positivePoints?: number;
+    negativePoints?: number;
+  }>,
 ): number {
   return observations
-    .map((observation) => Math.max(observation.positive, observation.negative))
+    .map((observation) =>
+      Math.max(
+        observation.positivePoints ?? observation.positive,
+        observation.negativePoints ?? observation.negative,
+      ),
+    )
     .sort((a, b) => b - a)
     .slice(0, 5)
     .reduce((sum, value) => sum + value, 0);
@@ -71,7 +84,14 @@ export function scoreRole(input: {
   );
   const raw = input.choices.reduce((sum, choice) => {
     const row = counts.get(choice.observationId);
-    return sum + (row ? (choice.sign === "+" ? row.positive : row.negative) : 0);
+    return (
+      sum +
+      (row
+        ? choice.sign === "+"
+          ? (row.positivePoints ?? row.positive)
+          : (row.negativePoints ?? row.negative)
+        : 0)
+    );
   }, 0);
   const ceiling = distribution.ceiling;
 
@@ -114,7 +134,10 @@ export function scoreSubmission(input: {
   const alternativeDiagnosis = alternative.diagnosis;
   const alternativeJustification = alternative.justification;
   const total =
-    mainDiagnosis + mainJustification + alternativeDiagnosis + alternativeJustification;
+    mainDiagnosis +
+    mainJustification +
+    alternativeDiagnosis +
+    alternativeJustification;
 
   return {
     mainDiagnosis,

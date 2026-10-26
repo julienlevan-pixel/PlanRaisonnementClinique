@@ -39,7 +39,9 @@ test("Toux retains minority diagnoses and divergent signs and derives varied stu
           .filter(row => row.observationId === observation.id);
         const positive = selected.filter(row => row.sign === "+").length;
         const negative = selected.filter(row => row.sign === "-").length;
-        return { observationId: observation.id, positive, negative, notSelected: experts.length - positive - negative };
+        const positivePoints = selected.filter(row => row.sign === "+").reduce((sum, row) => sum + (row.points ?? 1), 0);
+        const negativePoints = selected.filter(row => row.sign === "-").reduce((sum, row) => sum + (row.points ?? 1), 0);
+        return { observationId: observation.id, positive, negative, positivePoints, negativePoints, notSelected: experts.length - positive - negative };
       });
       panel.push({ diagnosticId: diagnostic.id, role, expertCount: experts.length, observations, ceiling: computeCeiling(observations) });
     }

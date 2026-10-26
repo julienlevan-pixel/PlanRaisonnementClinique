@@ -10,7 +10,7 @@ import type { DiagnosticDistribution } from './diagnosticDistribution';
 import type { VisibleReference } from './visibleReference';
 
 /**
- * Les champs non révélés sont absents ; objet vide pendant la collecte.
+ * Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.
  */
 export interface VisibleAggregate {
   totalSubmissions?: number;

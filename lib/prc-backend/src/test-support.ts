@@ -66,6 +66,10 @@ export async function testServices() {
   });
   const save = async (session: Session, data: any) => {
     const current = await session.call("/participant/response");
+    if (current.joinInfo.role === "panel") data = { ...data,
+      mainChoices: data.mainChoices.map((choice: any) => ({ points: 1, ...choice })),
+      alternativeChoices: data.alternativeChoices.map((choice: any) => ({ points: 1, ...choice })),
+    };
     return session.call("/participant/response", "PUT", { ...data, revision: current.response.revision });
   };
   const createReference = async (teacher: Session, prc: any, experts = 2) => {

@@ -231,6 +231,16 @@ export interface ObservationDistribution {
   positive: number;
   /** @minimum 0 */
   negative: number;
+  /**
+     * Somme des points experts pour le signe positif.
+     * @minimum 0
+     */
+  positivePoints?: number;
+  /**
+     * Somme des points experts pour le signe négatif.
+     * @minimum 0
+     */
+  negativePoints?: number;
   /** @minimum 0 */
   notSelected: number;
   positivePercent?: number;
@@ -347,6 +357,12 @@ export const ChoiceSign = {
 export interface Choice {
   observationId: string;
   sign: ChoiceSign;
+  /**
+     * Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.
+     * @minimum 1
+     * @maximum 3
+     */
+  points?: number;
 }
 
 export interface ParticipantResponse {
@@ -489,7 +505,7 @@ export interface VisibleReference {
 }
 
 /**
- * Les champs non révélés sont absents ; objet vide pendant la collecte.
+ * Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.
  */
 export interface VisibleAggregate {
   totalSubmissions?: number;
@@ -542,6 +558,8 @@ export interface ParticipantResults {
   status?: string;
   reveals?: RevealState;
   panel: VisibleAggregate;
+  /** Agrégats anonymes des réponses définitives du panel, vous compris ; accessibles uniquement à un expert ayant soumis sa copie, même pendant la collecte. */
+  expertPanel?: VisibleAggregate;
   class?: VisibleAggregate;
   reference?: VisibleReference | null;
 }

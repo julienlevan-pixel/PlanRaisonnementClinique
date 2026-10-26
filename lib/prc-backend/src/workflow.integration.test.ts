@@ -102,6 +102,72 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(resumed.response.state, "submitted");
   });
 
+  await t.test("expert points survive revision changes and submitted experts see live anonymous totals only", async () => {
+    const launch = await owner.session.call(`/prcs/${prc.id}/launches`, "POST", { role: "panel" }, 201);
+    const first = new Session(), second = new Session();
+    await first.call(`/launches/${launch.id}/join`, "POST", { pseudonym: "Private expert A", code: launch.code });
+    await second.call(`/launches/${launch.id}/join`, "POST", { pseudonym: "Private expert B", code: launch.code });
+    const initial = answer(prc);
+    await first.call("/participant/response", "PUT", { ...initial, revision: 0 });
+    await first.call("/participant/submit", "POST", {}, 400);
+    for (const points of [0, 4, 1.5, "3"]) {
+      await first.call("/participant/response", "PUT", { ...initial, mainChoices: [{ ...initial.mainChoices[0], points }], revision: 1 }, 400);
+    }
+    const weighted = { ...initial,
+      mainChoices: initial.mainChoices.map((choice: any) => ({ ...choice, points: 2 })),
+      alternativeChoices: initial.alternativeChoices.map((choice: any) => ({ ...choice, points: 1 })),
+    };
+    await save(first, weighted);
+    const revision = (await first.call("/participant/response")).response.revision;
+    weighted.mainChoices[0].points = 3;
+    await save(first, weighted);
+    const saved = (await first.call("/participant/response")).response;
+    assert.equal(saved.revision, revision + 1);
+    assert.equal(saved.mainChoices[0].points, 3);
+    await first.call("/participant/response", "PUT", { ...weighted, mainChoices: weighted.mainChoices.map((choice: any) => ({ ...choice, points: 1 })), revision }, 409);
+    assert.equal((await second.call("/participant/results")).expertPanel, undefined);
+    await first.call("/participant/submit", "POST", { expectedRevision: saved.revision });
+    const one = await first.call("/participant/results");
+    assert.equal(one.expertPanel.totalSubmissions, 1);
+    assert.deepEqual(one.panel, {});
+    assert.equal(one.score, null);
+    const other = { ...weighted, mainChoices: weighted.mainChoices.map((choice: any, i: number) => ({ ...choice, sign: i === 0 ? "-" : "+", points: 2 })) };
+    await save(second, other);
+    assert.equal((await second.call("/participant/results")).expertPanel, undefined);
+    await second.call("/participant/submit", "POST", {});
+    const two = await first.call("/participant/results");
+    assert.equal(two.expertPanel.totalSubmissions, 2);
+    assert.equal(JSON.stringify(two.expertPanel).includes("Private expert"), false);
+    assert.equal(JSON.stringify(two.expertPanel).includes("participantId"), false);
+    const distribution = two.expertPanel.distributions.find((row: any) => row.role === "main" && row.diagnosticId === weighted.mainDiagnosticId);
+    const observation = distribution.observations.find((row: any) => row.observationId === weighted.mainChoices[0].observationId);
+    assert.equal(observation.positive, 1);
+    assert.equal(observation.negative, 1);
+    assert.equal(observation.positivePoints, 3);
+    assert.equal(observation.negativePoints, 2);
+    assert.equal(distribution.ceiling, 19);
+    await owner.session.call(`/launches/${launch.id}/close`, "POST", {});
+    const closed = await first.call("/participant/results");
+    assert.equal(closed.expertPanel.totalSubmissions, 2);
+    assert.deepEqual(closed.expertPanel.distributions, two.expertPanel.distributions);
+    const reference = await owner.session.call(`/launches/${launch.id}/reference/generate`, "POST", { minimumPanelSize: 2 });
+    assert.equal(reference.scoring.version, "V2");
+    await owner.session.call(`/launches/${launch.id}/reference/validate`, "POST", {});
+    const studentLaunch = await owner.session.call(`/prcs/${prc.id}/launches`, "POST", { role: "students" }, 201);
+    const weightedStudent = new Session();
+    await weightedStudent.call(`/launches/${studentLaunch.id}/join`, "POST", { pseudonym: "Weighted grade" });
+    await save(weightedStudent, answer(prc, false, 1));
+    await weightedStudent.call("/participant/submit", "POST", {});
+    await owner.session.call(`/launches/${studentLaunch.id}/close`, "POST", {});
+    await owner.session.call(`/launches/${studentLaunch.id}/publish`, "POST", {});
+    const graded = await weightedStudent.call("/participant/results");
+    assert.equal(graded.components.main.raw, 3);
+    assert.equal(graded.components.main.ceiling, 19);
+    assert.equal(graded.components.alternative.raw, 2);
+    assert.equal(graded.components.alternative.ceiling, 10);
+    assert.equal(graded.score, Math.round((4 + 8 * 3 / 19 + 8 * 2 / 10) * 100) / 100);
+  });
+
   await t.test("reference retains minorities, excludes drafts and becomes immutable", async () => {
     for (let i = 0; i < 2; i++) {
       const invitation = await owner.session.call(`/launches/${panel.id}/invitations`, "POST", { name: `Other expert ${i}` }, 201);
@@ -158,6 +224,8 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const privateResults = await student.call("/participant/results");
     assert.equal(privateResults.score, null);
     assert.deepEqual(privateResults.panel, {});
+    assert.equal(privateResults.expertPanel, undefined);
+    await student.call("/participant/response", "PUT", { ...answer(prc), mainChoices: [{ ...answer(prc).mainChoices[0], points: 3 }], revision: revised.response.revision }, 400);
     await student.call(`/launches/${students.id}/results`, "GET", undefined, [401, 403, 404]);
     await student.call("/participant/submit", "POST", {});
     await student.call("/participant/submit", "POST", {});

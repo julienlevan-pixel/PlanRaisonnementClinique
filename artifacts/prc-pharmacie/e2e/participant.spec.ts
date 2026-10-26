@@ -126,6 +126,147 @@ async function questionnaire(
   return () => response;
 }
 
+test("expert rates each selected datum and keeps points when flipping a sign or reloading", async ({
+  page,
+}) => {
+  const saved = await questionnaire(page, { role: "panel" });
+  await page.getByTestId("choice-main-positive-obs-1").click();
+  await page
+    .getByLabel("Points hypothèse principale — Observation 1", { exact: true })
+    .selectOption("3");
+  await page.getByTestId("choice-main-negative-obs-1").click();
+  await expect(
+    page.getByLabel("Points hypothèse principale — Observation 1", {
+      exact: true,
+    }),
+  ).toHaveValue("3");
+  await expect.poll(() => saved().mainChoices[0]?.points).toBe(3);
+  await expect.poll(() => saved().mainChoices[0]?.sign).toBe("-");
+  await page.reload();
+  await expect(
+    page.getByLabel("Points hypothèse principale — Observation 1", {
+      exact: true,
+    }),
+  ).toHaveValue("3");
+});
+
+test("experts must rate their ten selected data before submitting; students never see rating controls", async ({
+  page,
+}) => {
+  await questionnaire(page, { role: "panel" });
+  for (let i = 1; i <= 5; i++) {
+    await page.getByTestId(`choice-main-positive-obs-${i}`).click();
+    await page.getByTestId(`choice-alternative-negative-obs-${i}`).click();
+  }
+  await page.getByRole("button", { name: "Vérifier et transmettre" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Attribuez de 1 à 3 points",
+  );
+  await expect(
+    page.getByRole("combobox", { name: /^Points hypothèse/ }),
+  ).toHaveCount(10);
+  await questionnaire(page);
+  await expect(
+    page.getByRole("combobox", { name: /^Points hypothèse/ }),
+  ).toHaveCount(0);
+});
+
+test("submitted expert immediately sees all diagnostic tables and totals refresh while the panel is open", async ({
+  page,
+}) => {
+  await page.clock.install();
+  let submissions = 3;
+  const info = { ...caseData, role: "panel" };
+  await page.route("**/api/participant/results", (route) =>
+    route.fulfill({
+      json: {
+        role: "panel",
+        status: "open",
+        published: false,
+        case: info,
+        score: null,
+        components: {},
+        panel: {},
+        response: draft({
+          state: "submitted",
+          mainChoices: [{ observationId: "obs-1", sign: "+", points: 3 }],
+          alternativeChoices: [
+            { observationId: "obs-2", sign: "-", points: 2 },
+          ],
+        }),
+        expertPanel: {
+          totalSubmissions: submissions,
+          distributions: [
+            {
+              diagnosticId: "diag-a",
+              role: "main",
+              expertCount: 2,
+              observations: [
+                {
+                  observationId: "obs-1",
+                  positive: 2,
+                  negative: 0,
+                  positivePoints: 5,
+                  negativePoints: 0,
+                },
+              ],
+              ceiling: 5,
+            },
+            {
+              diagnosticId: "diag-a",
+              role: "alternative",
+              expertCount: 1,
+              observations: [
+                {
+                  observationId: "obs-1",
+                  positive: 0,
+                  negative: 1,
+                  positivePoints: 0,
+                  negativePoints: 3,
+                },
+              ],
+              ceiling: 3,
+            },
+          ],
+        },
+      },
+    }),
+  );
+  await page.goto("/participant/results");
+  await expect(
+    page.getByText("3 réponse(s) définitive(s), vous compris.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(page.locator(".expert-diagnostic")).toHaveCount(3);
+  for (const table of await page.locator(".expert-comparison-table").all())
+    await expect(table.locator("tbody tr")).toHaveCount(6);
+  const row = page
+    .getByRole("region", { name: "Tableau Diagnostic A", exact: true })
+    .getByRole("row")
+    .filter({
+      has: page.getByRole("rowheader", { name: "Observation 1", exact: true }),
+    });
+  await expect(row).toContainText("+ En faveur · 3 point(s)");
+  await expect(row).toContainText("2 / 3 · 5 pt");
+  await expect(row).toContainText("1 / 3 · 3 pt");
+  await expect(row).toContainText("8 pt");
+  await expect(page.locator(".participant-score")).toHaveCount(0);
+  submissions = 4;
+  await page.clock.fastForward(15_100);
+  await expect(
+    page.getByText("4 réponse(s) définitive(s), vous compris.", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("saves signed choices, prevents a sixth choice and restores the acknowledged draft", async ({
   page,
 }) => {
