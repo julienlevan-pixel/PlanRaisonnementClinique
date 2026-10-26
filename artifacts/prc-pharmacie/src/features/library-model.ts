@@ -24,6 +24,16 @@ export interface Observation {
   position: number;
 }
 
+export const clinicalDataCategories = [
+  'Démographie',
+  'Description de la plainte',
+  'Examen physique',
+  'Laboratoires',
+  'Médicaments',
+  'Antécédents',
+  'Autre',
+] as const;
+
 export interface CasePreviewData {
   name: string;
   scenario: string;
