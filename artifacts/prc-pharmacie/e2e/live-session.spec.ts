@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/participant/teaching-session', route => route.fulfill({json:{session:null}}));
+});
+
 const clinicalCase = {
   name: "Cas synchrone fictif",
   scenario:

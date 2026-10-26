@@ -48,7 +48,7 @@ async function answerAndSubmit(page: Page, pseudonym: string, teacher?: Page) {
 }
 
 test('real PostgreSQL workflow: administrator, teacher, expert and student in separate browser sessions', async ({ browser, baseURL }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   if (!baseURL || !['127.0.0.1', 'localhost', '[::1]'].includes(new URL(baseURL).hostname)) throw new Error('The real workflow may run only against a local test site.');
   const adminName = process.env.PRC_E2E_ADMIN_USERNAME;
   const adminPassword = process.env.PRC_E2E_ADMIN_PASSWORD;
@@ -299,6 +299,67 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
         return refreshed.launches.some((launch:any)=>launch.grading?.maximum===16&&launch.grading?.rubricRevision===2);
       }).toBe(true);
       expect((await(await asyncStudent.request.get('/api/participant/results')).json()).case.grading.maximum).toBe(15);
+    });
+    await test.step('one teaching session carries the student through two cases and publishes the cumulative result', async () => {
+      // The earlier collaboration changed this source case: prepare a correction for its new version.
+      const source=(await(await teacher.request.get(`/api${prcPath.replace('/prc/','/prcs/')}`)).json());
+      const panel=(await(await teacher.request.post(`/api/prcs/${source.id}/launches`,{headers:{origin:baseURL!},data:{role:'panel'}})).json());
+      const seed=await page();
+      expect((await seed.request.post(`/api/launches/${panel.id}/join`,{headers:{origin:baseURL!},data:{pseudonym:'Expert nouvelle version',code:panel.code,joinKey:crypto.randomUUID()}})).ok()).toBe(true);
+      const answer={mainDiagnosticId:source.diagnostics[0].id,alternativeDiagnosticId:source.diagnostics[1].id,
+        mainChoices:source.observations.slice(0,5).map((o:any)=>({observationId:o.id,sign:'+',points:3})),alternativeChoices:source.observations.slice(5,10).map((o:any)=>({observationId:o.id,sign:'-',points:3})),revision:0};
+      expect((await seed.request.put('/api/participant/response',{headers:{origin:baseURL!},data:answer})).ok()).toBe(true);
+      expect((await seed.request.post('/api/participant/submit',{headers:{origin:baseURL!},data:{}})).ok()).toBe(true);
+      for(const [action,data] of [['close',{}],['reference/generate',{minimumPanelSize:1}],['reference/validate',{explanation:'Corrigé fictif actualisé'}]] as const)
+        expect((await teacher.request.post(`/api/launches/${panel.id}/${action}`,{headers:{origin:baseURL!},data})).ok()).toBe(true);
+      await teacher.goto('/seances?new=1');
+      const builder=teacher.getByRole('form',{name:'Créer une séance',exact:true});
+      await builder.getByLabel('Nom de la séance',{exact:true}).fill('Atelier multi-cas navigateur');
+      await builder.getByRole('checkbox',{name:/Circuit navigateur/}).check();
+      await builder.getByRole('checkbox',{name:/Toux/}).check();
+      await builder.getByRole('button',{name:'Créer la séance (2 cas)',exact:true}).click();
+      await expect(teacher).toHaveURL(/\/seances\/[0-9a-f-]+$/);
+      const lessonPath=new URL(teacher.url()).pathname;
+      const learner=await page();
+      const join=teacher.locator('.access-card a');
+      await expect(join).toBeVisible();
+      await learner.goto((await join.getAttribute('href'))!);
+      await learner.getByLabel('Votre nom ou pseudonyme',{exact:true}).fill('Étudiant de la séance');
+      await learner.getByRole('button',{name:'Rejoindre l’activité',exact:true}).click();
+      await expect(learner).toHaveURL(/\/participant$/);
+      const projection=await teacher.context().newPage();
+      await projection.goto(`${lessonPath}/projection`);
+      let total=0;
+      for(let position=0;position<2;position++){
+        await expect(learner.locator('.teaching-participant-progress')).toContainText(`Cas ${position+1} sur 2`,{timeout:12000});
+        await expect(teacher.getByRole('button',{name:'Présenter le cas',exact:true})).toBeVisible();
+        await teacher.getByRole('button',{name:'Présenter le cas',exact:true}).click();
+        await teacher.getByRole('button',{name:'Ouvrir les réponses',exact:true}).click();
+        await expect(learner.getByLabel('Impression clinique',{exact:true})).toBeVisible({timeout:12000});
+        const payload=await(await learner.request.get('/api/participant/response')).json();
+        await learner.getByLabel('Impression clinique',{exact:true}).selectOption(payload.joinInfo.diagnostics[0].id);
+        await learner.getByLabel('Impression clinique alternative',{exact:true}).selectOption(payload.joinInfo.diagnostics[1].id);
+        for(let i=0;i<5;i++){
+          await learner.getByTestId(`choice-main-positive-${payload.joinInfo.observations[i].id}`).click();
+          await learner.getByTestId(`choice-alternative-negative-${payload.joinInfo.observations[i+5].id}`).click();
+        }
+        await confirmClick(learner,'Vérifier et transmettre');
+        await expect(learner).toHaveURL(/\/participant\/results$/);
+        await confirmClick(teacher,'Terminer le temps de réponse');
+        await teacher.getByRole('button',{name:'Afficher la comparaison des impressions cliniques',exact:true}).click();
+        await teacher.getByRole('button',{name:'Publier les résultats',exact:true}).click();
+        await expect(learner.getByRole('heading',{name:'Votre résultat',exact:true})).toBeVisible({timeout:12000});
+        total+=(await(await learner.request.get('/api/participant/results')).json()).score;
+        await confirmClick(teacher,position===0?'Passer au cas suivant':'Terminer et afficher le bilan');
+        if(position===0)await expect(learner).toHaveURL(/\/participant$/,{timeout:12000});
+      }
+      const final=learner.getByRole('region',{name:'Bilan de la séance',exact:true});
+      await expect(final).toBeVisible({timeout:12000});
+      const data=await(await learner.request.get('/api/participant/teaching-session')).json();
+      expect(data.report.maximum).toBe(31);expect(data.report.own.score).toBe(total);expect(data.report.own.submittedCount).toBe(2);expect(data.report.members).toBeUndefined();
+      await expect(teacher.getByRole('region',{name:'Bilan de la séance',exact:true})).toContainText('31 points');
+      await expect(projection.getByRole('region',{name:'Bilan de la séance',exact:true})).toContainText('31 points',{timeout:12000});
+      await projection.close();
     });
   } finally { await Promise.all(contexts.map(context => context.close())); }
 });

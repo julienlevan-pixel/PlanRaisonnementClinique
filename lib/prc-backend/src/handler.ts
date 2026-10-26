@@ -12,6 +12,8 @@ import {
   passwordHash,
   readSessionCookie,
   recordFailedLogin,
+  cookieHeader,
+  token,
   sameOriginMutationAllowed,
   verifyPassword,
   type ParticipantPrincipal,
@@ -40,6 +42,13 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 type CaseData = {
+  teachingSession?: {
+    id: string;
+    name: string;
+    code?: string;
+    position: number;
+    total: number;
+  };
   sessionMode?: DeliveryMode;
   studentWorkflow?: {
     deliveryMode: DeliveryMode;
@@ -77,6 +86,7 @@ type LaunchRow = {
   aggregate_snapshot: PanelSnapshot | null;
 };
 type RevealState = {
+  sessionSkipped?: boolean;
   liveSession?: {
     phase: "lobby" | "case" | "answering";
     openedAt?: string;
@@ -287,6 +297,7 @@ function mapLaunch(
 ) {
   return {
     id: row.id,
+    teachingSession: row.case_snapshot.teachingSession,
     prcId: row.prc_id,
     role: row.role,
     name: row.case_snapshot.name,
@@ -376,6 +387,13 @@ async function requireOwner(
     [launchId, teacher.id],
   );
   if (!result.rows[0]) fail(404, "Activité introuvable.");
+  if (
+    request.method === "POST" &&
+    /\/(session|close|discussion|reveal|publish)$/.test(
+      new URL(request.url).pathname,
+    )
+  )
+    await assertTeachingCurrent(result.rows[0]);
   return { teacher, launch: result.rows[0] };
 }
 
@@ -404,14 +422,22 @@ async function lockManagedLaunch(
   actorId: string,
 ) {
   const result = await client.query(
-    "SELECT prc_id FROM prc_private.launches WHERE id=$1",
+    "SELECT prc_id,case_snapshot FROM prc_private.launches WHERE id=$1",
     [launchId],
   );
   if (!result.rows[0]) fail(404, "Activité introuvable.");
-  await lockPrcAccess(client, result.rows[0].prc_id, actorId, true);
+  const context = result.rows[0].case_snapshot.teachingSession;
+  const ids = context
+    ? [
+        ...new Set(
+          (await teachingCases(context.id, client)).map((c) => c.prc_id),
+        ),
+      ].sort()
+    : [result.rows[0].prc_id];
+  for (const prcId of ids) await lockPrcAccess(client, prcId, actorId, true);
   return client.query<LaunchRow>(
-    "SELECT * FROM prc_private.launches WHERE id=$1 FOR UPDATE",
-    [launchId],
+    "SELECT * FROM prc_private.launches WHERE id=$1 AND prc_private.can_manage_launch(id,$2) FOR UPDATE",
+    [launchId, actorId],
   );
 }
 
@@ -685,6 +711,7 @@ function caseForJoin(launch: LaunchRow) {
   const waiting = launch.reveals.liveSession?.phase === "lobby";
   return {
     launchId: launch.id,
+    teachingSession: launch.case_snapshot.teachingSession,
     role: launch.role,
     name: launch.case_snapshot.name,
     isTrial: launch.is_trial ?? false,
@@ -958,8 +985,9 @@ async function createLaunch(
   input: JsonRecord,
   forceTrial = false,
   reuseDemoSession = false,
+  context?: { client: PoolClient; teacher: TeacherPrincipal },
 ) {
-  const teacher = await requireTeacher(request);
+  const teacher = context?.teacher ?? (await requireTeacher(request));
   const role = forceTrial ? "panel" : validRole(input.role);
   const isTrial = forceTrial || input.isTrial === true;
   if (
@@ -974,9 +1002,9 @@ async function createLaunch(
   )
     fail(400, "La modalité de séance doit correspondre au groupe étudiant.");
   const managedSession = !isTrial && input.sessionMode === "synchronous";
-  const client = await pool.connect();
+  const client = context?.client ?? (await pool.connect());
   try {
-    await client.query("BEGIN");
+    if (!context) await client.query("BEGIN");
     await lockPrcAccess(client, prcId, teacher.id, true);
     const prcResult = await client.query(
       `SELECT p.owner_id, p.current_version, p.archived_at, p.is_demo, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
@@ -1063,7 +1091,7 @@ async function createLaunch(
         ],
       );
       if (existing.rows[0]) {
-        await client.query("COMMIT");
+        if (!context) await client.query("COMMIT");
         return existing.rows[0];
       }
     }
@@ -1094,14 +1122,528 @@ async function createLaunch(
       );
       result.rows[0] = updated.rows[0];
     }
-    await client.query("COMMIT");
+    if (!context) await client.query("COMMIT");
     return result.rows[0];
   } catch (error) {
-    await client.query("ROLLBACK");
+    if (!context) await client.query("ROLLBACK");
     throw error;
   } finally {
-    client.release();
+    if (!context) client.release();
   }
+}
+
+type TeachingSessionRow = {
+  id: string;
+  owner_id: string;
+  name: string;
+  code: string;
+  role: "panel" | "students";
+  status: "open" | "finished";
+  current_position: number;
+  archived_at: string | null;
+  created_at: string;
+};
+
+async function teachingReady() {
+  const ready = await pool.query(
+    "SELECT to_regclass('prc_private.teaching_sessions') IS NOT NULL AS ready",
+  );
+  if (!ready.rows[0].ready)
+    fail(
+      503,
+      "Installez la migration 005_teaching_sessions.sql dans Supabase pour activer les séances.",
+    );
+}
+async function ownedTeachingSession(request: Request, id: string) {
+  const teacher = await requireTeacher(request);
+  const result = await pool.query<TeachingSessionRow>(
+    "SELECT * FROM prc_private.teaching_sessions WHERE id=$1 AND prc_private.can_manage_teaching_session(id,$2)",
+    [id, teacher.id],
+  );
+  if (!result.rows[0]) fail(404, "Séance introuvable ou accès aux cas retiré.");
+  return { teacher, session: result.rows[0] };
+}
+async function teachingCases(
+  id: string,
+  executor: typeof pool | PoolClient = pool,
+) {
+  return (
+    await executor.query<LaunchRow & { position: number }>(
+      `SELECT l.*,c.position FROM prc_private.teaching_session_cases c JOIN prc_private.launches l ON l.id=c.launch_id WHERE c.session_id=$1 ORDER BY c.position`,
+      [id],
+    )
+  ).rows;
+}
+async function assertTeachingCurrent(
+  launch: LaunchRow,
+  executor: typeof pool | PoolClient = pool,
+) {
+  const context = launch.case_snapshot.teachingSession;
+  if (!context) return;
+  const found = await executor.query(
+    "SELECT 1 FROM prc_private.teaching_sessions WHERE id=$1 AND current_position=$2 AND status='open'",
+    [context.id, context.position],
+  );
+  if (!found.rows[0]) fail(409, "Ce cas n’est pas le cas actif de la séance.");
+}
+async function lockTeaching(
+  client: PoolClient,
+  id: string,
+  teacher: TeacherPrincipal,
+) {
+  // Follow the same order as launch actions: PRCs (sorted), then session, then launches.
+  const cases = await teachingCases(id, client);
+  for (const prcId of [...new Set(cases.map((c) => c.prc_id))].sort())
+    await lockPrcAccess(client, prcId, teacher.id, true);
+  const result = await client.query<TeachingSessionRow>(
+    "SELECT * FROM prc_private.teaching_sessions WHERE id=$1 AND prc_private.can_manage_teaching_session(id,$2) FOR UPDATE",
+    [id, teacher.id],
+  );
+  if (!result.rows[0]) fail(404, "Séance introuvable ou accès aux cas retiré.");
+  return { session: result.rows[0], cases: await teachingCases(id, client) };
+}
+async function teachingReport(session: TeachingSessionRow, memberId?: string) {
+  const cases = await teachingCases(session.id);
+  const members = (
+    await pool.query(
+      "SELECT id,pseudonym FROM prc_private.teaching_members WHERE session_id=$1 ORDER BY created_at",
+      [session.id],
+    )
+  ).rows;
+  const copies = (
+    await pool.query(
+      `SELECT p.teaching_member_id AS member_id,p.launch_id,r.state,r.score FROM prc_private.participants p JOIN prc_private.responses r ON r.participant_id=p.id WHERE p.teaching_member_id IN (SELECT id FROM prc_private.teaching_members WHERE session_id=$1)`,
+      [session.id],
+    )
+  ).rows;
+  const maximum =
+    Math.round(
+      cases
+        .filter((c) => !c.reveals.sessionSkipped)
+        .reduce((sum, c) => sum + launchGrading(c).maximum, 0) * 100,
+    ) / 100;
+  const records = members.map((member) => {
+    const perCase = cases.map((c) => {
+      const response = copies.find(
+        (r) => r.member_id === member.id && r.launch_id === c.id,
+      );
+      const submitted = response?.state === "submitted";
+      const visible =
+        c.status === "published" && submitted && response.score !== null;
+      return {
+        position: c.position,
+        name: c.case_snapshot.name,
+        submitted,
+        skipped: !!c.reveals.sessionSkipped,
+        maximum: launchGrading(c).maximum,
+        score: visible ? Number(response.score) : null,
+      };
+    });
+    const assessed = perCase.filter((c) => !c.skipped);
+    const complete =
+      assessed.length > 0 && assessed.every((c) => c.score !== null);
+    const current = perCase[session.current_position];
+    return {
+      id: member.id,
+      pseudonym: member.pseudonym,
+      currentSubmitted: current?.submitted ?? false,
+      submittedCount: perCase.filter((c) => c.submitted).length,
+      complete,
+      score: complete
+        ? Math.round(
+            perCase.reduce((sum, c) => sum + Number(c.score), 0) * 100,
+          ) / 100
+        : null,
+      subtotal:
+        Math.round(perCase.reduce((sum, c) => sum + (c.score ?? 0), 0) * 100) /
+        100,
+      gradedMaximum:
+        Math.round(
+          perCase
+            .filter((c) => c.score !== null)
+            .reduce((sum, c) => sum + c.maximum, 0) * 100,
+        ) / 100,
+      cases: perCase,
+    };
+  });
+  const own = records.find((r) => r.id === memberId);
+  return {
+    maximum,
+    caseCount: cases.length,
+    gradedCaseCount: cases.filter((c) => !c.reveals.sessionSkipped).length,
+    memberCount: members.length,
+    ...(session.role === "students" && maximum > 0
+      ? {
+          distribution: gradeDistribution(
+            records.map((r) => ({
+              state: r.complete ? "submitted" : "draft",
+              score: r.score,
+            })),
+            maximum,
+          ),
+        }
+      : {}),
+    ...(memberId
+      ? { own: own ? { ...own, id: undefined, pseudonym: undefined } : null }
+      : { members: records }),
+  };
+}
+async function handleTeaching(request: Request): Promise<Response | undefined> {
+  const url = new URL(request.url),
+    path = url.pathname.replace(/\/+$/, ""),
+    method = request.method;
+  const relevant =
+    path.startsWith("/api/teaching-sessions") ||
+    path === "/api/participant/teaching-session" ||
+    /^\/api\/join\/S-/i.test(path);
+  if (!relevant) return;
+  await teachingReady();
+  if (path === "/api/teaching-sessions/options" && method === "GET") {
+    const teacher = await requireTeacher(request);
+    const rows = (
+      await pool.query(
+        `SELECT p.id,p.current_version,v.name,v.scenario,v.instructions,v.diagnostics,v.observations,
+      EXISTS(SELECT 1 FROM prc_private.launches l JOIN prc_private.references r ON r.launch_id=l.id WHERE l.prc_id=p.id AND l.case_version=p.current_version AND NOT l.is_trial AND r.status='validated') AS corrected
+      FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id=p.id AND v.version=p.current_version
+      WHERE p.archived_at IS NULL AND prc_private.can_access_prc(p.id,$1,true) ORDER BY p.updated_at DESC`,
+        [teacher.id],
+      )
+    ).rows;
+    return send(
+      rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        version: r.current_version,
+        ready: !missingCase(r).length,
+        corrected: r.corrected,
+      })),
+    );
+  }
+  if (path === "/api/teaching-sessions" && method === "GET") {
+    const teacher = await requireTeacher(request);
+    const sessions = (
+      await pool.query(
+        `SELECT s.*,(SELECT count(*)::int FROM prc_private.teaching_session_cases c WHERE c.session_id=s.id) AS case_count,
+      (SELECT count(*)::int FROM prc_private.teaching_members m WHERE m.session_id=s.id) AS member_count
+      FROM prc_private.teaching_sessions s WHERE prc_private.can_manage_teaching_session(s.id,$1) AND (s.archived_at IS NOT NULL)=$2 ORDER BY s.created_at DESC`,
+        [teacher.id, url.searchParams.get("archived") === "true"],
+      )
+    ).rows;
+    return send(
+      sessions.map((s) => ({
+        ...s,
+        owner_id: undefined,
+        currentPosition: s.current_position,
+        caseCount: s.case_count,
+        memberCount: s.member_count,
+      })),
+    );
+  }
+  if (path === "/api/teaching-sessions" && method === "POST") {
+    const teacher = await requireTeacher(request),
+      input = await body(request);
+    const name = stringValue(input.name, "Nom de la séance", 160);
+    if (!name) fail(400, "Nommez la séance.");
+    const role = validRole(input.role),
+      ids = arrayValue(input.prcIds, "Cas de la séance");
+    if (
+      !ids.length ||
+      ids.length > 20 ||
+      ids.some((id) => typeof id !== "string") ||
+      new Set(ids).size !== ids.length
+    )
+      fail(400, "Choisissez de 1 à 20 PRC distincts, dans l’ordre souhaité.");
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (const id of [...(ids as string[])].sort())
+        await lockPrcAccess(client, id, teacher.id, true);
+      const id = newId(),
+        code = `S-${randomCode()}`;
+      await client.query(
+        "INSERT INTO prc_private.teaching_sessions(id,owner_id,name,code,role) VALUES($1,$2,$3,$4,$5)",
+        [id, teacher.id, name, code, role],
+      );
+      for (let position = 0; position < ids.length; position++) {
+        const launch = await createLaunch(
+          request,
+          String(ids[position]),
+          {
+            role,
+            sessionMode: "synchronous",
+            ...(role === "students" ? { deliveryMode: "synchronous" } : {}),
+          },
+          false,
+          false,
+          { client, teacher },
+        );
+        await client.query(
+          "UPDATE prc_private.launches SET case_snapshot=jsonb_set(case_snapshot,'{teachingSession}',$1::jsonb) WHERE id=$2",
+          [
+            JSON.stringify({ id, name, code, position, total: ids.length }),
+            launch.id,
+          ],
+        );
+        await client.query(
+          "INSERT INTO prc_private.teaching_session_cases(session_id,position,launch_id) VALUES($1,$2,$3)",
+          [id, position, launch.id],
+        );
+      }
+      await client.query("COMMIT");
+      return send({ id, code }, 201);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  const codeMatch = path.match(/^\/api\/join\/(S-[^/]+)$/i);
+  if (codeMatch && method === "GET") {
+    const found = (
+      await pool.query<TeachingSessionRow>(
+        "SELECT * FROM prc_private.teaching_sessions WHERE code=$1",
+        [decodeURIComponent(codeMatch[1]).toUpperCase()],
+      )
+    ).rows[0];
+    if (!found) fail(404, "Code de séance introuvable.");
+    const principal = await getPrincipal(
+      new Request(new URL("/api/participant/response", request.url), {
+        headers: request.headers,
+      }),
+    );
+    return send({
+      canResume:
+        principal?.kind === "participant" &&
+        principal.teachingSessionId === found.id,
+      teachingSessionId: found.id,
+      launchId: found.id,
+      name: found.name,
+      role: found.role,
+      status: found.status === "open" ? "open" : "closed",
+      scenario: "",
+      instructions: "",
+      diagnostics: [],
+      observations: [],
+    });
+  }
+  const join = path.match(/^\/api\/teaching-sessions\/([^/]+)\/join$/);
+  if (join && method === "POST") {
+    const input = await body(request),
+      id = segment(join[1]);
+    const pseudonym = stringValue(input.pseudonym, "Nom ou pseudonyme", 100);
+    const joinKey = stringValue(input.joinKey, "Clé de reprise", 100);
+    if (
+      !pseudonym ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        joinKey,
+      )
+    )
+      fail(400, "Indiquez votre nom et une clé de reprise valide.");
+    const previous = await getPrincipal(
+      new Request(new URL("/api/participant/response", request.url), {
+        headers: request.headers,
+      }),
+    );
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const session = (
+        await client.query<TeachingSessionRow>(
+          "SELECT * FROM prc_private.teaching_sessions WHERE id=$1 FOR UPDATE",
+          [id],
+        )
+      ).rows[0];
+      if (!session || session.code !== String(input.code).toUpperCase())
+        fail(404, "Code de séance invalide.");
+      let member = (
+        await client.query(
+          "SELECT * FROM prc_private.teaching_members WHERE session_id=$1 AND (join_key_hash=$2 OR id=$3)",
+          [
+            id,
+            hashToken(joinKey),
+            previous?.kind === "participant" &&
+            previous.teachingSessionId === id
+              ? previous.teachingMemberId
+              : null,
+          ],
+        )
+      ).rows[0];
+      if (!member) {
+        if (session.status !== "open")
+          fail(
+            409,
+            "Cette séance est terminée. Seuls les participants déjà inscrits peuvent reprendre leur bilan.",
+          );
+        member = (
+          await client.query(
+            "INSERT INTO prc_private.teaching_members(id,session_id,pseudonym,join_key_hash) VALUES($1,$2,$3,$4) RETURNING *",
+            [newId(), id, pseudonym, hashToken(joinKey)],
+          )
+        ).rows[0];
+        for (const c of await teachingCases(id, client)) {
+          const participantId = newId();
+          await client.query(
+            "INSERT INTO prc_private.participants(id,launch_id,pseudonym,role,teaching_member_id) VALUES($1,$2,$3,$4,$5)",
+            [participantId, c.id, pseudonym, session.role, member.id],
+          );
+          await client.query(
+            "INSERT INTO prc_private.responses(participant_id,launch_id,state) VALUES($1,$2,'draft')",
+            [participantId, c.id],
+          );
+        }
+      }
+      const rawToken = token(),
+        csrfToken = token();
+      await client.query(
+        "INSERT INTO prc_private.sessions(token_hash,teaching_member_id,csrf_token,expires_at) VALUES($1,$2,$3,now()+interval '12 hours')",
+        [hashToken(rawToken), member.id, csrfToken],
+      );
+      await client.query("COMMIT");
+      return send({ csrfToken }, 200, {
+        "set-cookie": cookieHeader(rawToken, 43200, "prc_participant_session"),
+      });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  if (path === "/api/participant/teaching-session" && method === "GET") {
+    const participant = await requireParticipant(request);
+    if (!participant.teachingSessionId) return send({ session: null });
+    const session = (
+      await pool.query<TeachingSessionRow>(
+        "SELECT * FROM prc_private.teaching_sessions WHERE id=$1",
+        [participant.teachingSessionId],
+      )
+    ).rows[0];
+    const cases = await teachingCases(session.id);
+    return send({
+      session: {
+        id: session.id,
+        name: session.name,
+        status: session.status,
+        role: session.role,
+        position: session.current_position,
+        total: cases.length,
+        currentLaunchId: cases[session.current_position].id,
+      },
+      ...(session.status === "finished"
+        ? {
+            report: await teachingReport(session, participant.teachingMemberId),
+          }
+        : {}),
+    });
+  }
+  const detail = path.match(
+    /^\/api\/teaching-sessions\/([^/]+)(?:\/(next|projection|archive))?$/,
+  );
+  if (detail) {
+    const id = segment(detail[1]);
+    const { teacher, session } = await ownedTeachingSession(request, id);
+    if (method === "GET" && (!detail[2] || detail[2] === "projection")) {
+      const cases = await teachingCases(id);
+      return send({
+        id: session.id,
+        name: session.name,
+        code: session.code,
+        role: session.role,
+        status: session.status,
+        currentPosition: session.current_position,
+        archivedAt: session.archived_at,
+        cases: cases.map((c) => ({
+          id: c.id,
+          name: c.case_snapshot.name,
+          status: c.status,
+          position: c.position,
+          maximum: launchGrading(c).maximum,
+          skipped: !!c.reveals.sessionSkipped,
+        })),
+        report: await teachingReport(
+          session,
+          detail[2] === "projection" ? "anonymous-projection" : undefined,
+        ),
+      });
+    }
+    if (method === "POST" && detail[2] === "next") {
+      const input = await body(request),
+        client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const locked = await lockTeaching(client, id, teacher),
+          current = locked.cases[locked.session.current_position];
+        if (
+          input.expectedPosition !== locked.session.current_position ||
+          locked.session.status !== "open"
+        )
+          fail(409, "La séance a déjà avancé. Actualisez avant de continuer.");
+        const skip = input.skipUnanswered === true;
+        if (
+          input.skipUnanswered !== undefined &&
+          typeof input.skipUnanswered !== "boolean"
+        )
+          fail(400, "Le choix d’exclusion du cas est invalide.");
+        if (skip) {
+          const counts = await launchCounts(current.id, client);
+          if (
+            locked.session.role !== "students" ||
+            current.status === "open" ||
+            current.status === "published" ||
+            counts.submissions !== 0
+          )
+            fail(
+              409,
+              "Seul un cas fermé sans aucune soumission peut être exclu de la note globale.",
+            );
+          await client.query(
+            "UPDATE prc_private.launches SET reveals=jsonb_set(reveals,'{sessionSkipped}','true'::jsonb) WHERE id=$1",
+            [current.id],
+          );
+        }
+        if (
+          current.status === "open" ||
+          (locked.session.role === "students" &&
+            current.status !== "published" &&
+            !skip)
+        )
+          fail(
+            409,
+            locked.session.role === "students"
+              ? "Fermez le cas, terminez la correction et publiez ses résultats avant de poursuivre."
+              : "Fermez la collecte du cas avant de poursuivre.",
+          );
+        const last =
+          locked.session.current_position === locked.cases.length - 1;
+        await client.query(
+          "UPDATE prc_private.teaching_sessions SET current_position=current_position+$1,status=CASE WHEN $2 THEN 'finished' ELSE status END,finished_at=CASE WHEN $2 THEN now() ELSE finished_at END WHERE id=$3",
+          [last ? 0 : 1, last, id],
+        );
+        await client.query("COMMIT");
+        return send({ advanced: true, finished: last });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+    if (method === "POST" && detail[2] === "archive") {
+      if (session.status !== "finished")
+        fail(409, "Terminez la séance avant de l’archiver.");
+      const input = request.body ? await body(request) : {};
+      if (input.archived !== undefined && typeof input.archived !== "boolean")
+        fail(400, "Le choix d’archivage est invalide.");
+      const archived = input.archived !== false;
+      await pool.query(
+        "UPDATE prc_private.teaching_sessions SET archived_at=CASE WHEN $2 THEN now() ELSE NULL END WHERE id=$1",
+        [id, archived],
+      );
+      return send({ archived });
+    }
+  }
+  fail(404, "Cette action de séance est introuvable.");
 }
 
 async function handle(request: Request): Promise<Response> {
@@ -1120,6 +1662,9 @@ async function handle(request: Request): Promise<Response> {
   ) {
     fail(403, "La requête doit provenir de cette application.");
   }
+
+  const teachingResponse = await handleTeaching(request);
+  if (teachingResponse) return teachingResponse;
 
   if (method === "POST" && path === "/api/demo") {
     await requireTeacher(request);
@@ -1737,6 +2282,23 @@ async function handle(request: Request): Promise<Response> {
         [prcId, teacher.id],
       );
       if (!owned.rows[0]) fail(404, "PRC introuvable.");
+      if (
+        (
+          await client.query(
+            "SELECT to_regclass('prc_private.teaching_session_cases') IS NOT NULL AS ready",
+          )
+        ).rows[0].ready
+      ) {
+        const used = await client.query(
+          "SELECT 1 FROM prc_private.teaching_session_cases c JOIN prc_private.launches l ON l.id=c.launch_id WHERE l.prc_id=$1 LIMIT 1",
+          [prcId],
+        );
+        if (used.rows[0])
+          fail(
+            409,
+            "Ce PRC fait partie d’une séance conservée. Archivez-le pour préserver les réponses et le bilan de cette séance.",
+          );
+      }
       await client.query(
         "DELETE FROM prc_private.demo_installations WHERE prc_id=$1",
         [prcId],
@@ -1917,6 +2479,11 @@ async function handle(request: Request): Promise<Response> {
   if (inviteMatch && method === "POST") {
     const launchId = segment(inviteMatch[1]);
     const { launch } = await requireOwner(request, launchId);
+    if (launch.case_snapshot.teachingSession)
+      fail(
+        409,
+        "Partagez le code ou le lien commun de la séance avec les experts.",
+      );
     if (launch.role !== "panel")
       fail(400, "Seul le panel d’experts utilise des invitations.");
     if (launch.status !== "open") fail(409, "Le panel est fermé.");
@@ -1949,12 +2516,20 @@ async function handle(request: Request): Promise<Response> {
       [code],
     );
     if (!result.rows[0]) fail(404, "Code d’activité introuvable.");
+    if (result.rows[0].case_snapshot.teachingSession)
+      fail(409, "Rejoignez ce cas avec le code commun de sa séance.");
     return send(caseForJoin(result.rows[0]));
   }
 
   const joinMatch = match(/^\/api\/launches\/([^/]+)\/join$/);
   if (joinMatch && method === "POST") {
     const launchId = segment(joinMatch[1]);
+    const embedded = await pool.query(
+      "SELECT case_snapshot->'teachingSession' AS context FROM prc_private.launches WHERE id=$1",
+      [launchId],
+    );
+    if (embedded.rows[0]?.context)
+      fail(409, "Utilisez le code commun de la séance pour rejoindre ses cas.");
     const input = await body(request);
     const pseudonym = stringValue(input.pseudonym, "Pseudonyme", 100);
     if (!pseudonym) fail(400, "Saisissez un pseudonyme.");
@@ -2199,6 +2774,11 @@ async function handle(request: Request): Promise<Response> {
       if (!current || current.state !== "draft")
         fail(409, "Cette copie est déjà soumise.");
       const input = await body(request);
+      if (participant.teachingSessionId && input.launchId !== launch.id)
+        fail(
+          409,
+          "Le cas actif a changé. Actualisez votre copie avant de continuer.",
+        );
       const response = validateParticipantResponse(
         input,
         participant,
@@ -2300,6 +2880,11 @@ async function handle(request: Request): Promise<Response> {
       if (liveSession && liveSession.phase !== "answering")
         fail(409, "Le professeur n’a pas encore ouvert les réponses.");
       const submissionInput = request.body ? await body(request) : {};
+      if (
+        participant.teachingSessionId &&
+        submissionInput.launchId !== launch.id
+      )
+        fail(409, "Le cas actif a changé. Actualisez avant de transmettre.");
       if (
         submissionInput.expectedRevision !== undefined &&
         (!Number.isInteger(submissionInput.expectedRevision) ||
@@ -2429,6 +3014,7 @@ async function handle(request: Request): Promise<Response> {
           400,
           "Cette activité ne possède pas de salle d’attente synchrone.",
         );
+      await assertTeachingCurrent(launch, client);
       if (launch.status !== "open") fail(409, "Cette séance est terminée.");
       const session = launch.reveals.liveSession;
       if (input.action === "present") {
@@ -2486,6 +3072,7 @@ async function handle(request: Request): Promise<Response> {
       const locked = await lockManagedLaunch(client, launchId, teacher.id);
       const launch = locked.rows[0];
       if (!launch) fail(404, "Activité introuvable.");
+      await assertTeachingCurrent(launch, client);
       if (launch.status !== "open") {
         await client.query("COMMIT");
         return send(mapLaunch(launch, await launchCounts(launchId, client)));
@@ -2521,6 +3108,7 @@ async function handle(request: Request): Promise<Response> {
       );
       const launch = result.rows[0];
       if (!launch) fail(404, "Activité introuvable.");
+      await assertTeachingCurrent(launch, client);
       if (launch.case_snapshot.studentWorkflow?.deliveryMode !== "synchronous")
         fail(400, "Cette action concerne une séance étudiante synchrone.");
       if (launch.status === "open")

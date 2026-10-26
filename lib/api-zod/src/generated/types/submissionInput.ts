@@ -7,6 +7,8 @@
  */
 
 export interface SubmissionInput {
+  /** Requis dans une séance à plusieurs cas. */
+  launchId?: string;
   /**
      * Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.
      * @minimum 0

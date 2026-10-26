@@ -26,6 +26,8 @@ export interface TeacherPrincipal {
 }
 
 export interface ParticipantPrincipal {
+  teachingSessionId?: string;
+  teachingMemberId?: string;
   kind: "participant";
   id: string;
   launchId: string;
@@ -180,6 +182,7 @@ export async function getPrincipal(
   if (!rawToken) return null;
   const result = await pool.query(
     `SELECT s.token_hash, s.csrf_token, s.user_id, s.participant_id,
+            to_jsonb(s)->>'teaching_member_id' AS teaching_member_id,
             u.username, u.role AS user_role, u.active, u.must_change_password,
             p.launch_id, p.role AS participant_role, p.pseudonym
        FROM prc_private.sessions s
@@ -199,6 +202,29 @@ export async function getPrincipal(
       role: row.user_role,
       active: row.active,
       mustChangePassword: row.must_change_password,
+      sessionHash: row.token_hash,
+      csrfToken: row.csrf_token,
+    };
+  }
+  if (row.teaching_member_id) {
+    const current = await pool.query(
+      `SELECT m.id AS member_id,m.session_id,m.pseudonym,p.id,p.launch_id,p.role
+       FROM prc_private.teaching_members m JOIN prc_private.teaching_sessions ts ON ts.id=m.session_id
+       JOIN prc_private.teaching_session_cases c ON c.session_id=ts.id AND c.position=ts.current_position
+       JOIN prc_private.participants p ON p.teaching_member_id=m.id AND p.launch_id=c.launch_id
+       WHERE m.id=$1`,
+      [row.teaching_member_id],
+    );
+    const member = current.rows[0];
+    if (!member) return null;
+    return {
+      kind: "participant",
+      id: member.id,
+      launchId: member.launch_id,
+      role: member.role,
+      pseudonym: member.pseudonym,
+      teachingSessionId: member.session_id,
+      teachingMemberId: member.member_id,
       sessionHash: row.token_hash,
       csrfToken: row.csrf_token,
     };

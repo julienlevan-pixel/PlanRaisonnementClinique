@@ -370,6 +370,7 @@ export function Home({
           </Btn>
         }
       />
+      {view === "dashboard" && <p><Link className="btn btn-primary" href="/seances?new=1">Organiser une séance avec plusieurs cas</Link></p>}
       <p className="intro-copy">
         {view === "library"
           ? "Vos cas et ceux partagés avec vous. Préparez le contenu, collaborez et retrouvez les versions conservées."

@@ -24,11 +24,15 @@ RETURNS boolean LANGUAGE sql STABLE AS $$
     )
   );
 $$;
-CREATE OR REPLACE FUNCTION prc_private.can_manage_launch(target uuid, actor uuid)
+DO $upgrade$ BEGIN
+  IF to_regclass('prc_private.teaching_sessions') IS NULL THEN
+    EXECUTE $function$CREATE OR REPLACE FUNCTION prc_private.can_manage_launch(target uuid, actor uuid)
 RETURNS boolean LANGUAGE sql STABLE AS $$
   SELECT EXISTS (SELECT 1 FROM prc_private.launches l
     WHERE l.id = target AND prc_private.can_access_prc(l.prc_id, actor, true));
-$$;
+$$;$function$;
+  END IF;
+END $upgrade$;
 
 REVOKE ALL ON prc_private.prc_collaborators FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION prc_private.can_access_prc(uuid, uuid, boolean) FROM PUBLIC, anon, authenticated;

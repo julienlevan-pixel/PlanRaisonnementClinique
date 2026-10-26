@@ -9,8 +9,10 @@ import type { GradingSummary } from './gradingSummary';
 import type { LaunchDeliveryMode } from './launchDeliveryMode';
 import type { LaunchRole } from './launchRole';
 import type { LiveSession } from './liveSession';
+import type { TeachingCaseContext } from './teachingCaseContext';
 
 export interface Launch {
+  teachingSession?: TeachingCaseContext;
   id: string;
   prcId: string;
   role: LaunchRole;

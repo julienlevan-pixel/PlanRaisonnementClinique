@@ -897,4 +897,162 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.notEqual(recreated.prcId, first.prcId);
     assert.equal((await independentOwner.session.call(`/prcs/${independent.prcId}`)).id, independent.prcId);
   });
+  await t.test('one session identity follows ordered cases, freezes grading and publishes a private cumulative report', async () => {
+    const host=await newUser(), outsider=await newUser();
+    const a=await host.session.call('/prcs','POST',{...completeCase(),name:'Séance — cas A'},201);
+    const b=await host.session.call('/prcs','POST',{...completeCase(),name:'Séance — cas B'},201);
+    const panels=[await createReference(host.session,a,1),await createReference(host.session,b,1)];
+    for(let i=0;i<2;i++){
+      const reference=(await host.session.call(`/launches/${panels[i].id}`)).reference;
+      const rubric=structuredClone(reference.rubric);
+      rubric.diagnostics.forEach((d:any)=>{d.mainPoints=3.1+i/10;});
+      await host.session.call(`/launches/${panels[i].id}/reference/rubric`,'PUT',{revision:reference.rubric.revision,rubric});
+    }
+    const unused=await host.session.call('/prcs','POST',{...completeCase(),name:'Cas sans corrigé'},201);
+    const before=await pool.query('SELECT (SELECT count(*)::int FROM prc_private.teaching_sessions) AS sessions,(SELECT count(*)::int FROM prc_private.launches) AS launches');
+    await host.session.call('/teaching-sessions','POST',{name:'Invalide',role:'students',prcIds:[a.id,unused.id]},409);
+    assert.deepEqual((await pool.query('SELECT (SELECT count(*)::int FROM prc_private.teaching_sessions) AS sessions,(SELECT count(*)::int FROM prc_private.launches) AS launches')).rows,before.rows);
+    await anonymous.call('/teaching-sessions','GET',undefined,401);
+    await host.session.call('/teaching-sessions','POST',{name:'Doublon',role:'students',prcIds:[a.id,a.id]},400);
+    const created=await host.session.call('/teaching-sessions','POST',{name:'Séance complète',role:'students',prcIds:[a.id,b.id]},201);
+    let detail=await host.session.call(`/teaching-sessions/${created.id}`);
+    const [first,second]=detail.cases;
+    assert.equal(first.name,a.name); assert.equal(second.name,b.name);
+    await outsider.session.call(`/teaching-sessions/${created.id}`,'GET',undefined,404);
+    assert.equal((await anonymous.call(`/join/${created.code}`)).name,'Séance complète');
+    const future=await host.session.call(`/launches/${second.id}`);
+    await anonymous.call(`/join/${future.code}`,'GET',undefined,409);
+    await new Session().call(`/launches/${second.id}/join`,'POST',{pseudonym:'Contournement',code:future.code},409);
+    await host.session.call(`/launches/${second.id}/session`,'POST',{action:'present'},409);
+    const learner=new Session(), partial=new Session();
+    const key=randomUUID();
+    await learner.call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Même pseudonyme',code:created.code,joinKey:key});
+    await learner.call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Changement ignoré',code:created.code,joinKey:key});
+    await partial.call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Même pseudonyme',code:created.code,joinKey:randomUUID()});
+    const members=(await host.session.call(`/teaching-sessions/${created.id}`)).report.members;
+    assert.equal(members.length,2); assert.notEqual(members[0].id,members[1].id);
+    assert.equal((await learner.call('/participant/response')).joinInfo.scenario,'');
+    await learner.call(`/teaching-sessions/${created.id}`,'GET',undefined,401);
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0},409);
+    const submitCase=async (who:any,item:any,launchId:string)=>{
+      const saved=await who.call('/participant/response');
+      await who.call('/participant/response','PUT',{...answer(item),revision:saved.response.revision,launchId});
+      await who.call('/participant/submit','POST',{launchId});
+    };
+    await host.session.call(`/launches/${first.id}/session`,'POST',{action:'present'});
+    await host.session.call(`/launches/${first.id}/session`,'POST',{action:'open'});
+    await learner.call('/participant/response','PUT',{...answer(a),revision:0},409);
+    await submitCase(learner,a,first.id);
+    assert.equal((await learner.call('/participant/results')).score,null);
+    await host.session.call(`/launches/${first.id}/close`,'POST',{});
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0},409);
+    await host.session.call(`/launches/${first.id}/discussion`,'POST',{action:'comparison'});
+    await host.session.call(`/launches/${first.id}/publish`,'POST',{});
+    const advances=await Promise.all([0,1].map(()=>host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0},[200,409])));
+    assert.equal(advances.filter(result=>result.advanced).length,1);
+    assert.equal((await learner.call('/participant/response')).joinInfo.launchId,second.id);
+    assert.equal((await learner.call('/participant/teaching-session')).session.position,1);
+    await host.session.call(`/launches/${first.id}/session`,'POST',{action:'open'},409);
+    await host.session.call(`/launches/${second.id}/session`,'POST',{action:'present'});
+    await host.session.call(`/launches/${second.id}/session`,'POST',{action:'open'});
+    await learner.call('/participant/response','PUT',{...answer(a),revision:0,launchId:first.id},409);
+    await learner.call('/participant/submit','POST',{launchId:first.id},409);
+    await submitCase(learner,b,second.id); await submitCase(partial,b,second.id);
+    await host.session.call(`/launches/${second.id}/close`,'POST',{});
+    await host.session.call(`/launches/${second.id}/publish`,'POST',{});
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:1});
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:1},409);
+    const full=await learner.call('/participant/teaching-session');
+    assert.equal(full.session.status,'finished'); assert.equal(full.report.own.score,30.3); assert.equal(full.report.maximum,30.3);
+    assert.equal(full.report.distribution.gradedCount,1);assert.equal(full.report.distribution.excludedCount,1);
+    assert.equal(full.report.members,undefined); assert.equal(JSON.stringify(full).includes(members[1].id),false);
+    const incomplete=await partial.call('/participant/teaching-session');
+    assert.equal(incomplete.report.own.score,null);assert.equal(incomplete.report.own.subtotal,15.2);assert.equal(incomplete.report.own.gradedMaximum,15.2);
+    assert.equal(incomplete.report.own.cases[0].score,null);
+    const projection=await host.session.call(`/teaching-sessions/${created.id}/projection`);
+    assert.equal(projection.report.members,undefined); assert.equal(projection.report.own,null);
+    assert.equal(JSON.stringify(projection).includes('Même pseudonyme'),false);
+    await new Session().call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Trop tard',code:created.code,joinKey:randomUUID()},409);
+    const resumed=new Session();await resumed.call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Reprise',code:created.code,joinKey:key});
+    assert.equal((await resumed.call('/participant/teaching-session')).report.own.score,30.3);
+    await host.session.call(`/prcs/${a.id}`,'DELETE',{confirm:true},409);
+    const upgrade=await readFile(new URL('../../../docs/UPGRADE_TEACHING_SESSIONS.sql',import.meta.url),'utf8');
+    await pool.query(upgrade);await pool.query(upgrade);
+    assert.equal((await resumed.call('/participant/teaching-session')).report.own.score,30.3);
+    // A case collaborator cannot see identities from a session they do not own.
+    await host.session.call(`/prcs/${a.id}/collaborators`,'POST',{username:outsider.username,manageSessions:true});
+    await outsider.session.call(`/launches/${first.id}`,'GET',undefined,404);
+    await host.session.call(`/teaching-sessions/${created.id}/archive`,'POST',{});
+    assert.ok((await host.session.call(`/teaching-sessions/${created.id}`)).archivedAt);
+    assert.equal((await host.session.call('/teaching-sessions')).some((s:any)=>s.id===created.id),false);
+    assert.equal((await host.session.call('/teaching-sessions?archived=true')).some((s:any)=>s.id===created.id),true);
+    await host.session.call(`/teaching-sessions/${created.id}/archive`,'POST',{archived:false});
+    assert.equal((await host.session.call('/teaching-sessions')).some((s:any)=>s.id===created.id),true);
+    assert.equal((await host.session.call(`/teaching-sessions/${created.id}`)).status,'finished');
+    assert.equal((await learner.call('/participant/teaching-session')).report.own.score,30.3);
+  });
+
+  await t.test('expert sessions use the same entry across cases and revocation protects every case in a shared session', async()=>{
+    const host=await newUser(), delegate=await newUser();
+    const items=[];for(let i=0;i<2;i++)items.push(await host.session.call('/prcs','POST',{...completeCase(),name:`Panel cas ${i}`},201));
+    for(const item of items)await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:delegate.username,manageSessions:true});
+    const created=await delegate.session.call('/teaching-sessions','POST',{name:'Panel en séance',role:'panel',prcIds:items.map(i=>i.id)},201);
+    const detail=await delegate.session.call(`/teaching-sessions/${created.id}`);
+    await delegate.session.call(`/launches/${detail.cases[0].id}/invitations`,'POST',{name:'Invitation séparée'},409);
+    assert.equal((await delegate.session.call(`/launches/${detail.cases[0].id}`)).teachingSession.code,created.code);
+    const expert=new Session();await expert.call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Expert séance',code:created.code,joinKey:randomUUID()});
+    for(let i=0;i<items.length;i++){
+      const launch=detail.cases[i];
+      await delegate.session.call(`/launches/${launch.id}/session`,'POST',{action:'present'});
+      await delegate.session.call(`/launches/${launch.id}/session`,'POST',{action:'open'});
+      const data=answer(items[i]);data.mainChoices=data.mainChoices.map((c:any)=>({...c,points:3}));data.alternativeChoices=data.alternativeChoices.map((c:any)=>({...c,points:2}));
+      await expert.call('/participant/response','PUT',{...data,revision:0,launchId:launch.id});
+      await expert.call('/participant/submit','POST',{launchId:launch.id});
+      assert.equal((await expert.call('/participant/results')).expertPanel.totalSubmissions,1);
+      await delegate.session.call(`/launches/${launch.id}/close`,'POST',{});
+      await delegate.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:i});
+    }
+    assert.equal((await expert.call('/participant/teaching-session')).report.own.submittedCount,2);
+    for(const c of detail.cases){
+      await delegate.session.call(`/launches/${c.id}/reference/generate`,'POST',{minimumPanelSize:1});
+      await delegate.session.call(`/launches/${c.id}/reference/validate`,'POST',{});
+    }
+    await host.session.call(`/prcs/${items[1].id}/collaborators`,'POST',{username:delegate.username,manageSessions:false});
+    await delegate.session.call(`/teaching-sessions/${created.id}`,'GET',undefined,404);
+    await delegate.session.call(`/launches/${detail.cases[0].id}`,'GET',undefined,404);
+    assert.equal((await delegate.session.call('/teaching-sessions')).length,0);
+  });
+
+  await t.test('a closed case without submissions can be explicitly excluded without zeros or a dead end',async()=>{
+    const host=await newUser(),items=[];
+    for(let i=0;i<2;i++){const item=await host.session.call('/prcs','POST',{...completeCase(),name:`Cas non évalué ${i}`},201);await createReference(host.session,item,1);items.push(item);}
+    const created=await host.session.call('/teaching-sessions','POST',{name:'Séance avec cas non évalué',role:'students',prcIds:items.map(i=>i.id)},201);
+    const detail=await host.session.call(`/teaching-sessions/${created.id}`),learner=new Session();
+    await learner.call(`/teaching-sessions/${created.id}/join`,'POST',{pseudonym:'Participation au second cas',code:created.code,joinKey:randomUUID()});
+    await host.session.call(`/launches/${detail.cases[0].id}/close`,'POST',{});
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0},409);
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0,skipUnanswered:'yes'},400);
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0,skipUnanswered:true});
+    const second=detail.cases[1].id;
+    await host.session.call(`/launches/${second}/session`,'POST',{action:'present'});
+    await host.session.call(`/launches/${second}/session`,'POST',{action:'open'});
+    await learner.call('/participant/response','PUT',{...answer(items[1]),revision:0,launchId:second});
+    await learner.call('/participant/submit','POST',{launchId:second});
+    await host.session.call(`/launches/${second}/close`,'POST',{});
+    await host.session.call(`/launches/${second}/publish`,'POST',{});
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:1,skipUnanswered:true},409);
+    await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:1});
+    const final=await learner.call('/participant/teaching-session');
+    assert.equal(final.report.maximum,15);assert.equal(final.report.gradedCaseCount,1);assert.equal(final.report.own.score,15);assert.equal(final.report.own.complete,true);
+    assert.equal(final.report.own.cases[0].score,null);assert.equal(final.report.own.cases[0].skipped,true);assert.equal(final.report.distribution.gradedCount,1);
+    assert.equal((await learner.call(`/join/${created.code}`)).canResume,true);
+    assert.equal((await anonymous.call(`/join/${created.code}`)).canResume,false);
+    const empty=await host.session.call('/teaching-sessions','POST',{name:'Séance sans évaluation',role:'students',prcIds:[items[0].id]},201);
+    const emptyCase=(await host.session.call(`/teaching-sessions/${empty.id}`)).cases[0];
+    await host.session.call(`/launches/${emptyCase.id}/close`,'POST',{});
+    await host.session.call(`/teaching-sessions/${empty.id}/next`,'POST',{expectedPosition:0,skipUnanswered:true});
+    const summary=(await host.session.call(`/teaching-sessions/${empty.id}`)).report;
+    assert.equal(summary.maximum,0);assert.equal(summary.gradedCaseCount,0);assert.equal(summary.distribution,undefined);
+  });
+
 });
