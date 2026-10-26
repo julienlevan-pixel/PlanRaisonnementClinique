@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Activity, ArrowRight, BookOpen, Check, Copy, FlaskConical, KeyRound, Plus, Search, ShieldCheck, Stethoscope, Users } from 'lucide-react';
+import { Activity, ArrowRight, BookOpen, Check, ChevronDown, Copy, FlaskConical, KeyRound, Plus, Search, ShieldCheck, Stethoscope, Users } from 'lucide-react';
 import { Link, useLocation } from 'wouter';
 import { getGetCurrentUserQueryKey, getGetWorkspaceSummaryQueryKey, useGetCurrentUser, useGetWorkspaceSummary } from '@workspace/api-client-react';
 import type { AppActions } from '../app/actions';
@@ -11,6 +11,7 @@ import { PasswordNotice } from './Auth';
 import { CasePreview } from './CasePreview';
 import { workflowLabel, type CasePreviewData, type PrcSummary } from './library-model';
 import './library-editor.css';
+import './public-home.css';
 
 type LibraryOperation = { kind: 'duplicate' | 'archive' | 'restore' | 'demo' | 'launch'; id?: string; role?: 'panel' | 'students' };
 
@@ -27,6 +28,7 @@ export function Home({ actions }: { actions: AppActions }) {
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState('');
   const [demoProgress, setDemoProgress] = useState('');
+  const publicDemoDetails = useRef<HTMLDetailsElement>(null);
   const [, navigate] = useLocation();
   const cache = useQueryClient();
   useEffect(() => { const timer = window.setTimeout(() => setQuerySearch(search.trim()), 250); return () => window.clearTimeout(timer); }, [search]);
@@ -77,7 +79,7 @@ export function Home({ actions }: { actions: AppActions }) {
   };
   if (current.isLoading) return <div className="auth-page"><Loading label="Vérification de la session…" /></div>;
   if (!user) return <div className="public-prc-home">
-    <header className="public-prc-header"><Link href="/" className="brand"><span className="brand-mark"><Stethoscope size={20} /></span><span><b>PRC</b><small>PHARMACIE</small></span></Link><Btn onClick={() => navigate('/login')}>Se connecter <ArrowRight size={16} /></Btn></header>
+    <header className="public-prc-header"><Link href="/" className="brand"><span className="brand-mark"><Stethoscope size={20} /></span><span><b>PRC</b><small>PHARMACIE</small></span></Link><Btn kind="outline" onClick={() => navigate('/login')}>Se connecter <ArrowRight size={16} /></Btn></header>
     <main className="public-prc-content">
       <section className="public-prc-hero" aria-label="Bienvenue dans PRC Pharmacie">
         <div className="reasoning-statement">
@@ -91,13 +93,20 @@ export function Home({ actions }: { actions: AppActions }) {
           <h1>Plan de raisonnement clinique (PRC)</h1>
           <p className="public-prc-description">Un même cas, deux hypothèses et les données qui permettent de les discuter. Préparez le cas, recueillez le panel et accompagnez le raisonnement des étudiants.</p>
           <form className="public-join" onSubmit={join}><label htmlFor="public-code">Rejoindre une activité</label><p>Saisissez le code transmis par votre enseignant.</p><div><input id="public-code" value={code} onChange={event => setCode(event.target.value)} autoComplete="off" placeholder="Code d’accès" required /><button type="submit">Rejoindre <ArrowRight size={16} /></button></div></form>
-          <a className="public-demo-link" href="#demo-toux">Découvrir l’exemple « Toux » <ArrowRight size={15} /></a>
+          <a className="public-demo-link" href="#demo-toux" onClick={() => { if (publicDemoDetails.current) publicDemoDetails.current.open = true; }}>Découvrir l’exemple « Toux » <ArrowRight size={15} /></a>
         </div>
       </section>
-      <section id="demo-toux" className="public-demo-section" aria-label="Démonstration Toux">
-      <section className="public-demo-intro"><FlaskConical size={22} /><div><h2>Essayez un cas fictif : « Toux »</h2><p>Explorez les 20 observations du questionnaire commun. Les experts choisissent cinq données par hypothèse ; les étudiants peuvent en retenir de une à cinq.</p></div></section>
+      <details ref={publicDemoDetails} id="demo-toux" className="public-demo-section public-demo-disclosure">
+        <summary>
+          <span className="demo-summary-icon" aria-hidden="true"><FlaskConical size={23} /></span>
+          <span className="demo-summary-copy"><span className="demo-summary-title">Découvrir un exemple : Toux</span><span className="demo-summary-description">Un cas clinique · 20 données · Deux hypothèses</span></span>
+          <span className="demo-summary-action"><span className="demo-label-open">Voir le questionnaire</span><span className="demo-label-close">Refermer l’exemple</span><ChevronDown size={20} aria-hidden="true" /></span>
+        </summary>
+        <div className="public-demo-body">
+          <p className="public-demo-caption">Exemple fictif</p>
       {publicDemo.isLoading ? <Loading label="Chargement des 20 observations de démonstration…" /> : publicDemo.isError ? <ErrorBox message="L’aperçu fictif n’est pas disponible pour le moment." retry={() => publicDemo.refetch()} /> : publicDemo.data ? <CasePreview data={publicDemo.data} title="Toux — essai du tableau" /> : null}
-      </section>
+        </div>
+      </details>
     </main><footer className="public-prc-footer">Ce logiciel a été créé par la Faculté de pharmacie de l’Université de Montréal.</footer>
   </div>;
   return <Shell user={user} actions={actions}>

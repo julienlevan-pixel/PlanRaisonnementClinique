@@ -149,7 +149,7 @@ test('resumes the bounded demonstration initialization before opening it', async
   expect(requests).toBe(3);
 });
 
-test('public Toux preview shows twenty observations and never creates a copy', async ({ page }) => {
+test('public Toux preview unfolds on demand, preserves choices and never creates a copy', async ({ page }, testInfo) => {
   await page.route('**/api/auth/me', route => route.fulfill({ status: 401, json: { error: 'Connexion requise.' } }));
   const demo = { ...fixture(), name: 'Toux', demonstrationLabel: 'Démonstration — données fictives', observations: Array.from({ length: 20 }, (_, index) => ({ ...observations[0], id: `preview-${index}`, text: `Observation fictive ${index + 1}`, position: index })) };
   await page.route('**/api/demo-case', route => route.fulfill({ json: demo }));
@@ -157,12 +157,34 @@ test('public Toux preview shows twenty observations and never creates a copy', a
   page.on('request', request => { if (request.method() === 'POST') posts++; });
   await page.goto('/');
   const preview = page.getByRole('region', { name: 'Toux — essai du tableau' });
+  await expect(preview).not.toBeVisible();
+  await expect(page.locator('.reasoning-words em')).toHaveText('Décider.');
+  await page.screenshot({ path: testInfo.outputPath('home-desktop.png'), fullPage: true, animations: 'disabled' });
+  await page.getByRole('link', { name: 'Découvrir l’exemple « Toux »', exact: true }).click();
+  await expect(preview).toBeVisible();
   await expect(preview).toContainText('Observation fictive 20');
   await preview.getByLabel('Diagnostic principal', { exact: true }).selectOption(diagnostics[0].id);
   await preview.getByLabel('Diagnostic alternatif', { exact: true }).selectOption(diagnostics[1].id);
   const choice = preview.getByRole('button', { name: 'Hypothèse principale : En faveur — Observation fictive 1', exact: true });
   await choice.click();
   await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  const summary = page.locator('.public-demo-disclosure > summary');
+  await summary.focus();
+  await summary.press('Enter');
+  await expect(preview).not.toBeVisible();
+  await summary.press('Enter');
+  await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  await summary.press('Enter');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => window.scrollTo(0, 0));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const codeField = await page.getByLabel('Rejoindre une activité', { exact: true }).boundingBox();
+  expect(codeField!.y + codeField!.height).toBeLessThanOrEqual(844);
+  await page.screenshot({ path: testInfo.outputPath('home-mobile.png'), fullPage: true, animations: 'disabled' });
+  await page.getByText('Voir le questionnaire', { exact: true }).click();
+  await expect(choice).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await preview.screenshot({ path: testInfo.outputPath('home-demo-open.png'), animations: 'disabled' });
   expect(posts).toBe(0);
 });
 
