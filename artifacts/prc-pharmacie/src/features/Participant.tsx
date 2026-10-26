@@ -21,11 +21,20 @@ import type { AppActions } from "../app/actions";
 import { Btn, Input, Loading, ErrorBox } from "../app/ui";
 import { getError } from "../app/utils";
 import { api } from "../app/api";
-import { StudentReview, type StudentReviewData } from "./StudentReview";
+import {
+  StudentReview,
+  MaximumScoreGuide,
+  type StudentReviewData,
+} from "./StudentReview";
+import {
+  GradeDistribution,
+  type GradeDistributionData,
+} from "./GradeDistribution";
 import "./participant.css";
 
 type Role = "main" | "alternative";
 type CaseData = {
+  scoringVersion?: string;
   guidedReview?: boolean;
   deliveryMode?: "synchronous" | "asynchronous";
   requiredChoices?: number | null;
@@ -84,6 +93,7 @@ type Aggregate = {
   reference?: { explanation?: string; scoring?: Record<string, any> } | null;
 };
 type ParticipantResult = {
+  gradeDistribution?: GradeDistributionData;
   guidedReview?: boolean;
   deliveryMode?: "synchronous" | "asynchronous";
   studentReview?: StudentReviewData;
@@ -719,6 +729,9 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           <span className={`network-dot ${online ? "online" : "offline"}`} />
           {saveLabel}
         </div>
+        {joinInfo.role === "students" && (
+          <MaximumScoreGuide scoringVersion={joinInfo.scoringVersion} />
+        )}
         {submitted ? (
           <p className="participant-notice">
             Votre réponse a été transmise et verrouillée.{" "}
@@ -1131,7 +1144,7 @@ export function ParticipantResults() {
   const waiting =
     results.data?.role === "panel"
       ? !results.data.panel.referenceVisible
-      : !results.data?.published;
+      : results.data?.status !== "published";
   const state = useQuery({
     queryKey: ["/api/participant/state"],
     queryFn: () => api<ActivityState>("/api/participant/state"),
@@ -1229,6 +1242,7 @@ export function ParticipantResults() {
         {published ? (
           <section className="participant-score">
             <h2>Votre résultat</h2>
+            <p>Note obtenue / note maximale du cas</p>
             <strong>
               {number(data.score)}
               <small> / 20</small>
@@ -1275,6 +1289,9 @@ export function ParticipantResults() {
             ci-dessous.
           </p>
         ) : null}
+        {role === "students" && (
+          <MaximumScoreGuide scoringVersion={data.case.scoringVersion} />
+        )}
         <section className="participant-own-copy">
           {data.guidedReview && submitted ? (
             <details>
@@ -1299,6 +1316,12 @@ export function ParticipantResults() {
             review={data.studentReview}
             submitted={submitted}
             deliveryMode={data.deliveryMode}
+          />
+        )}
+        {role === "students" && data.gradeDistribution && (
+          <GradeDistribution
+            data={data.gradeDistribution}
+            ownScore={submitted ? data.score : null}
           />
         )}
         {role === "panel" && submitted && data.expertPanel && (

@@ -1,0 +1,112 @@
+.grade-distribution {
+  margin: 28px 0;
+}
+.grade-distribution h2 {
+  margin: 10px 0;
+  font: 500 27px var(--app-font-serif);
+}
+.grade-distribution > p {
+  font-size: 14px;
+  line-height: 1.65;
+  color: hsl(var(--muted-foreground));
+}
+.distribution-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 22px 0;
+}
+.distribution-metrics > div {
+  padding: 14px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 7px;
+}
+.distribution-metrics span {
+  display: block;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+.distribution-metrics strong {
+  font-size: 22px;
+}
+.distribution-metrics small {
+  font-size: 13px;
+  font-weight: 400;
+}
+.distribution-chart-scroll {
+  overflow-x: auto;
+}
+.distribution-chart {
+  display: grid;
+  grid-template-columns: repeat(10, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 520px;
+  padding-top: 24px;
+}
+.distribution-column {
+  display: flex;
+  flex-direction: column;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px 8px;
+}
+.distribution-column:focus-visible,
+.distribution-column[aria-pressed="true"] {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+  border-radius: 5px;
+}
+.distribution-bar-space {
+  height: 150px;
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  position: relative;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.distribution-bar-space b {
+  position: absolute;
+  top: -22px;
+  font-size: 13px;
+}
+.distribution-bar {
+  display: block;
+  width: 75%;
+  background: #628c81;
+  border-radius: 5px 5px 0 0;
+}
+.distribution-own .distribution-bar {
+  background: #263f58;
+}
+.distribution-axis-label {
+  font-size: 12px;
+  white-space: nowrap;
+  margin: 8px auto 0;
+}
+.distribution-own-label {
+  font-size: 11px;
+  margin: 5px auto 0;
+  font-weight: 700;
+  color: #263f58;
+}
+.grade-distribution .distribution-personal {
+  color: hsl(var(--foreground));
+}
+.distribution-preview {
+  padding: 10px;
+  background: hsl(var(--muted));
+  border-radius: 6px;
+}
+@media (max-width: 650px) {
+  .distribution-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .distribution-metrics strong {
+    font-size: 20px;
+  }
+}

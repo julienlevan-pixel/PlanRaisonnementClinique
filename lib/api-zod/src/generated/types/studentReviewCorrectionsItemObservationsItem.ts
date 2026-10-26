@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { StudentReviewCorrectionsItemObservationsItemBestSignsItem } from './studentReviewCorrectionsItemObservationsItemBestSignsItem';
 import type { StudentReviewCorrectionsItemObservationsItemStudentSign } from './studentReviewCorrectionsItemObservationsItemStudentSign';
 
 export type StudentReviewCorrectionsItemObservationsItem = {
@@ -18,5 +19,9 @@ export type StudentReviewCorrectionsItemObservationsItem = {
   /** @nullable */
   studentSign?: StudentReviewCorrectionsItemObservationsItemStudentSign;
   earnedPoints?: number;
+  earnedScorePoints?: number;
+  referenceScorePoints?: number;
+  topClinical?: boolean;
+  bestSigns?: StudentReviewCorrectionsItemObservationsItemBestSignsItem[];
   [key: string]: unknown;
  };

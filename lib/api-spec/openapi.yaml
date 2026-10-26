@@ -938,6 +938,7 @@ components:
         caseVersion: { type: integer }
         isTrial: { type: boolean }
         guidedReview: { type: boolean }
+        scoringVersion: { type: string, description: Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel, avec ex æquo. }
         deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         code: { type: string }
         status: { type: string }
@@ -989,6 +990,7 @@ components:
             status: { type: string }
             isTrial: { type: boolean }
             guidedReview: { type: boolean }
+            scoringVersion: { type: string }
             deliveryMode: { type: string, enum: [synchronous, asynchronous] }
             requiredChoices: { type: [integer, "null"], minimum: 1, maximum: 5 }
           required: [launchId, role, status]
@@ -1130,6 +1132,7 @@ components:
         class: { $ref: "#/components/schemas/VisibleAggregate" }
         panel: { $ref: "#/components/schemas/VisibleAggregate" }
         discussion: { $ref: "#/components/schemas/StudentReview" }
+        gradeDistribution: { $ref: "#/components/schemas/GradeDistribution" }
       required: [launch, participants, submittedCount, participantCount]
     ParticipantResults:
       type: object
@@ -1138,6 +1141,7 @@ components:
         guidedReview: { type: boolean }
         deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         studentReview: { $ref: "#/components/schemas/StudentReview" }
+        gradeDistribution: { $ref: "#/components/schemas/GradeDistribution", description: Bilan anonyme du groupe uniquement après publication finale par le professeur. }
         case: { $ref: "#/components/schemas/JoinInfo" }
         response: { $ref: "#/components/schemas/ParticipantResponse" }
         score: { type: ["number", "null"], minimum: 0, maximum: 20, description: Note sur 20 ; null pour les experts, avant publication et pour une copie non soumise. }
@@ -1355,6 +1359,7 @@ components:
                 reveals: { $ref: "#/components/schemas/RevealState" }
         case: { $ref: "#/components/schemas/CaseSnapshot" }
         discussion: { $ref: "#/components/schemas/StudentReview" }
+        gradeDistribution: { $ref: "#/components/schemas/GradeDistribution" }
         role: { type: string }
         status: { type: string }
         reveals: { $ref: "#/components/schemas/RevealState" }
@@ -1436,6 +1441,8 @@ components:
       type: object
       description: Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
       properties:
+        scoringVersion: { type: string }
+        maximum: { type: number }
         deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         comparisonVisible: { type: boolean }
         comparison:
@@ -1462,6 +1469,7 @@ components:
               label: { type: string }
               panelCount: { type: integer }
               represented: { type: boolean }
+              topDiagnosis: { type: boolean }
               selectedRole: { type: [string, "null"], enum: [main, alternative, null] }
               score: { type: [number, "null"] }
               diagnosisScore: { type: [number, "null"] }
@@ -1484,10 +1492,36 @@ components:
                     negativePoints: { type: integer }
                     studentSign: { type: [string, "null"], enum: ["+", "-", null] }
                     earnedPoints: { type: number }
+                    earnedScorePoints: { type: number }
+                    referenceScorePoints: { type: number }
+                    topClinical: { type: boolean }
+                    bestSigns: { type: array, items: { type: string, enum: ["+", "-"] } }
         activeDiagnosticId: { type: [string, "null"] }
         explanation: { type: string }
       required: [deliveryMode, comparisonVisible, comparison, corrections]
 
+    GradeDistributionBin:
+      type: object
+      properties:
+        lower: { type: number }
+        upper: { type: number }
+        upperInclusive: { type: boolean }
+        count: { type: integer }
+        percentage: { type: number }
+      required: [lower, upper, upperInclusive, count, percentage]
+    GradeDistribution:
+      type: object
+      description: Effectifs anonymes sans identifiants, noms ou copies. Un brouillon ou une copie sans note est exclu, jamais remplacé par zéro.
+      properties:
+        maximum: { type: number }
+        gradedCount: { type: integer }
+        excludedCount: { type: integer }
+        average: { type: [number, "null"] }
+        median: { type: [number, "null"] }
+        lowest: { type: [number, "null"] }
+        highest: { type: [number, "null"] }
+        bins: { type: array, items: { $ref: "#/components/schemas/GradeDistributionBin" } }
+      required: [maximum, gradedCount, excludedCount, average, median, lowest, highest, bins]
     PrcSharingInput:
       type: object
       properties:

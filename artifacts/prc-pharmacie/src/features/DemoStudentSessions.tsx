@@ -70,6 +70,7 @@ export function DemoStudentSessions({
               launch.role === "students" &&
               launch.status === "open" &&
               launch.guidedReview &&
+              launch.scoringVersion === "top-two-v1" &&
               launch.caseVersion === document.version &&
               launch.deliveryMode === mode &&
               launch.code,

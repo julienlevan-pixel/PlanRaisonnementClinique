@@ -13,6 +13,7 @@ export type StudentReviewCorrectionsItem = {
   label?: string;
   panelCount?: number;
   represented?: boolean;
+  topDiagnosis?: boolean;
   /** @nullable */
   selectedRole?: StudentReviewCorrectionsItemSelectedRole;
   /** @nullable */

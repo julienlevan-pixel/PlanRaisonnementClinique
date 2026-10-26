@@ -14,6 +14,7 @@ export type JoinInfo = CaseSnapshot & ({
   status: string;
   isTrial?: boolean;
   guidedReview?: boolean;
+  scoringVersion?: string;
   deliveryMode?: JoinInfoDeliveryMode;
   /**
      * @minimum 1

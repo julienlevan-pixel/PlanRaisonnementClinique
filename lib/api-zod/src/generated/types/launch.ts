@@ -18,6 +18,8 @@ export interface Launch {
   caseVersion?: number;
   isTrial?: boolean;
   guidedReview?: boolean;
+  /** Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel */
+  scoringVersion?: string;
   deliveryMode?: LaunchDeliveryMode;
   code: string;
   status: string;

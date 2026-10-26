@@ -161,6 +161,8 @@ export interface Launch {
   caseVersion?: number;
   isTrial?: boolean;
   guidedReview?: boolean;
+  /** Barème figé à la création du groupe. top-two-v1 réserve le plein crédit aux deux diagnostics les plus fréquents du panel */
+  scoringVersion?: string;
   deliveryMode?: LaunchDeliveryMode;
   code: string;
   status: string;
@@ -378,6 +380,7 @@ export type JoinInfo = CaseSnapshot & ({
   status: string;
   isTrial?: boolean;
   guidedReview?: boolean;
+  scoringVersion?: string;
   deliveryMode?: JoinInfoDeliveryMode;
   /**
      * @minimum 1
@@ -606,6 +609,14 @@ export const StudentReviewCorrectionsItemObservationsItemStudentSign = {
   '-': '-',
 } as const;
 
+export type StudentReviewCorrectionsItemObservationsItemBestSignsItem = typeof StudentReviewCorrectionsItemObservationsItemBestSignsItem[keyof typeof StudentReviewCorrectionsItemObservationsItemBestSignsItem];
+
+
+export const StudentReviewCorrectionsItemObservationsItemBestSignsItem = {
+  '+': '+',
+  '-': '-',
+} as const;
+
 export type StudentReviewComparisonItem = {
   diagnosticId?: string;
   label?: string;
@@ -629,6 +640,10 @@ export type StudentReviewCorrectionsItemObservationsItem = {
   /** @nullable */
   studentSign?: StudentReviewCorrectionsItemObservationsItemStudentSign;
   earnedPoints?: number;
+  earnedScorePoints?: number;
+  referenceScorePoints?: number;
+  topClinical?: boolean;
+  bestSigns?: StudentReviewCorrectionsItemObservationsItemBestSignsItem[];
   [key: string]: unknown;
  };
 
@@ -637,6 +652,7 @@ export type StudentReviewCorrectionsItem = {
   label?: string;
   panelCount?: number;
   represented?: boolean;
+  topDiagnosis?: boolean;
   /** @nullable */
   selectedRole?: StudentReviewCorrectionsItemSelectedRole;
   /** @nullable */
@@ -657,6 +673,8 @@ export type StudentReviewCorrectionsItem = {
  * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
  */
 export interface StudentReview {
+  scoringVersion?: string;
+  maximum?: number;
   deliveryMode: StudentReviewDeliveryMode;
   comparisonVisible: boolean;
   comparison: StudentReviewComparisonItem[];
@@ -664,6 +682,32 @@ export interface StudentReview {
   /** @nullable */
   activeDiagnosticId?: string | null;
   explanation?: string;
+}
+
+export interface GradeDistributionBin {
+  lower: number;
+  upper: number;
+  upperInclusive: boolean;
+  count: number;
+  percentage: number;
+}
+
+/**
+ * Effectifs anonymes sans identifiants, noms ou copies. Un brouillon ou une copie sans note est exclu, jamais remplacé par zéro.
+ */
+export interface GradeDistribution {
+  maximum: number;
+  gradedCount: number;
+  excludedCount: number;
+  /** @nullable */
+  average: number | null;
+  /** @nullable */
+  median: number | null;
+  /** @nullable */
+  lowest: number | null;
+  /** @nullable */
+  highest: number | null;
+  bins: GradeDistributionBin[];
 }
 
 export interface LaunchResults {
@@ -676,6 +720,7 @@ export interface LaunchResults {
   class?: VisibleAggregate;
   panel?: VisibleAggregate;
   discussion?: StudentReview;
+  gradeDistribution?: GradeDistribution;
 }
 
 export type ParticipantResultsDeliveryMode = typeof ParticipantResultsDeliveryMode[keyof typeof ParticipantResultsDeliveryMode];
@@ -699,6 +744,8 @@ export interface ParticipantResults {
   guidedReview?: boolean;
   deliveryMode?: ParticipantResultsDeliveryMode;
   studentReview?: StudentReview;
+  /** Bilan anonyme du groupe uniquement après publication finale par le professeur. */
+  gradeDistribution?: GradeDistribution;
   case: JoinInfo;
   response: ParticipantResponse;
   /**
@@ -818,6 +865,7 @@ export interface Projection {
   launch: ProjectionLaunch;
   case: CaseSnapshot;
   discussion?: StudentReview;
+  gradeDistribution?: GradeDistribution;
   role: string;
   status: string;
   reveals: RevealState;

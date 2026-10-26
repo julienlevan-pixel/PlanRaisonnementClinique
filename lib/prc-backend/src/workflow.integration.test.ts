@@ -352,6 +352,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.deepEqual(result.studentReview.comparison, []);
     assert.deepEqual(result.class, {});
     assert.deepEqual(result.panel, {});
+    assert.equal(result.gradeDistribution, undefined);
     assert.equal(JSON.stringify(result).includes('Other student'), false);
     await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' }, 400);
     await owner.session.call(`/launches/${launch.id}/close`, 'POST', {});
@@ -359,6 +360,80 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(draftResult.score, null);
     assert.equal(draftResult.studentReview, undefined);
     assert.equal((await a.call('/participant/results')).score, 10);
+    assert.equal((await a.call('/participant/results')).gradeDistribution, undefined);
+    await owner.session.call(`/launches/${launch.id}/publish`, 'POST', {});
+    assert.equal((await a.call('/participant/results')).gradeDistribution.gradedCount, 1);
+    assert.equal((await unsent.call('/participant/results')).gradeDistribution.excludedCount, 1);
+  });
+
+  await t.test('new maximum, partial minority credit and anonymous group distributions respect publication and historical rules', async () => {
+    const item = await owner.session.call('/prcs', 'POST', { ...completeCase(), diagnostics: ['A', 'B', 'C', 'D', 'E'] }, 201);
+    const panel = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'panel' }, 201);
+    for (let i = 0; i < 4; i++) {
+      const expert = new Session();
+      await expert.call(`/launches/${panel.id}/join`, 'POST', { pseudonym: `Expert maximum ${i}`, code: panel.code });
+      await save(expert, { ...answer(item), mainDiagnosticId: item.diagnostics[i === 3 ? 2 : 0].id });
+      await expert.call('/participant/submit', 'POST', {});
+    }
+    await owner.session.call(`/launches/${panel.id}/close`, 'POST', {});
+    await owner.session.call(`/launches/${panel.id}/reference/generate`, 'POST', { minimumPanelSize: 4 });
+    await owner.session.call(`/launches/${panel.id}/reference/validate`, 'POST', {});
+    const launch = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'synchronous', scoringVersion: 'legacy' }, 201);
+    assert.equal(launch.scoringVersion, 'top-two-v1');
+    const people = [new Session(), new Session(), new Session(), new Session()];
+    for (const [i, person] of people.entries()) await person.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: `Nom confidentiel ${i}`, code: launch.code });
+    for (const [i, person] of people.slice(0, 3).entries()) {
+      const response = i === 0 ? answer(item) : i === 1 ? { ...answer(item), mainDiagnosticId: item.diagnostics[2].id } : { ...answer(item), mainDiagnosticId: item.diagnostics[3].id, alternativeDiagnosticId: item.diagnostics[4].id };
+      await save(person, response);
+      await person.call('/participant/submit', 'POST', { scoringVersion: 'legacy' });
+    }
+    assert.equal((await owner.session.call(`/launches/${launch.id}/results`)).gradeDistribution, undefined);
+    await owner.session.call(`/launches/${launch.id}/close`, 'POST', {});
+    const preview = await owner.session.call(`/launches/${launch.id}/results`);
+    assert.deepEqual(preview.participants.map((p: any) => p.score), [20, 18.67, 0, null]);
+    assert.equal(preview.gradeDistribution.maximum, 20);
+    assert.equal(preview.gradeDistribution.gradedCount, 3);
+    assert.equal(preview.gradeDistribution.excludedCount, 1);
+    assert.equal(preview.gradeDistribution.median, 18.67);
+    assert.equal(preview.gradeDistribution.bins[0].count, 1);
+    assert.equal(preview.gradeDistribution.bins[9].count, 2);
+    assert.equal((await people[0].call('/participant/results')).gradeDistribution, undefined);
+    assert.equal((await owner.session.call(`/launches/${launch.id}/projection`)).gradeDistribution, undefined);
+    await people[0].call(`/launches/${launch.id}/results`, 'GET', undefined, 401);
+    await owner.session.call(`/launches/${launch.id}/publish`, 'POST', {});
+    const best = await people[0].call('/participant/results');
+    assert.equal(best.score, 20);
+    assert.equal(best.case.scoringVersion, 'top-two-v1');
+    const minority = await people[1].call('/participant/results');
+    assert.equal(minority.score, 18.67);
+    const detail = minority.studentReview.corrections.find((row: any) => row.diagnosticId === item.diagnostics[2].id);
+    assert.equal(detail.topDiagnosis, false);
+    assert.equal(detail.diagnosisScore, 0.67);
+    assert.equal(detail.justificationScore, 8);
+    assert.equal(detail.observations.filter((row: any) => row.topClinical).length, 5);
+    assert.equal(detail.observations.filter((row: any) => row.studentSign).reduce((n: number, row: any) => n + row.earnedScorePoints, 0), 8);
+    assert.equal((await people[2].call('/participant/results')).score, 0);
+    const unsent = await people[3].call('/participant/results');
+    assert.equal(unsent.score, null);
+    for (const person of people) {
+      const result = await person.call('/participant/results');
+      assert.deepEqual(result.gradeDistribution, preview.gradeDistribution);
+      assert.equal(JSON.stringify(result).includes('Nom confidentiel'), false);
+      assert.equal('participants' in result, false);
+    }
+    const projection = await owner.session.call(`/launches/${launch.id}/projection`);
+    assert.deepEqual(projection.gradeDistribution, preview.gradeDistribution);
+    assert.equal(JSON.stringify(projection).includes('Nom confidentiel'), false);
+
+    // Simulate a group already created before this scoring version existed.
+    const historical = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'asynchronous' }, 201);
+    await pool.query("UPDATE prc_private.launches SET case_snapshot=case_snapshot #- '{studentWorkflow,scoringVersion}' WHERE id=$1", [historical.id]);
+    const legacy = new Session();
+    await legacy.call(`/launches/${historical.id}/join`, 'POST', { pseudonym: 'Ancienne règle', code: historical.code });
+    await save(legacy, { ...answer(item), mainDiagnosticId: item.diagnostics[2].id });
+    await legacy.call('/participant/submit', 'POST', {});
+    assert.equal((await legacy.call('/participant/results')).score, 20);
+    assert.equal((await people[1].call('/participant/results')).score, 18.67);
   });
 
   await t.test("drafts survive refresh and stale saves cannot overwrite a later revision", async () => {
