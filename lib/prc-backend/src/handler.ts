@@ -253,6 +253,7 @@ function mapPrc(row: JsonRecord) {
             edit: true,
             share: row.is_owner,
             archive: row.is_owner,
+            delete: row.is_owner,
             manageSessions: !!row.can_manage_sessions,
           },
         }
@@ -1567,6 +1568,50 @@ async function handle(request: Request): Promise<Response> {
       },
       launches: launches.rows.map((launch) => mapLaunch(launch)),
     });
+  }
+
+  if (prcMatch && method === "DELETE") {
+    const teacher = await requireTeacher(request);
+    const input = await body(request);
+    if (input.confirm !== true)
+      fail(400, "Confirmez la suppression définitive du PRC et de ses activités.");
+    const prcId = segment(prcMatch[1]);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+        [`prc-demo:${teacher.id}`],
+      );
+      // Serialize deletion with content edits, sharing and new launches.
+      const owned = await client.query(
+        "SELECT id FROM prc_private.prcs WHERE id=$1 AND owner_id=$2 FOR UPDATE",
+        [prcId, teacher.id],
+      );
+      if (!owned.rows[0]) fail(404, "PRC introuvable.");
+      await client.query("DELETE FROM prc_private.demo_installations WHERE prc_id=$1", [prcId]);
+      // Student launches reference their panel's correction: break that link
+      // before removing corrections, then delete the complete activity tree.
+      await client.query(
+        "UPDATE prc_private.launches SET reference_id=NULL WHERE prc_id=$1",
+        [prcId],
+      );
+      await client.query(
+        "DELETE FROM prc_private.references WHERE launch_id IN (SELECT id FROM prc_private.launches WHERE prc_id=$1)",
+        [prcId],
+      );
+      await client.query("DELETE FROM prc_private.launches WHERE prc_id=$1", [prcId]);
+      await client.query("DELETE FROM prc_private.prcs WHERE id=$1", [prcId]);
+      // Foreign keys also remove versions, collaborators, invitations,
+      // participants, responses and the deleted participants' sessions.
+      await client.query("COMMIT");
+      return send({ id: prcId, deleted: true });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   if (prcMatch && method === "PATCH") {

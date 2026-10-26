@@ -14,6 +14,8 @@ export * from './choiceSign';
 export * from './collaborationRemoved';
 export * from './collaborator';
 export * from './currentUser';
+export * from './deletePrcInput';
+export * from './deletePrcResult';
 export * from './demoCase';
 export * from './demoSetupResult';
 export * from './demoSetupResultProgress';

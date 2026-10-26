@@ -13,6 +13,7 @@ import {
   Search,
   ShieldCheck,
   Brain,
+  Trash2,
   Users,
 } from "lucide-react";
 import { Link, Redirect, useLocation } from "wouter";
@@ -46,7 +47,7 @@ import "./library-editor.css";
 import "./public-home.css";
 
 type LibraryOperation = {
-  kind: "duplicate" | "archive" | "restore" | "demo" | "launch";
+  kind: "duplicate" | "archive" | "restore" | "delete" | "demo" | "launch";
   id?: string;
   role?: "panel" | "students";
 };
@@ -76,6 +77,7 @@ export function Home({
   const [code, setCode] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [demoProgress, setDemoProgress] = useState("");
   const publicDemoDetails = useRef<HTMLDetailsElement>(null);
   const [, navigate] = useLocation();
@@ -140,6 +142,8 @@ export function Home({
           "POST",
           {},
         );
+      if (command.kind === "delete")
+        return api(`/api/prcs/${command.id}`, "DELETE", { confirm: true });
       if (command.kind === "launch")
         return api<{ id: string }>(`/api/prcs/${command.id}/launches`, "POST", {
           role: command.role,
@@ -150,6 +154,15 @@ export function Home({
     },
     onSuccess: (result, command) => {
       setError("");
+      setNotice(
+        command.kind === "delete"
+          ? "Le PRC et ses activités ont été supprimés définitivement."
+          : "",
+      );
+      if (command.kind === "delete") {
+        cache.removeQueries({ queryKey: ["editor", command.id] });
+        cache.removeQueries({ queryKey: ["prc-sharing", command.id] });
+      }
       cache.invalidateQueries({ queryKey: ["library"] });
       cache.invalidateQueries({ queryKey: getGetWorkspaceSummaryQueryKey() });
       if (command.kind === "demo") navigate(`/prc/${result.prcId}`);
@@ -158,6 +171,7 @@ export function Home({
     },
     onError: (cause) => {
       setError(getError(cause));
+      setNotice("");
       setDemoProgress("");
     },
   });
@@ -365,6 +379,7 @@ export function Home({
           {error}
         </div>
       )}
+      {notice && <p role="status">{notice}</p>}
       {view === "library" && createOpen && (
         <form className="inline-create" onSubmit={create}>
           <Input
@@ -557,6 +572,27 @@ export function Home({
                                 }
                               >
                                 Archiver
+                              </button>
+                            )}
+                          {prc.permissions?.archive !== false &&
+                            prc.permissions?.delete !== false && (
+                              <button
+                                type="button"
+                                className="library-delete"
+                                disabled={operation.isPending}
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      `Supprimer définitivement « ${prc.name || "PRC sans nom"} » ?\n\nToutes ses versions, ses panels et groupes étudiants, leurs réponses et leurs corrigés seront supprimés. Les liens et codes d’accès cesseront de fonctionner, et les collaborateurs perdront ce PRC.\n\nCette action est irréversible. Pour conserver les résultats, choisissez plutôt Archiver.`,
+                                    )
+                                  )
+                                    operation.mutate({
+                                      kind: "delete",
+                                      id: prc.id,
+                                    });
+                                }}
+                              >
+                                <Trash2 size={14} /> Supprimer définitivement
                               </button>
                             )}
                         </details>

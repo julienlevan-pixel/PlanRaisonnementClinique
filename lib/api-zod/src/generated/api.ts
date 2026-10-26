@@ -197,6 +197,7 @@ export const ListPrcsResponseItem = zod.object({
   "edit": zod.boolean().optional(),
   "share": zod.boolean().optional(),
   "archive": zod.boolean().optional(),
+  "delete": zod.boolean().optional(),
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
@@ -250,6 +251,7 @@ export const CreatePrcResponse = zod.object({
   "edit": zod.boolean().optional(),
   "share": zod.boolean().optional(),
   "archive": zod.boolean().optional(),
+  "delete": zod.boolean().optional(),
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
@@ -281,6 +283,7 @@ export const GetPrcResponse = zod.object({
   "edit": zod.boolean().optional(),
   "share": zod.boolean().optional(),
   "archive": zod.boolean().optional(),
+  "delete": zod.boolean().optional(),
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
@@ -365,6 +368,7 @@ export const UpdatePrcResponse = zod.object({
   "edit": zod.boolean().optional(),
   "share": zod.boolean().optional(),
   "archive": zod.boolean().optional(),
+  "delete": zod.boolean().optional(),
   "manageSessions": zod.boolean().optional()
 }).optional(),
   "workflow": zod.object({
@@ -420,6 +424,23 @@ export const ArchivePrcResponse = zod.object({
 }).and(zod.object({
   "id": zod.string()
 }))
+
+
+/**
+ * Suppression définitive réservée au propriétaire, y compris versions, séances, invitations, réponses, corrigés et partages. Nécessite confirm=true. Fonctionne aussi sur un PRC archivé.
+ */
+export const DeletePrcParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const DeletePrcBody = zod.object({
+  "confirm": zod.literal(true)
+})
+
+export const DeletePrcResponse = zod.object({
+  "id": zod.string(),
+  "deleted": zod.literal(true)
+})
 
 
 /**

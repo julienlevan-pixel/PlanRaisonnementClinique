@@ -472,6 +472,71 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.deepEqual((await pool.query("SELECT snapshot FROM prc_private.references WHERE launch_id=$1", [panel.id])).rows[0].snapshot, initialReference);
   });
 
+  await t.test("only the owner can permanently delete draft, active, completed and archived PRCs with all dependent data", async () => {
+    const colleague = await newUser();
+    const unaffected = await colleague.session.call('/prcs', 'POST', completeCase(), 201);
+    const blank = await owner.session.call('/prcs', 'POST', { name: 'Brouillon à supprimer', scenario: '', diagnostics: [], observations: [] }, 201);
+    await owner.session.call(`/prcs/${blank.id}`, 'DELETE', {}, 400);
+    await owner.session.call(`/prcs/${blank.id}`, 'DELETE', { confirm: 'true' }, 400);
+    assert.equal((await owner.session.call(`/prcs/${blank.id}`)).id, blank.id);
+    await anonymous.call(`/prcs/${blank.id}`, 'DELETE', { confirm: true }, 401);
+    await colleague.session.call(`/prcs/${blank.id}`, 'DELETE', { confirm: true }, 404);
+    await admin.session.call(`/prcs/${blank.id}`, 'DELETE', { confirm: true }, 404);
+    assert.deepEqual(await owner.session.call(`/prcs/${blank.id}`, 'DELETE', { confirm: true }), { id: blank.id, deleted: true });
+    await owner.session.call(`/prcs/${blank.id}`, 'DELETE', { confirm: true }, 404);
+
+    for (const state of ['active', 'completed', 'archived']) {
+      const item = await owner.session.call('/prcs', 'POST', completeCase(), 201);
+      const referencePanel = await createReference(owner.session, item, 1);
+      const group = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students' }, 201);
+      const participant = new Session();
+      const joined = await participant.call(`/launches/${group.id}/join`, 'POST', { pseudonym: 'Étudiant test', code: group.code, joinKey: randomUUID() });
+      await save(participant, answer(item));
+      await participant.call('/participant/submit', 'POST', {});
+      if (state !== 'active') {
+        await owner.session.call(`/launches/${group.id}/close`, 'POST', {});
+        await owner.session.call(`/launches/${group.id}/publish`, 'POST', {});
+      }
+      if (state === 'archived') await owner.session.call(`/prcs/${item.id}`, 'PATCH', { archived: true });
+      const copy = await owner.session.call(`/prcs/${item.id}/duplicate`, 'POST', {}, 201);
+      await owner.session.call(`/prcs/${item.id}/collaborators`, 'POST', { username: colleague.username, manageSessions: true });
+      assert.equal((await colleague.session.call(`/prcs/${item.id}`)).permissions.delete, false);
+      await colleague.session.call(`/prcs/${item.id}`, 'DELETE', { confirm: true }, 404);
+      const participantIds = (await pool.query('SELECT id FROM prc_private.participants WHERE launch_id=ANY($1::uuid[])', [[referencePanel.id, group.id]])).rows.map(row => row.id);
+      const referenceId = (await pool.query('SELECT reference_id FROM prc_private.launches WHERE id=$1', [group.id])).rows[0].reference_id;
+      await owner.session.call(`/prcs/${item.id}`, 'DELETE', { confirm: true });
+      for (const table of ['prcs', 'prc_versions', 'prc_collaborators', 'launches']) {
+        const column = table === 'prcs' ? 'id' : 'prc_id';
+        assert.equal((await pool.query(`SELECT count(*)::int AS n FROM prc_private.${table} WHERE ${column}=$1`, [item.id])).rows[0].n, 0);
+      }
+      for (const table of ['participants', 'responses', 'invitations']) {
+        assert.equal((await pool.query(`SELECT count(*)::int AS n FROM prc_private.${table} WHERE launch_id=ANY($1::uuid[])`, [[referencePanel.id, group.id]])).rows[0].n, 0);
+      }
+      assert.equal((await pool.query('SELECT count(*)::int AS n FROM prc_private.sessions WHERE participant_id=ANY($1::uuid[])', [participantIds])).rows[0].n, 0);
+      assert.equal((await pool.query('SELECT count(*)::int AS n FROM prc_private.references WHERE id=$1', [referenceId])).rows[0].n, 0);
+      await owner.session.call(`/prcs/${item.id}`, 'GET', undefined, 404);
+      await colleague.session.call(`/prcs/${item.id}`, 'GET', undefined, 404);
+      await participant.call('/participant/response', 'GET', undefined, 401);
+      await anonymous.call(`/join/${group.code}`, 'GET', undefined, 404);
+      await new Session().call(`/launches/${group.id}/join`, 'POST', { pseudonym: 'Trop tard', code: group.code }, 404);
+      assert.equal((await owner.session.call(`/prcs/${copy.id}`)).id, copy.id);
+      assert.equal((await owner.session.call('/auth/me')).user.id, owner.id);
+      assert.equal((await colleague.session.call(`/prcs/${unaffected.id}`)).id, unaffected.id);
+      assert.ok(joined.participantId);
+    }
+  });
+
+  await t.test("concurrent save and deletion cannot recreate a removed PRC", async () => {
+    const input = completeCase();
+    const item = await owner.session.call('/prcs', 'POST', input, 201);
+    await Promise.all([
+      owner.session.call(`/prcs/${item.id}`, 'PUT', { ...input, scenario: 'Dernière modification', version: 1 }, [200, 404]),
+      owner.session.call(`/prcs/${item.id}`, 'DELETE', { confirm: true }),
+    ]);
+    await owner.session.call(`/prcs/${item.id}`, 'GET', undefined, 404);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM prc_private.prc_versions WHERE prc_id=$1', [item.id])).rows[0].n, 0);
+  });
+
   await t.test("deactivation and password reset invalidate existing sessions", async () => {
     await admin.session.call(`/teachers/${other.id}`, "PATCH", { active: false });
     await other.session.call("/auth/me", "GET", undefined, 401);
@@ -524,5 +589,11 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const independent = await finishDemo(independentOwner.session, true);
     assert.notEqual(independent.prcId, first.prcId);
     await independentOwner.session.call(`/prcs/${first.prcId}`, "GET", undefined, 404);
+    await owner.session.call(`/prcs/${first.prcId}`, 'DELETE', { confirm: true });
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM prc_private.demo_installations WHERE owner_id=$1', [owner.id])).rows[0].n, 0);
+    await owner.session.call(`/prcs/${first.prcId}`, 'GET', undefined, 404);
+    const recreated = await finishDemo(owner.session, true);
+    assert.notEqual(recreated.prcId, first.prcId);
+    assert.equal((await independentOwner.session.call(`/prcs/${independent.prcId}`)).id, independent.prcId);
   });
 });
