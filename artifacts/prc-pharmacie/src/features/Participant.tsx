@@ -13,7 +13,7 @@ import {
   ChevronDown,
   Save,
   ShieldCheck,
-  Stethoscope,
+  Brain,
 } from "lucide-react";
 import { Link, useLocation, useParams } from "wouter";
 import type { Choice } from "@workspace/api-client-react";
@@ -131,7 +131,7 @@ function ParticipantTop({ label }: { label: string }) {
     <div className="participant-top">
       <Link href="/" className="brand">
         <span className="brand-mark">
-          <Stethoscope size={20} />
+          <Brain size={20} />
         </span>
         <span>
           <b>PRC</b>

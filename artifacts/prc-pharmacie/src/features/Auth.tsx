@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { ArrowLeft, ArrowRight, ShieldCheck, Stethoscope } from "lucide-react";
+import { ArrowLeft, ArrowRight, ShieldCheck, Brain } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useHealthCheck } from "@workspace/api-client-react";
 import type { AppActions } from "../app/actions";
@@ -79,7 +79,7 @@ export function Login({ actions }: { actions: AppActions }) {
     <div className="auth-page">
       <Link href="/" className="brand auth-brand">
         <span className="brand-mark">
-          <Stethoscope size={20} />
+          <Brain size={20} />
         </span>
         <span>
           <b>PRC</b>
