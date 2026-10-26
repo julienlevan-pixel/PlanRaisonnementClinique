@@ -87,7 +87,7 @@ export function DemoStudentSessions({
               </h3>
               <p>
                 {mode === "synchronous"
-                  ? "Les étudiants répondent. Vous fermez les réponses, puis affichez la comparaison et les corrigés une hypothèse à la fois."
+                  ? "Les étudiants répondent. Vous fermez les réponses, puis affichez la comparaison et les corrigés une impression clinique à la fois."
                   : "Vous autorisez cette modalité. Après sa soumission, chaque étudiant voit ses réponses, le corrigé expert et son pointage."}
               </p>
               {session?.code && ready ? (

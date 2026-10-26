@@ -6,7 +6,7 @@ const caseData = {
   role: "students",
   status: "open",
   scenario: "Données fictives pour vérifier le questionnaire.",
-  instructions: "Une à cinq données par hypothèse.",
+  instructions: "Une à cinq données par impression clinique.",
   diagnostics: [
     { id: "diag-a", label: "Diagnostic A" },
     { id: "diag-b", label: "Diagnostic B" },
@@ -133,11 +133,11 @@ test("expert rates each selected datum and keeps points when flipping a sign or 
   const saved = await questionnaire(page, { role: "panel" });
   await page.getByTestId("choice-main-positive-obs-1").click();
   await page
-    .getByLabel("Points hypothèse principale — Observation 1", { exact: true })
+    .getByLabel("Points impression clinique — Observation 1", { exact: true })
     .selectOption("3");
   await page.getByTestId("choice-main-negative-obs-1").click();
   await expect(
-    page.getByLabel("Points hypothèse principale — Observation 1", {
+    page.getByLabel("Points impression clinique — Observation 1", {
       exact: true,
     }),
   ).toHaveValue("3");
@@ -145,7 +145,7 @@ test("expert rates each selected datum and keeps points when flipping a sign or 
   await expect.poll(() => saved().mainChoices[0]?.sign).toBe("-");
   await page.reload();
   await expect(
-    page.getByLabel("Points hypothèse principale — Observation 1", {
+    page.getByLabel("Points impression clinique — Observation 1", {
       exact: true,
     }),
   ).toHaveValue("3");
@@ -164,11 +164,11 @@ test("experts must rate their ten selected data before submitting; students neve
     "Attribuez de 1 à 3 points",
   );
   await expect(
-    page.getByRole("combobox", { name: /^Points hypothèse/ }),
+    page.getByRole("combobox", { name: /^Points impression clinique/ }),
   ).toHaveCount(10);
   await questionnaire(page);
   await expect(
-    page.getByRole("combobox", { name: /^Points hypothèse/ }),
+    page.getByRole("combobox", { name: /^Points impression clinique/ }),
   ).toHaveCount(0);
 });
 
@@ -276,7 +276,7 @@ test('a new student group requires five data per hypothesis without asking for e
   }
   await page.getByRole('button', { name: 'Vérifier et transmettre', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('exactement cinq observations signées');
-  await expect(page.getByRole('combobox', { name: /^Points hypothèse/ })).toHaveCount(0);
+  await expect(page.getByRole('combobox', { name: /^Points impression clinique/ })).toHaveCount(0);
 });
 
 test("saves signed choices, prevents a sixth choice and restores the acknowledged draft", async ({
@@ -305,7 +305,7 @@ test("saves signed choices, prevents a sixth choice and restores the acknowledge
     page.getByTestId("choice-alternative-negative-obs-1"),
   ).toHaveAttribute("aria-pressed", "true");
   await expect(
-    page.getByLabel("Diagnostic principal", { exact: true }),
+    page.getByLabel("Impression clinique", { exact: true }),
   ).toHaveValue("diag-a");
 });
 
@@ -392,7 +392,7 @@ test("preserves reviewed signs after changing a previously saved diagnosis", asy
     }),
   });
   await page
-    .getByLabel("Diagnostic principal", { exact: true })
+    .getByLabel("Impression clinique", { exact: true })
     .selectOption("diag-c");
   await expect(page.getByTestId("choice-main-positive-obs-1")).toHaveAttribute(
     "aria-pressed",
@@ -403,7 +403,7 @@ test("preserves reviewed signs after changing a previously saved diagnosis", asy
   expect(saved().mainChoices).toEqual([{ observationId: "obs-2", sign: "-" }]);
   await page.reload();
   await expect(
-    page.getByLabel("Diagnostic principal", { exact: true }),
+    page.getByLabel("Impression clinique", { exact: true }),
   ).toHaveValue("diag-c");
   await expect(page.getByTestId("choice-main-negative-obs-2")).toHaveAttribute(
     "aria-pressed",

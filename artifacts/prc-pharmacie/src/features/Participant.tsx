@@ -264,7 +264,7 @@ export function Join({ actions }: { actions: AppActions }) {
             </p>
             {info.data.guidedReview && (
               <p className="participant-notice">
-                Deux hypothèses distinctes, cinq données cliniques pour chacune.{" "}
+                Deux impressions cliniques distinctes, cinq données cliniques pour chacune.{" "}
                 {info.data.deliveryMode === "asynchronous"
                   ? "Votre corrigé personnel sera disponible dès la soumission."
                   : "Le professeur guidera la correction après la fin du temps de réponse."}
@@ -531,7 +531,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         : { alternativeDiagnosticId: value, alternativeChoices: [] },
     );
     setNotice(
-      "Le diagnostic a changé : revoyez et sélectionnez à nouveau les signes de cette hypothèse.",
+      "Le diagnostic a changé : revoyez et sélectionnez à nouveau les signes de cette impression clinique.",
     );
   };
   const selectSign = (
@@ -551,7 +551,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       );
     else if (choices.length >= 5) {
       setNotice(
-        "Cinq observations au maximum par hypothèse. Retirez un choix avant d’en ajouter un autre.",
+        "Cinq observations au maximum par impression clinique. Retirez un choix avant d’en ajouter un autre.",
       );
       return;
     } else next = [...choices, { observationId: id, sign }];
@@ -564,12 +564,12 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     const missing: { message: string; target: string }[] = [];
     if (!draft.mainDiagnosticId)
       missing.push({
-        message: "Choisissez votre diagnostic principal.",
+        message: "Choisissez votre impression clinique.",
         target: "participant-main-diagnosis",
       });
     if (!draft.alternativeDiagnosticId)
       missing.push({
-        message: "Choisissez votre diagnostic alternatif.",
+        message: "Choisissez votre impression clinique alternative.",
         target: "participant-alternative-diagnosis",
       });
     if (
@@ -592,8 +592,8 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         missing.push({
           message:
             joinInfo.role === "panel" || joinInfo.requiredChoices === 5
-              ? `Sélectionnez exactement cinq observations signées pour l’hypothèse ${name}.`
-              : `Sélectionnez au moins une observation signée pour l’hypothèse ${name}.`,
+              ? `Sélectionnez exactement cinq observations signées pour l’impression clinique ${name}.`
+              : `Sélectionnez au moins une observation signée pour l’impression clinique ${name}.`,
           target: `participant-${role}-counter`,
         });
       if (joinInfo.role === "panel") {
@@ -605,7 +605,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         );
         if (unrated)
           missing.push({
-            message: `Attribuez de 1 à 3 points à chaque donnée choisie pour l’hypothèse ${name}.`,
+            message: `Attribuez de 1 à 3 points à chaque donnée choisie pour l’impression clinique ${name}.`,
             target: `participant-${role}-points-${unrated.observationId}`,
           });
       }
@@ -803,11 +803,11 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         )}
         <p className="body-copy">
           {joinInfo.role === "panel"
-            ? "Choisissez exactement cinq données par hypothèse et attribuez à chacune de 1 à 3 points : 1 = peu discriminante, 2 = modérément discriminante, 3 = très discriminante."
+            ? "Choisissez exactement cinq données par impression clinique et attribuez à chacune de 1 à 3 points : 1 = peu discriminante, 2 = modérément discriminante, 3 = très discriminante."
             : joinInfo.requiredChoices === 5
-              ? "Choisissez exactement cinq données par hypothèse."
-              : "Choisissez de une à cinq données par hypothèse."}{" "}
-          Une même donnée peut soutenir une hypothèse et affaiblir l’autre.
+              ? "Choisissez exactement cinq données par impression clinique."
+              : "Choisissez de une à cinq données par impression clinique."}{" "}
+          Une même donnée peut soutenir une impression clinique et affaiblir l’autre.
           Cliquez à nouveau sur un signe retenu pour retirer ce choix.
         </p>
         <ObservationMatrix
@@ -886,7 +886,7 @@ export function DiagnosticSelect({
         value={value || ""}
         onChange={(event) => onChange(event.target.value || null)}
       >
-        <option value="">Choisir une hypothèse</option>
+        <option value="">Choisir une impression clinique</option>
         {options.map((option) => (
           <option
             key={option.id}
@@ -955,7 +955,7 @@ export function ObservationMatrix({
         <span>Pouvoir discriminant</span>
         <select
           id={`participant-${role}-points-${observation.id}`}
-          aria-label={`Points ${role === "main" ? "hypothèse principale" : "hypothèse alternative"} — ${observation.text}`}
+          aria-label={`Points ${role === "main" ? "impression clinique" : "impression clinique alternative"} — ${observation.text}`}
           disabled={disabled}
           value={selected.points ?? ""}
           onChange={(event) => {
@@ -993,7 +993,7 @@ export function ObservationMatrix({
       <button
         type="button"
         disabled={disabled || !!renderObservation}
-        aria-label={`${role === "main" ? "Hypothèse principale" : "Hypothèse alternative"} : ${sign === "+" ? "En faveur" : "En défaveur"} — ${observation.text}`}
+        aria-label={`${role === "main" ? "Impression clinique" : "Impression clinique alternative"} : ${sign === "+" ? "En faveur" : "En défaveur"} — ${observation.text}`}
         aria-pressed={selected}
         className={`sign-choice ${selected ? `active ${sign === "+" ? "positive" : "negative"}` : ""}`}
         onClick={() =>
@@ -1018,7 +1018,7 @@ export function ObservationMatrix({
       aria-label={
         renderObservation
           ? "Création du tableau clinique"
-          : "Justification des deux hypothèses"
+          : "Justification des deux impressions cliniques"
       }
     >
       <table
@@ -1027,7 +1027,7 @@ export function ObservationMatrix({
         <caption>
           {renderObservation
             ? "Votre tableau clinique se construit ici, ligne par ligne"
-            : "Une liste de données cliniques, deux hypothèses indépendantes"}
+            : "Une liste de données cliniques, deux impressions cliniques indépendantes"}
         </caption>
         <thead>
           <tr>
@@ -1039,13 +1039,13 @@ export function ObservationMatrix({
                 className="matrix-counter"
               >
                 {renderObservation
-                  ? "Hypothèse principale"
+                  ? "Impression clinique"
                   : `Principale · ${mainChoices.length}/5`}
               </span>
               {diagnostics && onDiagnosisChange && (
                 <DiagnosticSelect
                   id="participant-main-diagnosis"
-                  label="Diagnostic principal"
+                  label="Impression clinique"
                   options={diagnostics}
                   value={mainDiagnosticId ?? null}
                   excludedId={alternativeDiagnosticId}
@@ -1066,13 +1066,13 @@ export function ObservationMatrix({
                   className="matrix-counter"
                 >
                   {renderObservation
-                    ? "Hypothèse alternative"
+                    ? "Impression clinique alternative"
                     : `Alternative · ${alternativeChoices.length}/5`}
                 </span>
                 {diagnostics && onDiagnosisChange && (
                   <DiagnosticSelect
                     id="participant-alternative-diagnosis"
-                    label="Diagnostic alternatif"
+                    label="Impression clinique alternative"
                     options={diagnostics}
                     value={alternativeDiagnosticId ?? null}
                     excludedId={mainDiagnosticId}
@@ -1265,7 +1265,7 @@ export function ParticipantResults() {
               {[
                 [
                   "mainDiagnosis",
-                  "Diagnostic principal",
+                  "Impression clinique",
                   data.case.grading?.mainDiagnosisMaximum ?? 2,
                 ],
                 [
@@ -1275,7 +1275,7 @@ export function ParticipantResults() {
                 ],
                 [
                   "alternativeDiagnosis",
-                  "Diagnostic alternatif",
+                  "Impression clinique alternative",
                   data.case.grading?.alternativeDiagnosisMaximum ?? 2,
                 ],
                 [
@@ -1321,7 +1321,7 @@ export function ParticipantResults() {
           {data.guidedReview && submitted ? (
             <details>
               <summary>
-                Revoir mes deux hypothèses et mes données choisies
+                Revoir mes deux impressions cliniques et mes données choisies
               </summary>
               {ownCopy}
             </details>
@@ -1417,13 +1417,13 @@ function OwnHypothesis({
   return (
     <article className="own-hypothesis">
       <h3>
-        {role === "main" ? "Hypothèse principale" : "Hypothèse alternative"} :{" "}
+        {role === "main" ? "Impression clinique" : "Impression clinique alternative"} :{" "}
         {data.case.diagnostics.find((diagnostic) => diagnostic.id === id)
           ?.label || "Non choisie"}
       </h3>
       {corrected && score?.represented === false && (
         <p className="participant-notice">
-          Hypothèse non représentée dans le panel pour ce rôle. Les deux
+          Impression clinique non représentée dans le panel pour ce rôle. Les deux
           composantes de ce rôle valent zéro ; cela ne qualifie pas
           automatiquement ce choix d’erreur clinique.
         </p>
@@ -1502,7 +1502,7 @@ function ExpertComparison({
         soumissions, en séance ou à distance.
       </p>
       <p>
-        Pour chaque diagnostic, les choix en hypothèse principale et alternative
+        Pour chaque diagnostic, les choix en impression clinique principale et alternative
         sont réunis. Les points en faveur et en défaveur restent séparés ; ils
         ne s’annulent pas.
       </p>
@@ -1553,12 +1553,12 @@ function ExpertComparison({
         return (
           <article key={diagnostic.id} className="expert-diagnostic">
             <h3>
-              Hypothèse {index + 1} · {diagnostic.label}
+              Impression clinique {index + 1} · {diagnostic.label}
             </h3>
             <p>
               {n} expert(s) ont retenu ce diagnostic.
               {ownRole
-                ? ` Votre hypothèse ${ownRole === "main" ? "principale" : "alternative"}.`
+                ? ` Votre impression clinique ${ownRole === "main" ? "principale" : "alternative"}.`
                 : " Vous n’avez pas retenu ce diagnostic."}
             </p>
             <div

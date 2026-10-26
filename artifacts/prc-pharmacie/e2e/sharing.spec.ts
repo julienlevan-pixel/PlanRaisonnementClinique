@@ -11,7 +11,7 @@ const fixture = () => ({
   id,
   name: "Cas partagé",
   scenario: "Scénario initial",
-  instructions: "Deux hypothèses",
+  instructions: "Deux impressions cliniques",
   version: 1,
   archived: false,
   shared: false,

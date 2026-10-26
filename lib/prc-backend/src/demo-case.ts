@@ -13,9 +13,9 @@ export const demoCase = {
   name: "Toux",
   demonstrationLabel: DEMO_LABEL,
   scenario:
-    "Démonstration — données fictives. Une femme de 55 ans consulte à la pharmacie pour une toux sèche persistante depuis huit semaines. Elle souhaite savoir si un médicament peut en être responsable et quels éléments justifient les différentes hypothèses. Les observations ci-dessous décrivent un seul cas fictif ; cet exercice ne remplace pas une évaluation clinique.",
+    "Démonstration — données fictives. Une femme de 55 ans consulte à la pharmacie pour une toux sèche persistante depuis huit semaines. Elle souhaite savoir si un médicament peut en être responsable et quels éléments justifient les différentes impressions cliniques. Les observations ci-dessous décrivent un seul cas fictif ; cet exercice ne remplace pas une évaluation clinique.",
   instructions:
-    "Choisissez deux diagnostics distincts : une hypothèse principale et une alternative. Pour chacune, retenez les observations qui la favorisent (+) ou la rendent moins probable (−). Le panel sélectionne exactement cinq données par hypothèse ; les étudiants en sélectionnent de une à cinq. Les réponses de cet exemple et les participants sont fictifs.",
+    "Choisissez deux diagnostics distincts : une impression clinique principale et une alternative. Pour chacune, retenez les observations qui la favorisent (+) ou la rendent moins probable (−). Le panel sélectionne exactement cinq données par impression clinique ; les étudiants en sélectionnent de une à cinq. Les réponses de cet exemple et les participants sont fictifs.",
   diagnostics: [
     { id: "10000000-0000-4000-8000-000000000001", label: "Toux associée à un inhibiteur de l’enzyme de conversion" },
     { id: "10000000-0000-4000-8000-000000000002", label: "Syndrome de toux des voies aériennes supérieures (rhinite)" },

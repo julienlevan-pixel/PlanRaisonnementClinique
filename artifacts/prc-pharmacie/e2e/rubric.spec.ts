@@ -115,7 +115,7 @@ test("professor edits diagnosis and signed clinical points, saves and restores t
   await editor.locator(".rubric-diagnostic").first().locator("summary").click();
   await editor
     .getByRole("spinbutton", {
-      name: "Diagnostic principal — Asthme",
+      name: "Impression clinique — Asthme",
       exact: true,
     })
     .fill("4");
@@ -143,7 +143,7 @@ test("professor edits diagnosis and signed clinical points, saves and restores t
   await editor.locator(".rubric-diagnostic").first().locator("summary").click();
   await expect(
     editor.getByRole("spinbutton", {
-      name: "Diagnostic principal — Asthme",
+      name: "Impression clinique — Asthme",
       exact: true,
     }),
   ).toHaveValue("4");
@@ -208,7 +208,7 @@ test("stale rubric save preserves local edits and reload fetches the latest serv
   });
   await editor.locator(".rubric-diagnostic").first().locator("summary").click();
   const points = editor.getByRole("spinbutton", {
-    name: "Diagnostic principal — Asthme",
+    name: "Impression clinique — Asthme",
     exact: true,
   });
   await points.fill("4");
