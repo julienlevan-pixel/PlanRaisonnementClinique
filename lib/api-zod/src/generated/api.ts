@@ -137,6 +137,22 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "activeLaunchCount": zod.number().int(),
   "participantCount": zod.number().int(),
   "submissionCount": zod.number().int(),
+  "activeLaunches": zod.array(zod.object({
+  "id": zod.string(),
+  "prcId": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "name": zod.string().describe('Nom du PRC figé lors du lancement.'),
+  "prcName": zod.string().optional(),
+  "caseVersion": zod.number().int().optional(),
+  "isTrial": zod.boolean().optional(),
+  "guidedReview": zod.boolean().optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "code": zod.string(),
+  "status": zod.string(),
+  "createdAt": zod.coerce.date(),
+  "participantCount": zod.number().int(),
+  "submissionCount": zod.number().int()
+})).optional(),
   "recentLaunches": zod.array(zod.object({
   "id": zod.string(),
   "prcId": zod.string(),
@@ -175,6 +191,14 @@ export const ListPrcsResponseItem = zod.object({
   "launchCount": zod.number().int(),
   "archived": zod.boolean().optional(),
   "isDemo": zod.boolean().optional(),
+  "ownerUsername": zod.string().optional(),
+  "shared": zod.boolean().optional(),
+  "permissions": zod.object({
+  "edit": zod.boolean().optional(),
+  "share": zod.boolean().optional(),
+  "archive": zod.boolean().optional(),
+  "manageSessions": zod.boolean().optional()
+}).optional(),
   "workflow": zod.object({
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
@@ -183,6 +207,7 @@ export const ListPrcsResponseItem = zod.object({
 }).optional()
 })
 export const ListPrcsResponse = zod.array(ListPrcsResponseItem)
+
 
 
 export const createPrcBodyNameMax = 160;
@@ -196,6 +221,7 @@ export const createPrcBodyDiagnosticsItemMax = 240;
 
 
 export const CreatePrcBody = zod.object({
+  "version": zod.number().int().min(1).optional().describe('Version lue lors de l’ouverture du formulaire. Requise pour un PRC partagé ; HTTP 409 si une autre version a été enregistrée.'),
   "name": zod.string().max(createPrcBodyNameMax),
   "scenario": zod.string().max(createPrcBodyScenarioMax),
   "instructions": zod.string().max(createPrcBodyInstructionsMax),
@@ -218,6 +244,14 @@ export const CreatePrcResponse = zod.object({
   "launchCount": zod.number().int(),
   "archived": zod.boolean().optional(),
   "isDemo": zod.boolean().optional(),
+  "ownerUsername": zod.string().optional(),
+  "shared": zod.boolean().optional(),
+  "permissions": zod.object({
+  "edit": zod.boolean().optional(),
+  "share": zod.boolean().optional(),
+  "archive": zod.boolean().optional(),
+  "manageSessions": zod.boolean().optional()
+}).optional(),
   "workflow": zod.object({
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
@@ -241,6 +275,14 @@ export const GetPrcResponse = zod.object({
   "launchCount": zod.number().int(),
   "archived": zod.boolean().optional(),
   "isDemo": zod.boolean().optional(),
+  "ownerUsername": zod.string().optional(),
+  "shared": zod.boolean().optional(),
+  "permissions": zod.object({
+  "edit": zod.boolean().optional(),
+  "share": zod.boolean().optional(),
+  "archive": zod.boolean().optional(),
+  "manageSessions": zod.boolean().optional()
+}).optional(),
   "workflow": zod.object({
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
@@ -282,6 +324,7 @@ export const UpdatePrcParams = zod.object({
   "prcId": zod.coerce.string()
 })
 
+
 export const updatePrcBodyNameMax = 160;
 
 export const updatePrcBodyScenarioMax = 20000;
@@ -293,6 +336,7 @@ export const updatePrcBodyDiagnosticsItemMax = 240;
 
 
 export const UpdatePrcBody = zod.object({
+  "version": zod.number().int().min(1).optional().describe('Version lue lors de l’ouverture du formulaire. Requise pour un PRC partagé ; HTTP 409 si une autre version a été enregistrée.'),
   "name": zod.string().max(updatePrcBodyNameMax),
   "scenario": zod.string().max(updatePrcBodyScenarioMax),
   "instructions": zod.string().max(updatePrcBodyInstructionsMax),
@@ -315,6 +359,14 @@ export const UpdatePrcResponse = zod.object({
   "launchCount": zod.number().int(),
   "archived": zod.boolean().optional(),
   "isDemo": zod.boolean().optional(),
+  "ownerUsername": zod.string().optional(),
+  "shared": zod.boolean().optional(),
+  "permissions": zod.object({
+  "edit": zod.boolean().optional(),
+  "share": zod.boolean().optional(),
+  "archive": zod.boolean().optional(),
+  "manageSessions": zod.boolean().optional()
+}).optional(),
   "workflow": zod.object({
   "step": zod.enum(['prepare', 'panel', 'reference', 'students']),
   "missing": zod.array(zod.string()),
@@ -368,6 +420,65 @@ export const ArchivePrcResponse = zod.object({
 }).and(zod.object({
   "id": zod.string()
 }))
+
+
+/**
+ * Liste des collaborateurs du même PRC ; accessible uniquement aux professeurs autorisés pour ce cas.
+ */
+export const GetPrcSharingParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const GetPrcSharingResponse = zod.object({
+  "owner": zod.object({
+  "id": zod.string(),
+  "username": zod.string()
+}),
+  "canShare": zod.boolean(),
+  "collaborators": zod.array(zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "active": zod.boolean().optional(),
+  "manageSessions": zod.boolean()
+}))
+})
+
+
+/**
+ * Ajoute ou modifie l’accès d’un compte PRC existant. Réservé au propriétaire ; aucune duplication du cas. La gestion des séances est facultative et désactivée par défaut.
+ */
+export const SharePrcParams = zod.object({
+  "prcId": zod.coerce.string()
+})
+
+export const sharePrcBodyUsernameMax = 80;
+
+export const sharePrcBodyManageSessionsDefault = false;
+
+export const SharePrcBody = zod.object({
+  "username": zod.string().min(1).max(sharePrcBodyUsernameMax),
+  "manageSessions": zod.boolean().default(sharePrcBodyManageSessionsDefault)
+})
+
+export const SharePrcResponse = zod.object({
+  "id": zod.string(),
+  "username": zod.string(),
+  "active": zod.boolean().optional(),
+  "manageSessions": zod.boolean()
+})
+
+
+/**
+ * Retire l’accès au cas et à ses séances. Réservé au propriétaire ; conserve le contenu, les réponses et les versions.
+ */
+export const RemovePrcCollaboratorParams = zod.object({
+  "prcId": zod.coerce.string(),
+  "userId": zod.coerce.string()
+})
+
+export const RemovePrcCollaboratorResponse = zod.object({
+  "removed": zod.boolean()
+})
 
 
 export const CreateLaunchParams = zod.object({

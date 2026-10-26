@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
+import { readFile } from 'node:fs/promises';
 import { testServices } from "./test-support.js";
 
 test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.env.PRC_TEST_DATABASE_URL }, async t => {
@@ -44,6 +45,77 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const response = await pool.query("SELECT password_hash FROM prc_private.users WHERE id=$1", [owner.id]);
     assert.match(response.rows[0].password_hash, /^scrypt\$/);
     assert.notEqual(response.rows[0].password_hash, owner.password);
+  });
+
+  await t.test('shared cases keep one identity, protect concurrent edits and revoke all delegated session rights', async () => {
+    const colleague = await newUser();
+    const stranger = await newUser();
+    const input = completeCase();
+    const item = await owner.session.call('/prcs','POST',input,201);
+    const oldPanel = await owner.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},201);
+    const count = (await pool.query('SELECT count(*)::int AS n FROM prc_private.prcs')).rows[0].n;
+    await colleague.session.call(`/prcs/${item.id}`,'GET',undefined,404);
+    await stranger.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username},404);
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:'unknown-teacher'},404);
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:owner.username},400);
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:'yes'},400);
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username.toUpperCase()});
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username});
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM prc_private.prcs')).rows[0].n,count);
+    const upgrade = await readFile(new URL('../../../docs/UPGRADE_SHARED_PRCS.sql',import.meta.url),'utf8');
+    await pool.query(upgrade); await pool.query(upgrade);
+    const members = await colleague.session.call(`/prcs/${item.id}/collaborators`);
+    assert.equal(members.collaborators.length,1);
+    assert.equal(members.canShare,false);
+    assert.equal(JSON.stringify(members).includes('password'),false);
+    const document = await colleague.session.call(`/prcs/${item.id}`);
+    assert.equal(document.id,item.id);
+    assert.equal(document.permissions.manageSessions,false);
+    assert.equal(document.permissions.share,false);
+    assert.deepEqual(document.launches,[]);
+    assert.equal(document.workflow.panelLaunchId,null);
+    assert.equal((await colleague.session.call('/prcs')).some((row:any)=>row.id===item.id),true);
+    for (const suffix of ['', '/results','/projection','/panel-results']) await colleague.session.call(`/launches/${oldPanel.id}${suffix}`,'GET',undefined,404);
+    await colleague.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},404);
+    await colleague.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:stranger.username},403);
+    await colleague.session.call(`/prcs/${item.id}`,'PATCH',{archived:true},404);
+    await colleague.session.call(`/prcs/${item.id}`,'PUT',{...input,scenario:'Collaborative edit'},409);
+    const edited = await colleague.session.call(`/prcs/${item.id}`,'PUT',{...input,scenario:'Collaborative edit',version:1});
+    assert.equal(edited.version,2);
+    assert.equal((await owner.session.call(`/prcs/${item.id}`)).scenario,'Collaborative edit');
+    assert.equal((await pool.query('SELECT case_snapshot FROM prc_private.launches WHERE id=$1',[oldPanel.id])).rows[0].case_snapshot.scenario,input.scenario);
+    const attempts = await Promise.all([
+      owner.session.call(`/prcs/${item.id}`,'PUT',{...input,scenario:'Collaborative edit',name:'Owner proposal',version:2},[200,409]),
+      colleague.session.call(`/prcs/${item.id}`,'PUT',{...input,scenario:'Collaborative edit',name:'Colleague proposal',version:2},[200,409]),
+    ]);
+    assert.equal(attempts.filter(row=>row.id===item.id).length,1);
+    assert.equal((await owner.session.call(`/prcs/${item.id}`)).version,3);
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:true});
+    const current = await colleague.session.call(`/prcs/${item.id}`);
+    assert.equal(current.permissions.manageSessions,true);
+    const panel = await colleague.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},201);
+    assert.equal((await pool.query('SELECT owner_id FROM prc_private.launches WHERE id=$1',[panel.id])).rows[0].owner_id,owner.id);
+    const invitation = await colleague.session.call(`/launches/${panel.id}/invitations`,'POST',{name:'Shared expert'},201);
+    const expert = new Session();
+    await expert.call(`/launches/${panel.id}/join`,'POST',{pseudonym:'Shared expert',invitationToken:new URL(invitation.url).searchParams.get('invite')});
+    await save(expert,answer(current)); await expert.call('/participant/submit','POST',{});
+    await colleague.session.call(`/launches/${panel.id}/close`,'POST',{});
+    await colleague.session.call(`/launches/${panel.id}/panel-results`);
+    await colleague.session.call(`/launches/${panel.id}/reference/generate`,'POST',{minimumPanelSize:1});
+    await colleague.session.call(`/launches/${panel.id}/reference/validate`,'POST',{});
+    const group = await colleague.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'synchronous'},201);
+    assert.equal((await colleague.session.call('/workspace/summary')).activeLaunches.some((row:any)=>row.id===group.id),true);
+    await owner.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:false});
+    for (const suffix of ['', '/results','/projection']) await colleague.session.call(`/launches/${group.id}${suffix}`,'GET',undefined,404);
+    for (const suffix of ['/close','/reveal','/publish','/discussion']) await colleague.session.call(`/launches/${group.id}${suffix}`,'POST',{action:'comparison'},404);
+    assert.equal((await colleague.session.call('/workspace/summary')).activeLaunches.some((row:any)=>row.id===group.id),false);
+    await owner.session.call(`/prcs/${item.id}/collaborators/${colleague.id}`,'DELETE');
+    await colleague.session.call(`/prcs/${item.id}`,'GET',undefined,404);
+    await colleague.session.call(`/prcs/${item.id}`,'PUT',{...input,version:3},404);
+    assert.equal((await colleague.session.call('/prcs')).some((row:any)=>row.id===item.id),false);
+    assert.equal((await owner.session.call(`/launches/${group.id}`)).id,group.id);
+    assert.equal((await pool.query("SELECT has_table_privilege('anon','prc_private.prc_collaborators','SELECT') AS readable, has_function_privilege('anon','prc_private.can_access_prc(uuid,uuid,boolean)','EXECUTE') AS executable")).rows[0].readable,false);
+    assert.equal((await pool.query("SELECT has_function_privilege('anon','prc_private.can_access_prc(uuid,uuid,boolean)','EXECUTE') AS executable")).rows[0].executable,false);
   });
 
   await t.test("individual panel invitations allow account-free participation without leaking references", async () => {

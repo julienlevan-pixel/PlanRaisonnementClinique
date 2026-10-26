@@ -121,7 +121,7 @@ test('archives and restores a PRC while retaining its history', async ({ page })
     if (route.request().method() === 'PATCH') data = { ...data, archived: route.request().postDataJSON().archived };
     await route.fulfill({ json: data });
   });
-  await page.goto('/');
+  await page.goto('/prcs');
   await page.getByLabel('Rechercher un PRC', { exact: true }).fill('Cas clinique');
   await expect(page.getByRole('heading', { name: data.name })).toBeVisible();
   await page.getByText('Autres actions', { exact: true }).click();
@@ -143,7 +143,7 @@ test('resumes the bounded demonstration initialization before opening it', async
     requests++;
     return route.fulfill({ json: { prcId: id, pending: requests < 3, progress: { expertsSubmitted: Math.min(10, requests * 4), totalExperts: 10, studentsSubmitted: requests < 3 ? 0 : 4, totalStudents: 4 } } });
   });
-  await page.goto('/');
+  await page.goto('/prcs');
   await page.getByRole('button', { name: 'Ouvrir ma démonstration Toux', exact: true }).click();
   await expect(page).toHaveURL(`/prc/${id}`);
   expect(requests).toBe(3);

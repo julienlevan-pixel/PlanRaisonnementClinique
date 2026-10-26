@@ -181,18 +181,24 @@ export function Shell({
           <Link
             href="/"
             className={active("/") ? "nav-item selected" : "nav-item"}
+            aria-current={active('/') ? 'page' : undefined}
             onClick={() => setMobileOpen(false)}
           >
             <ClipboardList size={17} />
             Vue d’ensemble
           </Link>
           <Link
-            href="/"
-            className="nav-item"
+            href="/prcs"
+            aria-current={active('/prcs') || active('/prc/') ? 'page' : undefined}
+            className={
+              active("/prcs") || active("/prc/")
+                ? "nav-item selected"
+                : "nav-item"
+            }
             onClick={() => setMobileOpen(false)}
           >
             <BookOpen size={17} />
-            Cas cliniques
+            Mes PRC
           </Link>
           {user?.role === "admin" && (
             <Link

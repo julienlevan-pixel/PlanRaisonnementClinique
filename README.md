@@ -20,3 +20,9 @@ Les tests navigateur de connexion utilisent une API simulée et ne nécessitent 
 Le `netlify.toml` publie le build Vite et route `/api/*` vers la fonction `api`. Configurez dans Netlify `DATABASE_URL`, `SESSION_SECRET`, `APP_BASE_URL`, `ADMIN_INITIAL_USERNAME` et `ADMIN_INITIAL_PASSWORD`. La fonction crée son pool PostgreSQL côté serveur. Exécutez les migrations et l’initialisation de l’administrateur une seule fois pour chaque base, depuis un environnement de confiance.
 
 La compilation Netlify lance aussi `pnpm --filter @workspace/api-server run build:netlify`. Cette étape regroupe la fonction et les sources TypeScript des bibliothèques partagées dans `artifacts/prc-pharmacie/dist/functions/api.mjs`, avant la création de l’archive Netlify. Le dossier de fonctions à déployer est donc `artifacts/prc-pharmacie/dist/functions`, et non le dossier des sources TypeScript.
+
+## Préparer et partager des cas
+
+**Vue d’ensemble** suit les séances et les participations. **Mes PRC** donne accès à la bibliothèque, à la recherche et aux cas partagés. Dans un cas enregistré, **Partager** permet à son propriétaire d’ajouter un autre compte enseignant PRC pour modifier le même document. La gestion des séances peut être accordée séparément ; le propriétaire conserve le contrôle du partage et de l’archivage.
+
+La fonctionnalité de collaboration exige la migration `004_collaboration.sql` avant le déploiement. Pour une base existante, le script réexécutable [docs/UPGRADE_SHARED_PRCS.sql](docs/UPGRADE_SHARED_PRCS.sql) prépare cette mise à jour sans remplacer les données existantes.

@@ -80,6 +80,13 @@ export interface PasswordChangeInput {
   newPassword: string;
 }
 
+export type PrcPermissions = {
+  edit?: boolean;
+  share?: boolean;
+  archive?: boolean;
+  manageSessions?: boolean;
+};
+
 export type PrcWorkflowStep = typeof PrcWorkflowStep[keyof typeof PrcWorkflowStep];
 
 
@@ -109,6 +116,9 @@ export interface Prc {
   launchCount: number;
   archived?: boolean;
   isDemo?: boolean;
+  ownerUsername?: string;
+  shared?: boolean;
+  permissions?: PrcPermissions;
   workflow?: PrcWorkflow;
 }
 
@@ -173,6 +183,11 @@ export interface ObservationInput {
 }
 
 export interface PrcInput {
+  /**
+     * Version lue lors de l’ouverture du formulaire. Requise pour un PRC partagé ; HTTP 409 si une autre version a été enregistrée.
+     * @minimum 1
+     */
+  version?: number;
   /** @maxLength 160 */
   name: string;
   /** @maxLength 20000 */
@@ -497,6 +512,7 @@ export interface WorkspaceSummary {
   activeLaunchCount: number;
   participantCount: number;
   submissionCount: number;
+  activeLaunches?: Launch[];
   recentLaunches: Launch[];
 }
 
@@ -846,6 +862,37 @@ export const DiscussionInputAction = {
 export interface DiscussionInput {
   action: DiscussionInputAction;
   diagnosticId?: string;
+}
+
+export interface PrcSharingInput {
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  username: string;
+  manageSessions?: boolean;
+}
+
+export interface Collaborator {
+  id: string;
+  username: string;
+  active?: boolean;
+  manageSessions: boolean;
+}
+
+export type PrcSharingOwner = {
+  id: string;
+  username: string;
+};
+
+export interface PrcSharing {
+  owner: PrcSharingOwner;
+  canShare: boolean;
+  collaborators: Collaborator[];
+}
+
+export interface CollaborationRemoved {
+  removed: boolean;
 }
 
 export type ListPrcsParams = {

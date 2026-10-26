@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { pool } from "@workspace/db";
+import { pool, type PoolClient } from "@workspace/db";
 import {
   clearLoginLimit,
   createParticipantSession,
@@ -245,6 +245,18 @@ function mapPrc(row: JsonRecord) {
     version: Number(row.version ?? row.current_version ?? 1),
     updatedAt: row.updated_at,
     launchCount: Number(row.launch_count ?? 0),
+    ...(typeof row.is_owner === "boolean"
+      ? {
+          ownerUsername: row.owner_username,
+          shared: !row.is_owner || Number(row.collaborator_count) > 0,
+          permissions: {
+            edit: true,
+            share: row.is_owner,
+            archive: row.is_owner,
+            manageSessions: !!row.can_manage_sessions,
+          },
+        }
+      : {}),
   };
 }
 
@@ -333,11 +345,47 @@ async function requireOwner(
 ): Promise<{ teacher: TeacherPrincipal; launch: LaunchRow }> {
   const teacher = await requireTeacher(request);
   const result = await pool.query<LaunchRow>(
-    "SELECT * FROM prc_private.launches WHERE id = $1 AND owner_id = $2",
+    "SELECT * FROM prc_private.launches WHERE id = $1 AND prc_private.can_manage_launch(id, $2)",
     [launchId, teacher.id],
   );
   if (!result.rows[0]) fail(404, "Activité introuvable.");
   return { teacher, launch: result.rows[0] };
+}
+
+async function lockPrcAccess(
+  client: PoolClient,
+  prcId: string,
+  actorId: string,
+  sessions = false,
+) {
+  const result = await client.query(
+    "SELECT id FROM prc_private.prcs WHERE id=$1 FOR UPDATE",
+    [prcId],
+  );
+  if (!result.rows[0]) fail(404, "PRC introuvable.");
+  // Sharing changes take the same row lock. Recheck rights with a fresh statement.
+  const access = await client.query(
+    "SELECT prc_private.can_access_prc($1,$2,$3) AS allowed",
+    [prcId, actorId, sessions],
+  );
+  if (!access.rows[0].allowed) fail(404, "PRC introuvable.");
+}
+
+async function lockManagedLaunch(
+  client: PoolClient,
+  launchId: string,
+  actorId: string,
+) {
+  const result = await client.query(
+    "SELECT prc_id FROM prc_private.launches WHERE id=$1",
+    [launchId],
+  );
+  if (!result.rows[0]) fail(404, "Activité introuvable.");
+  await lockPrcAccess(client, result.rows[0].prc_id, actorId, true);
+  return client.query<LaunchRow>(
+    "SELECT * FROM prc_private.launches WHERE id=$1 FOR UPDATE",
+    [launchId],
+  );
 }
 
 async function launchCounts(
@@ -831,72 +879,83 @@ async function createLaunch(
   const teacher = await requireTeacher(request);
   const role = forceTrial ? "panel" : validRole(input.role);
   const isTrial = forceTrial || input.isTrial === true;
-  const prcResult = await pool.query(
-    `SELECT p.current_version, p.archived_at, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    await lockPrcAccess(client, prcId, teacher.id, true);
+    const prcResult = await client.query(
+      `SELECT p.owner_id, p.current_version, p.archived_at, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
        FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id = p.id AND v.version = p.current_version
-      WHERE p.id = $1 AND p.owner_id = $2`,
-    [prcId, teacher.id],
-  );
-  const prc = prcResult.rows[0];
-  if (!prc) fail(404, "PRC introuvable.");
-  if (prc.archived_at)
-    fail(409, "Restaurez ce PRC archivé avant de le lancer.");
-  const caseSnapshot: CaseData = {
-    name: prc.name,
-    scenario: prc.scenario,
-    instructions: prc.instructions,
-    diagnostics: prc.diagnostics,
-    observations: prc.observations,
-  };
-  if (input.deliveryMode !== undefined) {
-    if (
-      role !== "students" ||
-      !["synchronous", "asynchronous"].includes(String(input.deliveryMode))
-    )
-      fail(
-        400,
-        "Choisissez une modalité synchrone ou asynchrone pour le groupe étudiant.",
-      );
-    caseSnapshot.studentWorkflow = {
-      deliveryMode: input.deliveryMode as DeliveryMode,
-      requiredChoices: 5,
+      WHERE p.id = $1 AND prc_private.can_access_prc(p.id, $2, true)`,
+      [prcId, teacher.id],
+    );
+    const prc = prcResult.rows[0];
+    if (!prc) fail(404, "PRC introuvable.");
+    if (prc.archived_at)
+      fail(409, "Restaurez ce PRC archivé avant de le lancer.");
+    const caseSnapshot: CaseData = {
+      name: prc.name,
+      scenario: prc.scenario,
+      instructions: prc.instructions,
+      diagnostics: prc.diagnostics,
+      observations: prc.observations,
     };
-  }
-  const missing = missingCase(caseSnapshot);
-  if (missing.length) fail(409, missing.join(" "));
-  let referenceId: string | null = null;
-  if (role === "students") {
-    const reference = await pool.query(
-      `SELECT r.id FROM prc_private.references r JOIN prc_private.launches panel ON panel.id = r.launch_id
+    if (input.deliveryMode !== undefined) {
+      if (
+        role !== "students" ||
+        !["synchronous", "asynchronous"].includes(String(input.deliveryMode))
+      )
+        fail(
+          400,
+          "Choisissez une modalité synchrone ou asynchrone pour le groupe étudiant.",
+        );
+      caseSnapshot.studentWorkflow = {
+        deliveryMode: input.deliveryMode as DeliveryMode,
+        requiredChoices: 5,
+      };
+    }
+    const missing = missingCase(caseSnapshot);
+    if (missing.length) fail(409, missing.join(" "));
+    let referenceId: string | null = null;
+    if (role === "students") {
+      const reference = await client.query(
+        `SELECT r.id FROM prc_private.references r JOIN prc_private.launches panel ON panel.id = r.launch_id
         WHERE panel.prc_id = $1 AND panel.case_version = $2 AND panel.role = 'panel'
           AND NOT panel.is_trial AND r.status = 'validated' ORDER BY r.validated_at DESC LIMIT 1`,
-      [prcId, prc.current_version],
-    );
-    if (!reference.rows[0])
-      fail(
-        409,
-        "Fermez un panel, générez puis validez un corrigé pour cette version du PRC avant de lancer les étudiants.",
+        [prcId, prc.current_version],
       );
-    referenceId = reference.rows[0].id;
-  }
-  const result = await pool.query<LaunchRow>(
-    `INSERT INTO prc_private.launches
+      if (!reference.rows[0])
+        fail(
+          409,
+          "Fermez un panel, générez puis validez un corrigé pour cette version du PRC avant de lancer les étudiants.",
+        );
+      referenceId = reference.rows[0].id;
+    }
+    const result = await client.query<LaunchRow>(
+      `INSERT INTO prc_private.launches
       (id, prc_id, owner_id, role, name, code, status, case_version, case_snapshot, reference_id, is_trial)
      VALUES ($1,$2,$3,$4,$5,$6,'open',$7,$8::jsonb,$9,$10) RETURNING *`,
-    [
-      newId(),
-      prcId,
-      teacher.id,
-      role,
-      caseSnapshot.name,
-      randomCode(),
-      prc.current_version,
-      JSON.stringify(caseSnapshot),
-      referenceId,
-      isTrial,
-    ],
-  );
-  return result.rows[0];
+      [
+        newId(),
+        prcId,
+        prc.owner_id,
+        role,
+        caseSnapshot.name,
+        randomCode(),
+        prc.current_version,
+        JSON.stringify(caseSnapshot),
+        referenceId,
+        isTrial,
+      ],
+    );
+    await client.query("COMMIT");
+    return result.rows[0];
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function handle(request: Request): Promise<Response> {
@@ -1191,22 +1250,31 @@ async function handle(request: Request): Promise<Response> {
     const teacher = await requireTeacher(request);
     const result = await pool.query(
       `SELECT
-         (SELECT count(*)::int FROM prc_private.prcs WHERE owner_id = $1 AND archived_at IS NULL AND NOT is_demo) AS prc_count,
+         (SELECT count(*)::int FROM prc_private.prcs WHERE prc_private.can_access_prc(id,$1) AND archived_at IS NULL AND NOT is_demo) AS prc_count,
          (SELECT count(*)::int FROM prc_private.launches l JOIN prc_private.prcs p ON p.id=l.prc_id
-           WHERE l.owner_id=$1 AND l.status='open' AND NOT l.is_trial AND NOT p.is_demo) AS active_count,
+           WHERE prc_private.can_manage_launch(l.id,$1) AND l.status='open' AND NOT l.is_trial AND NOT p.is_demo) AS active_count,
          (SELECT count(*)::int FROM prc_private.participants a JOIN prc_private.launches l ON l.id=a.launch_id
-           JOIN prc_private.prcs p ON p.id=l.prc_id WHERE l.owner_id=$1 AND NOT l.is_trial AND NOT p.is_demo) AS participant_count,
+           JOIN prc_private.prcs p ON p.id=l.prc_id WHERE prc_private.can_manage_launch(l.id,$1) AND NOT l.is_trial AND NOT p.is_demo) AS participant_count,
          (SELECT count(*)::int FROM prc_private.responses r JOIN prc_private.launches l ON l.id=r.launch_id
-           JOIN prc_private.prcs p ON p.id=l.prc_id WHERE l.owner_id=$1 AND r.state='submitted' AND NOT l.is_trial AND NOT p.is_demo) AS submission_count`,
+           JOIN prc_private.prcs p ON p.id=l.prc_id WHERE prc_private.can_manage_launch(l.id,$1) AND r.state='submitted' AND NOT l.is_trial AND NOT p.is_demo) AS submission_count`,
       [teacher.id],
     );
     const recent = await pool.query<LaunchRow>(
       `SELECT l.* FROM prc_private.launches l JOIN prc_private.prcs p ON p.id=l.prc_id
-       WHERE l.owner_id=$1 AND NOT l.is_trial AND NOT p.is_demo ORDER BY l.created_at DESC LIMIT 5`,
+       WHERE prc_private.can_manage_launch(l.id,$1) AND NOT l.is_trial AND NOT p.is_demo ORDER BY l.created_at DESC LIMIT 5`,
       [teacher.id],
     );
     const recentLaunches = await Promise.all(
       recent.rows.map(async (row) =>
+        mapLaunch(row, await launchCounts(row.id)),
+      ),
+    );
+    const active = await pool.query<LaunchRow>(
+      `SELECT l.* FROM prc_private.launches l JOIN prc_private.prcs p ON p.id=l.prc_id WHERE prc_private.can_manage_launch(l.id,$1) AND l.status='open' AND NOT l.is_trial AND NOT p.is_demo ORDER BY l.created_at DESC LIMIT 10`,
+      [teacher.id],
+    );
+    const activeLaunches = await Promise.all(
+      active.rows.map(async (row) =>
         mapLaunch(row, await launchCounts(row.id)),
       ),
     );
@@ -1216,6 +1284,7 @@ async function handle(request: Request): Promise<Response> {
       participantCount: result.rows[0].participant_count,
       submissionCount: result.rows[0].submission_count,
       recentLaunches,
+      activeLaunches,
     });
   }
 
@@ -1224,10 +1293,13 @@ async function handle(request: Request): Promise<Response> {
     const query = (url.searchParams.get("q") ?? "").trim().slice(0, 160);
     const archived = url.searchParams.get("archived") === "true";
     const result = await pool.query(
-      `SELECT p.id,p.current_version,p.updated_at,p.archived_at,p.is_demo,v.*,
-          (SELECT count(*)::int FROM prc_private.launches l WHERE l.prc_id=p.id AND NOT l.is_trial) AS launch_count
+      `SELECT p.id,p.current_version,p.updated_at,p.archived_at,p.is_demo,p.owner_id,
+          (SELECT username FROM prc_private.users WHERE id=p.owner_id) AS owner_username,
+          p.owner_id=$1 AS is_owner, prc_private.can_access_prc(p.id,$1,true) AS can_manage_sessions,
+          (SELECT count(*)::int FROM prc_private.prc_collaborators c WHERE c.prc_id=p.id) AS collaborator_count, v.*,
+          (SELECT count(*)::int FROM prc_private.launches l WHERE l.prc_id=p.id AND NOT l.is_trial AND prc_private.can_manage_launch(l.id,$1)) AS launch_count
          FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id=p.id AND v.version=p.current_version
-        WHERE p.owner_id=$1 AND (p.archived_at IS NOT NULL)=$2 AND ($3='' OR v.name ILIKE '%' || $3 || '%' OR v.scenario ILIKE '%' || $3 || '%')
+        WHERE prc_private.can_access_prc(p.id,$1) AND (p.archived_at IS NOT NULL)=$2 AND ($3='' OR v.name ILIKE '%' || $3 || '%' OR v.scenario ILIKE '%' || $3 || '%')
         ORDER BY p.updated_at DESC`,
       [teacher.id, archived, query],
     );
@@ -1241,7 +1313,10 @@ async function handle(request: Request): Promise<Response> {
           }),
           archived: !!row.archived_at,
           isDemo: row.is_demo,
-          workflow: await workflowFor(row.prc_id, row.current_version, row),
+          workflow: {
+            ...(await workflowFor(row.prc_id, row.current_version, row)),
+            ...(!row.can_manage_sessions ? { panelLaunchId: null } : {}),
+          },
         })),
       ),
     );
@@ -1251,7 +1326,7 @@ async function handle(request: Request): Promise<Response> {
   if (duplicateMatch && method === "POST") {
     const teacher = await requireTeacher(request);
     const source = await pool.query(
-      `SELECT v.* FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id=p.id AND v.version=p.current_version WHERE p.id=$1 AND p.owner_id=$2`,
+      `SELECT v.* FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id=p.id AND v.version=p.current_version WHERE p.id=$1 AND prc_private.can_access_prc(p.id,$2)`,
       [segment(duplicateMatch[1]), teacher.id],
     );
     if (!source.rows[0]) fail(404, "PRC introuvable.");
@@ -1309,6 +1384,108 @@ async function handle(request: Request): Promise<Response> {
     );
   }
 
+  const collaboratorsMatch = match(
+    /^\/api\/prcs\/([^/]+)\/collaborators(?:\/([^/]+))?$/,
+  );
+  if (collaboratorsMatch) {
+    const teacher = await requireTeacher(request);
+    const prcId = segment(collaboratorsMatch[1]);
+    if (method === "GET" && !collaboratorsMatch[2]) {
+      const prc = await pool.query(
+        "SELECT p.owner_id,u.username FROM prc_private.prcs p JOIN prc_private.users u ON u.id=p.owner_id WHERE p.id=$1 AND prc_private.can_access_prc(p.id,$2)",
+        [prcId, teacher.id],
+      );
+      if (!prc.rows[0]) fail(404, "PRC introuvable.");
+      const members = await pool.query(
+        "SELECT u.id,u.username,u.active,c.can_manage_sessions FROM prc_private.prc_collaborators c JOIN prc_private.users u ON u.id=c.user_id WHERE c.prc_id=$1 ORDER BY lower(u.username)",
+        [prcId],
+      );
+      return send({
+        owner: { id: prc.rows[0].owner_id, username: prc.rows[0].username },
+        canShare: prc.rows[0].owner_id === teacher.id,
+        collaborators: members.rows.map((row) => ({
+          id: row.id,
+          username: row.username,
+          active: row.active,
+          manageSessions: row.can_manage_sessions,
+        })),
+      });
+    }
+    if (
+      (method === "POST" && !collaboratorsMatch[2]) ||
+      (method === "DELETE" && collaboratorsMatch[2])
+    ) {
+      const input = method === "POST" ? await body(request) : {};
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        await lockPrcAccess(client, prcId, teacher.id);
+        const prc = await client.query(
+          "SELECT owner_id FROM prc_private.prcs WHERE id=$1",
+          [prcId],
+        );
+        if (prc.rows[0].owner_id !== teacher.id)
+          fail(403, "Seul le propriétaire peut gérer le partage de ce PRC.");
+        if (method === "POST") {
+          const username = stringValue(
+            input.username,
+            "Identifiant du professeur",
+            80,
+          );
+          if (
+            input.manageSessions !== undefined &&
+            typeof input.manageSessions !== "boolean"
+          )
+            fail(400, "Le droit de gestion des séances est invalide.");
+          const target = await client.query(
+            "SELECT id,username FROM prc_private.users WHERE lower(username)=lower($1) AND active AND role IN ('teacher','admin')",
+            [username],
+          );
+          if (!target.rows[0])
+            fail(
+              404,
+              "Compte enseignant actif introuvable. Utilisez son identifiant PRC.",
+            );
+          if (target.rows[0].id === teacher.id)
+            fail(400, "Vous êtes déjà propriétaire de ce PRC.");
+          await client.query(
+            "INSERT INTO prc_private.prc_collaborators(prc_id,user_id,can_manage_sessions,added_by) VALUES($1,$2,$3,$4) ON CONFLICT(prc_id,user_id) DO UPDATE SET can_manage_sessions=EXCLUDED.can_manage_sessions",
+            [
+              prcId,
+              target.rows[0].id,
+              input.manageSessions === true,
+              teacher.id,
+            ],
+          );
+          await client.query("COMMIT");
+          return send({
+            id: target.rows[0].id,
+            username: target.rows[0].username,
+            manageSessions: input.manageSessions === true,
+          });
+        }
+        const targetId = segment(collaboratorsMatch[2]);
+        if (
+          !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+            targetId,
+          )
+        )
+          fail(400, "Identifiant enseignant invalide.");
+        await client.query(
+          "DELETE FROM prc_private.prc_collaborators WHERE prc_id=$1 AND user_id=$2",
+          [prcId, targetId],
+        );
+        await client.query("COMMIT");
+        return send({ removed: true });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+  }
+
   if (method === "POST" && path === "/api/prcs") {
     const teacher = await requireTeacher(request);
     const value = safePrcInput(await body(request));
@@ -1352,10 +1529,13 @@ async function handle(request: Request): Promise<Response> {
     const teacher = await requireTeacher(request);
     const prcId = segment(prcMatch[1]);
     const result = await pool.query(
-      `SELECT p.id, p.current_version, p.updated_at, p.archived_at, p.is_demo, v.*
+      `SELECT p.id, p.current_version, p.updated_at, p.archived_at, p.is_demo, p.owner_id,
+          (SELECT username FROM prc_private.users WHERE id=p.owner_id) AS owner_username,
+          p.owner_id=$2 AS is_owner, prc_private.can_access_prc(p.id,$2,true) AS can_manage_sessions,
+          (SELECT count(*)::int FROM prc_private.prc_collaborators c WHERE c.prc_id=p.id) AS collaborator_count, v.*
          FROM prc_private.prcs p
          JOIN prc_private.prc_versions v ON v.prc_id = p.id AND v.version = p.current_version
-        WHERE p.id = $1 AND p.owner_id = $2`,
+        WHERE p.id = $1 AND prc_private.can_access_prc(p.id,$2)`,
       [prcId, teacher.id],
     );
     const row = result.rows[0];
@@ -1368,8 +1548,8 @@ async function handle(request: Request): Promise<Response> {
       observations: row.observations,
     };
     const launches = await pool.query<LaunchRow>(
-      "SELECT * FROM prc_private.launches WHERE prc_id=$1 ORDER BY created_at DESC",
-      [prcId],
+      "SELECT * FROM prc_private.launches WHERE prc_id=$1 AND prc_private.can_manage_launch(id,$2) ORDER BY created_at DESC",
+      [prcId, teacher.id],
     );
     return send({
       ...mapPrc({
@@ -1381,7 +1561,10 @@ async function handle(request: Request): Promise<Response> {
       observations: value.observations,
       archived: !!row.archived_at,
       isDemo: row.is_demo,
-      workflow: await workflowFor(prcId, row.current_version, value),
+      workflow: {
+        ...(await workflowFor(prcId, row.current_version, value)),
+        ...(!row.can_manage_sessions ? { panelLaunchId: null } : {}),
+      },
       launches: launches.rows.map((launch) => mapLaunch(launch)),
     });
   }
@@ -1407,18 +1590,20 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await lockPrcAccess(client, prcId, teacher.id);
       const existing = await client.query(
-        `SELECT p.current_version, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
+        `SELECT p.current_version, EXISTS (SELECT 1 FROM prc_private.prc_collaborators c WHERE c.prc_id=p.id) AS is_shared, v.name, v.scenario, v.instructions, v.diagnostics, v.observations
            FROM prc_private.prcs p
            JOIN prc_private.prc_versions v ON v.prc_id = p.id AND v.version = p.current_version
-          WHERE p.id = $1 AND p.owner_id = $2 FOR UPDATE OF p`,
+          WHERE p.id = $1 AND prc_private.can_access_prc(p.id,$2) FOR UPDATE OF p`,
         [prcId, teacher.id],
       );
       if (!existing.rows[0]) fail(404, "PRC introuvable.");
       const prior = existing.rows[0];
       if (
-        input.version !== undefined &&
-        input.version !== Number(prior.current_version)
+        (prior.is_shared || input.version !== undefined) &&
+        (!Number.isInteger(input.version) ||
+          input.version !== Number(prior.current_version))
       )
         fail(
           409,
@@ -1987,10 +2172,7 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const locked = await client.query<LaunchRow>(
-        "SELECT * FROM prc_private.launches WHERE id=$1 AND owner_id=$2 FOR UPDATE",
-        [launchId, teacher.id],
-      );
+      const locked = await lockManagedLaunch(client, launchId, teacher.id);
       const launch = locked.rows[0];
       if (!launch) fail(404, "Activité introuvable.");
       if (launch.status !== "open") {
@@ -2021,9 +2203,10 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const result = await client.query<LaunchRow>(
-        "SELECT * FROM prc_private.launches WHERE id=$1 AND owner_id=$2 FOR UPDATE",
-        [segment(discussionMatch[1]), teacher.id],
+      const result = await lockManagedLaunch(
+        client,
+        segment(discussionMatch[1]),
+        teacher.id,
       );
       const launch = result.rows[0];
       if (!launch) fail(404, "Activité introuvable.");
@@ -2049,7 +2232,9 @@ async function handle(request: Request): Promise<Response> {
         [JSON.stringify(reveals), launch.id],
       );
       await client.query("COMMIT");
-      return send(mapLaunch(updated.rows[0], await launchCounts(launch.id)));
+      return send(
+        mapLaunch(updated.rows[0], await launchCounts(launch.id, client)),
+      );
     } catch (error) {
       await client.query("ROLLBACK");
       throw error;
@@ -2095,21 +2280,23 @@ async function handle(request: Request): Promise<Response> {
     );
     const launch = launchResult.rows[0];
     if (!launch) fail(404, "Panel introuvable.");
-    if (launch.status === "open")
-      fail(409, "Les résultats du panel restent masqués pendant la collecte.");
     const principal = await getPrincipal(request);
     if (!principal) fail(401, "Connexion requise.");
     if (principal.kind === "teacher") {
       if (principal.mustChangePassword)
         fail(403, "Le mot de passe initial doit être changé.");
-      if (principal.id !== launch.owner_id) fail(404, "Panel introuvable.");
-    } else if (
-      principal.launchId !== launch.id ||
-      principal.role !== "panel" ||
-      !launch.reveals.reference
-    ) {
+      const access = await pool.query(
+        "SELECT prc_private.can_manage_launch($1,$2) AS allowed",
+        [launch.id, principal.id],
+      );
+      if (!access.rows[0].allowed) fail(404, "Panel introuvable.");
+    } else if (principal.launchId !== launch.id || principal.role !== "panel") {
       fail(403, "Le professeur n’a pas encore révélé les résultats du panel.");
     }
+    if (launch.status === "open")
+      fail(409, "Les résultats du panel restent masqués pendant la collecte.");
+    if (principal.kind === "participant" && !launch.reveals.reference)
+      fail(403, "Le professeur n’a pas encore révélé les résultats du panel.");
     const panel = await getPanelSnapshot(launch, 1);
     return send(panel);
   }
@@ -2127,10 +2314,7 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const found = await client.query<LaunchRow>(
-        "SELECT * FROM prc_private.launches WHERE id=$1 AND owner_id=$2 FOR UPDATE",
-        [launchId, teacher.id],
-      );
+      const found = await lockManagedLaunch(client, launchId, teacher.id);
       const launch = found.rows[0];
       if (!launch) fail(404, "Activité introuvable.");
       if (launch.role !== "panel")
@@ -2212,10 +2396,7 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
-      const locked = await client.query<LaunchRow>(
-        "SELECT * FROM prc_private.launches WHERE id=$1 AND owner_id=$2 FOR UPDATE",
-        [launchId, teacher.id],
-      );
+      const locked = await lockManagedLaunch(client, launchId, teacher.id);
       const launch = locked.rows[0];
       if (!launch) fail(404, "Activité introuvable.");
       if (launch.is_trial)
@@ -2461,6 +2642,8 @@ export async function handleApiRequest(request: Request): Promise<Response> {
         "La base de données nécessite les migrations de cette version de l’application.",
       "42703":
         "Les migrations de cette version doivent être appliquées à la base de données.",
+      "42883":
+        "La base nécessite la migration de collaboration 004_collaboration.sql avant cette version de l’application.",
     };
     if (connectionErrors[code])
       return send({ error: connectionErrors[code] }, 503);

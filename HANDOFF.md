@@ -103,3 +103,15 @@ Ces mesures ne couvrent ni Internet/TLS, ni le pooler Supabase distant, ni les d
 `POST /api/launches/:id/discussion` est réservé au propriétaire d’un groupe synchrone fermé. La transaction verrouille le lancement et conserve l’union des diagnostics révélés, même lors d’actions concurrentes. La projection reçoit uniquement les étapes publiques. La restitution étudiante reçoit les points personnels uniquement pour les diagnostics révélés ; le total reste privé et masqué jusqu’à publication. En asynchrone, seules les deux hypothèses d’une copie soumise sont corrigées immédiatement et aucune statistique de classe n’est transmise. Les brouillons restent non soumis sans zéro.
 
 Vérifications locales : intégration PostgreSQL (fermeture, dénominateurs, étapes, verrouillage concurrent, scores partiels, diagnostic absent, confidentialité, correction asynchrone) ; navigateur avec API simulée ; parcours réel administrateur → professeur → expert → étudiant synchrone puis étudiant asynchrone. Aucun test n’écrit dans Supabase de production.
+
+## PRC partagés et séparation du tableau de bord
+
+`004_collaboration.sql` ajoute `prc_collaborators` avec un droit facultatif `can_manage_sessions`, et les prédicats SQL privés `can_access_prc` / `can_manage_launch`. Les lectures, listes, compteurs et mutations appliquent ces droits. Le propriétaire reste seul autorisé à gérer le partage et l’archivage. Un lancement créé par un collaborateur garde le propriétaire du PRC comme `owner_id`, pour que la révocation retire aussi l’accès aux séances créées par ce collaborateur.
+
+Les modifications du partage et du contenu verrouillent la même ligne PRC. Les mutations de séances prennent ce verrou puis celui du lancement et recontrôlent les droits. Lorsqu’un client PostgreSQL est réservé, les compteurs utilisent ce même client, même après `COMMIT`, pour éviter qu’une paire de demandes concurrentes bloque le pool de deux connexions.
+
+Les sauvegardes de cas partagés exigent la version chargée ; l’éditeur conserve cette version séparément du cache réseau pour qu’un rafraîchissement en arrière-plan ne transforme pas une copie locale obsolète en sauvegarde autorisée. Le formulaire conserve le contenu local en cas de HTTP 409 et demande une action explicite avant de charger la version récente. Les cas partagés sont relus périodiquement uniquement sur une page visible.
+
+Navigation : `/` suit les activités ; `/prcs` réunit les cas personnels et partagés. Le propriétaire choisit les accès dans `Sharing.tsx`. Le lancement d’un nouveau groupe étudiant depuis la bibliothèque repasse par le PRC pour choisir sa modalité synchrone/asynchrone.
+
+Vérification locale : script de migration rejoué deux fois avec un partage existant, absence de privilèges publics, partage sans duplication, conflit concurrent entre deux sauvegardes, isolation des professeurs tiers, édition seule vs gestion des séances, révocation y compris des séances créées par le collaborateur, historique clinique conservé, et parcours navigateur complet avec deux enseignants distincts.

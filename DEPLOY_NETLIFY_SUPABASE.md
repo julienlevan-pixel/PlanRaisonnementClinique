@@ -149,3 +149,17 @@ Les effectifs comparés utilisent les copies définitives uniquement. Pour chaqu
 Pour ces nouveaux groupes, le barème réunit les contributions expertes principales et alternatives par diagnostic : diagnostic représenté = 2 points, données concordantes = 8 × R/C, où R additionne les points experts de même signe et C les cinq meilleurs maxima directionnels. Un diagnostic absent de **tout** le panel vaut 0/2 et 0/8. Les deux hypothèses de l’étudiant totalisent donc au maximum 20 points. Les anciens groupes et leurs notes ne sont pas recalculés.
 
 Aucune migration SQL ni nouvelle variable Netlify : la modalité est figée dans les paramètres JSON du lancement, et les étapes dans son état de révélation existant. Les groupes historiques et les anciens clients API conservent leur fonctionnement antérieur ; le nouveau parcours est activé par `deliveryMode` lors de la création d’un groupe étudiant.
+
+## Bibliothèque et collaboration entre professeurs
+
+La navigation sépare maintenant **Vue d’ensemble** (`/`) — indicateurs, activités ouvertes et récentes — de **Mes PRC** (`/prcs`) — recherche, création, archives et cas partagés. Les activités affichées sont limitées aux cas et séances accessibles au professeur connecté.
+
+Dans un PRC enregistré, le propriétaire ouvre **Partager**, saisit l’identifiant PRC d’un autre professeur et confirme **Partager ce PRC**. Le collègue doit disposer d’un compte enseignant actif créé dans l’administration PRC. Il retrouve le même cas dans **Mes PRC**, avec le même identifiant et les mêmes versions ; le partage ne crée aucune copie.
+
+L’accès partagé permet d’éditer le contenu. La case **Autoriser aussi la gestion des panels, groupes et copies étudiantes** donne en plus accès aux séances du PRC ; elle est désactivée par défaut. Le propriétaire peut changer ce droit ou retirer l’accès. Les collaborateurs ne peuvent pas partager à d’autres comptes ni archiver le cas. Les séances qu’ils créent restent attachées au propriétaire du PRC : retirer un accès retire aussi les droits sur ces séances, sans supprimer leurs réponses.
+
+Le formulaire envoie la version qu’il a effectivement chargée. Si un autre professeur enregistre entre-temps, une sauvegarde obsolète est refusée ; le travail local reste visible, avec une action pour charger la version récente. Le chargement demande confirmation si des modifications locales seraient remplacées. Ce mécanisme protège les enregistrements concurrents ; il ne fusionne pas automatiquement deux textes en cours de saisie. Les lancements et corrigés existants conservent leurs questionnaires figés.
+
+**Migration requise avant de déployer cette fonctionnalité :** appliquer `docs/UPGRADE_SHARED_PRCS.sql` dans SQL Editor sur une base déjà installée, ou exécuter le migrateur privé qui inclut `004_collaboration.sql`. Le script est additif et réexécutable ; il ajoute la table des collaborateurs et les fonctions de contrôle d’accès, sans modifier les comptes, cas et réponses existants. Les fonctions et la table sont interdites aux rôles publics Supabase. Tester ensuite le partage et la révocation avec deux comptes PRC.
+
+Si Netlify a suspendu les déploiements pour dépassement de quota, conserver les changements dans GitHub et préparer la migration ; attendre la reprise des déploiements pour publier la version. Aucun nouveau secret Netlify n’est requis.
