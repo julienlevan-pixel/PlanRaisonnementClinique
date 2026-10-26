@@ -11,7 +11,7 @@ import type { StudentReviewCorrectionsItem } from './studentReviewCorrectionsIte
 import type { StudentReviewDeliveryMode } from './studentReviewDeliveryMode';
 
 /**
- * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
+ * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
  */
 export interface StudentReview {
   scoringVersion?: string;

@@ -8,12 +8,14 @@
 import type { CaseSnapshot } from './caseSnapshot';
 import type { GradingSummary } from './gradingSummary';
 import type { JoinInfoDeliveryMode } from './joinInfoDeliveryMode';
+import type { LiveSession } from './liveSession';
 
 export type JoinInfo = CaseSnapshot & ({
   launchId: string;
   role: string;
   status: string;
   isTrial?: boolean;
+  liveSession?: LiveSession;
   guidedReview?: boolean;
   scoringVersion?: string;
   grading?: GradingSummary;

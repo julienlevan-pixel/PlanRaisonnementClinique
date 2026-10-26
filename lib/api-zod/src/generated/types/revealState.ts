@@ -5,9 +5,11 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { LiveSession } from './liveSession';
 
 export interface RevealState {
   mainDiagnostic: boolean;
+  liveSession?: LiveSession;
   mainArguments: boolean;
   alternativeDiagnostic: boolean;
   alternativeArguments: boolean;

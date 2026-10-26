@@ -161,6 +161,22 @@ export const LaunchDeliveryMode = {
   asynchronous: 'asynchronous',
 } as const;
 
+export type LiveSessionPhase = typeof LiveSessionPhase[keyof typeof LiveSessionPhase];
+
+
+export const LiveSessionPhase = {
+  lobby: 'lobby',
+  case: 'case',
+  answering: 'answering',
+} as const;
+
+export interface LiveSession {
+  phase: LiveSessionPhase;
+  openedAt?: string;
+  /** @nullable */
+  endsAt?: string | null;
+}
+
 export interface Launch {
   id: string;
   prcId: string;
@@ -180,6 +196,8 @@ export interface Launch {
   createdAt: string;
   participantCount: number;
   submissionCount: number;
+  liveSession?: LiveSession;
+  serverNow?: string;
 }
 
 export type PrcDetail = Prc & {
@@ -213,8 +231,27 @@ export interface PrcInput {
   observations: ObservationInput[];
 }
 
+export type SessionActionInputAction = typeof SessionActionInputAction[keyof typeof SessionActionInputAction];
+
+
+export const SessionActionInputAction = {
+  present: 'present',
+  open: 'open',
+} as const;
+
+export interface SessionActionInput {
+  action: SessionActionInputAction;
+  /**
+     * @minimum 1
+     * @maximum 180
+     * @nullable
+     */
+  durationMinutes?: number | null;
+}
+
 export interface RevealState {
   mainDiagnostic: boolean;
+  liveSession?: LiveSession;
   mainArguments: boolean;
   alternativeDiagnostic: boolean;
   alternativeArguments: boolean;
@@ -382,6 +419,17 @@ export const LaunchInputRole = {
 } as const;
 
 /**
+ * synchronous ajoute une salle d’attente et l’ouverture explicite des réponses. Les anciens lancements sans cette propriété conservent leur fonctionnement.
+ */
+export type LaunchInputSessionMode = typeof LaunchInputSessionMode[keyof typeof LaunchInputSessionMode];
+
+
+export const LaunchInputSessionMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+/**
  * Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété
  */
 export type LaunchInputDeliveryMode = typeof LaunchInputDeliveryMode[keyof typeof LaunchInputDeliveryMode];
@@ -401,6 +449,8 @@ export interface LaunchInput {
      */
   name?: string;
   isTrial?: boolean;
+  /** synchronous ajoute une salle d’attente et l’ouverture explicite des réponses. Les anciens lancements sans cette propriété conservent leur fonctionnement. */
+  sessionMode?: LaunchInputSessionMode;
   /** Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété */
   deliveryMode?: LaunchInputDeliveryMode;
 }
@@ -433,6 +483,7 @@ export type JoinInfo = CaseSnapshot & ({
   role: string;
   status: string;
   isTrial?: boolean;
+  liveSession?: LiveSession;
   guidedReview?: boolean;
   scoringVersion?: string;
   grading?: GradingSummary;
@@ -730,7 +781,7 @@ export type StudentReviewCorrectionsItem = {
  };
 
 /**
- * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
+ * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
  */
 export interface StudentReview {
   scoringVersion?: string;
@@ -837,6 +888,14 @@ export interface ErrorResponse {
   error: string;
 }
 
+export type DemoSessionInputSessionMode = typeof DemoSessionInputSessionMode[keyof typeof DemoSessionInputSessionMode];
+
+
+export const DemoSessionInputSessionMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 /**
  * Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants.
  */
@@ -849,6 +908,7 @@ export const DemoSessionInputDeliveryMode = {
 } as const;
 
 export interface DemoSessionInput {
+  sessionMode?: DemoSessionInputSessionMode;
   /** Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants. */
   deliveryMode: DemoSessionInputDeliveryMode;
 }
@@ -902,6 +962,10 @@ export const ParticipantActivityStateDeliveryMode = {
 } as const;
 
 export interface ParticipantActivityState {
+  liveSession?: LiveSession;
+  joinInfo?: JoinInfo;
+  participantCount?: number;
+  serverNow?: string;
   status: string;
   role: ParticipantActivityStateRole;
   reveals: RevealState;

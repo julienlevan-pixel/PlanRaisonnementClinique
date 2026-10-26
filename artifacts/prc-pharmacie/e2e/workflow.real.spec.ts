@@ -19,10 +19,20 @@ async function confirmClick(page: Page, name: string) {
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name, exact: true }).click();
 }
-async function answerAndSubmit(page: Page, pseudonym: string) {
+async function answerAndSubmit(page: Page, pseudonym: string, teacher?: Page) {
   await page.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(pseudonym);
   await page.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
   await expect(page).toHaveURL(/\/participant$/);
+  if (teacher) {
+    await expect(page.getByRole('region', { name: 'Salle d’attente de la séance', exact: true })).toBeVisible();
+    await expect(page.getByLabel('Impression clinique', { exact: true })).toHaveCount(0);
+    await teacher.getByRole('button', { name: 'Présenter le cas', exact: true }).click();
+    await expect(page.getByRole('region', { name: 'Présentation du cas clinique', exact: true })).toBeVisible({ timeout: 12000 });
+    await expect(page.getByLabel('Impression clinique', { exact: true })).toHaveCount(0);
+    await teacher.getByRole('spinbutton', { name: 'Chronomètre facultatif (minutes)', exact: true }).fill('5');
+    await teacher.getByRole('button', { name: 'Ouvrir les réponses', exact: true }).click();
+    await expect(page.getByRole('timer')).toBeVisible({ timeout: 12000 });
+  }
   await page.getByLabel('Impression clinique', { exact: true }).selectOption({ label: 'Hypothèse navigateur A' });
   await page.getByLabel('Impression clinique alternative', { exact: true }).selectOption({ label: 'Hypothèse navigateur B' });
   for (let index = 1; index <= 5; index++) {
@@ -94,7 +104,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       invitationUrl = (await link.getAttribute('href'))!;
       expect(new URL(invitationUrl, baseURL).origin).toBe(new URL(baseURL).origin);
       await expert.goto(invitationUrl);
-      await answerAndSubmit(expert, 'Expert navigateur fictif');
+      await answerAndSubmit(expert, 'Expert navigateur fictif', teacher);
       await expert.reload();
       await expect(expert.getByRole('heading', { name: 'Votre réponse définitive', exact: true })).toBeVisible();
       await expect(expert.locator('.expert-diagnostic')).toHaveCount(2);
@@ -125,7 +135,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(access).toBeVisible();
       studentUrl = (await access.getAttribute('href'))!;
       await student.goto(studentUrl);
-      await answerAndSubmit(student, 'Étudiant navigateur fictif');
+      await answerAndSubmit(student, 'Étudiant navigateur fictif', teacher);
       await expect(student.getByRole('heading', { name: 'Votre résultat', exact: true })).not.toBeVisible();
       await expect(student.getByText('Votre note reste privée et masquée', { exact: false })).toBeVisible();
     });
@@ -244,6 +254,16 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
         await participant.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(name);
         await participant.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
         await expect(participant).toHaveURL(/\/participant$/);
+        if (name === 'Toux synchrone') {
+          await expect(participant.getByRole('region', { name: 'Salle d’attente de la séance', exact: true })).toBeVisible();
+          const manage = (await syncCard.getByRole('link', { name: 'Gérer la séance et afficher le QR code', exact: true }).getAttribute('href'))!;
+          const controller = await teacher.context().newPage();
+          await controller.goto(manage);
+          await controller.getByRole('button', { name: 'Présenter le cas', exact: true }).click();
+          await controller.getByRole('button', { name: 'Ouvrir les réponses', exact: true }).click();
+          await expect(participant.getByLabel('Impression clinique', { exact: true })).toBeVisible({ timeout: 12000 });
+          await controller.close();
+        }
         await participant.getByLabel('Impression clinique', { exact: true }).selectOption(demoDocument.diagnostics[0].id);
         await participant.getByLabel('Impression clinique alternative', { exact: true }).selectOption(demoDocument.diagnostics[1].id);
         for (let index = 0; index < 5; index++) {
@@ -274,8 +294,10 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(rubric.getByRole('status')).toContainText('version 2');
       await teacher.goto(casePath.replace('/prcs/','/prc/'));
       await demo.getByRole('button',{name:'Autoriser la séance asynchrone',exact:true}).click();
-      const refreshed=await(await teacher.request.get(`/api${casePath}`)).json();
-      expect(refreshed.launches.some((launch:any)=>launch.grading?.maximum===16&&launch.grading?.rubricRevision===2)).toBe(true);
+      await expect.poll(async () => {
+        const refreshed=await(await teacher.request.get(`/api${casePath}`)).json();
+        return refreshed.launches.some((launch:any)=>launch.grading?.maximum===16&&launch.grading?.rubricRevision===2);
+      }).toBe(true);
       expect((await(await asyncStudent.request.get('/api/participant/results')).json()).case.grading.maximum).toBe(15);
     });
   } finally { await Promise.all(contexts.map(context => context.close())); }

@@ -6,8 +6,10 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { DemoSessionInputDeliveryMode } from './demoSessionInputDeliveryMode';
+import type { DemoSessionInputSessionMode } from './demoSessionInputSessionMode';
 
 export interface DemoSessionInput {
+  sessionMode?: DemoSessionInputSessionMode;
   /** Choix explicite du professeur, enregistré dans la séance et non modifiable par les étudiants. */
   deliveryMode: DemoSessionInputDeliveryMode;
 }

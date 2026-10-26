@@ -1,0 +1,118 @@
+.session-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  padding: 0;
+  list-style-position: inside;
+  color: hsl(var(--muted-foreground));
+  font-size: 14px;
+}
+.session-steps [aria-current="step"] {
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+.live-session-controls > p,
+.session-waiting > p {
+  line-height: 1.7;
+}
+.live-session-controls > small {
+  display: block;
+  margin-top: 12px;
+}
+.session-duration {
+  max-width: 300px;
+  margin: 20px 0;
+}
+.session-countdown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 20px;
+  padding: 18px;
+  margin: 18px 0;
+  background: hsl(var(--muted) / 0.4);
+  border-radius: 8px;
+}
+.session-countdown strong {
+  font-size: 28px;
+  font-variant-numeric: tabular-nums;
+}
+.session-countdown small {
+  flex-basis: 100%;
+}
+.session-countdown.elapsed {
+  color: #7b4b13;
+  background: #fff4dc;
+}
+.session-waiting {
+  padding: 28px;
+  margin: 24px 0;
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  background: hsl(var(--card));
+}
+.session-joined-count {
+  font-size: 20px;
+  color: hsl(var(--primary));
+}
+.session-case {
+  margin: 24px 0;
+  padding: clamp(18px, 3vw, 32px);
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+}
+.session-scenario {
+  font-size: 20px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.session-instructions {
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+.session-observations ul {
+  list-style: none;
+  padding: 0;
+}
+.session-observations li {
+  display: grid;
+  grid-template-columns: minmax(110px, 180px) minmax(0, 1fr);
+  gap: 16px;
+  padding: 14px 0;
+  border-top: 1px solid hsl(var(--border));
+  line-height: 1.6;
+}
+.session-observations small {
+  color: hsl(var(--muted-foreground));
+}
+.projection-page .session-scenario {
+  font-size: clamp(22px, 2.8vw, 34px);
+}
+.projection-page .session-observations li {
+  font-size: 21px;
+}
+.projection-session-access {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 24px 0;
+}
+.projection-session-access a {
+  overflow-wrap: anywhere;
+}
+.projection-session-access strong {
+  font-size: clamp(26px, 4vw, 48px);
+  letter-spacing: 0.08em;
+}
+@media (max-width: 600px) {
+  .session-waiting {
+    padding: 20px;
+  }
+  .session-observations li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+}

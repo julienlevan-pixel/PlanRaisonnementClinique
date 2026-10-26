@@ -7,6 +7,7 @@
  */
 import type { LaunchInputDeliveryMode } from './launchInputDeliveryMode';
 import type { LaunchInputRole } from './launchInputRole';
+import type { LaunchInputSessionMode } from './launchInputSessionMode';
 
 export interface LaunchInput {
   role: LaunchInputRole;
@@ -17,6 +18,8 @@ export interface LaunchInput {
      */
   name?: string;
   isTrial?: boolean;
+  /** synchronous ajoute une salle d’attente et l’ouverture explicite des réponses. Les anciens lancements sans cette propriété conservent leur fonctionnement. */
+  sessionMode?: LaunchInputSessionMode;
   /** Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété */
   deliveryMode?: LaunchInputDeliveryMode;
 }
