@@ -12,6 +12,9 @@ export interface RevealState {
   alternativeDiagnostic: boolean;
   alternativeArguments: boolean;
   reference: boolean;
+  diagnosticComparison?: boolean;
+  correctedDiagnosticIds?: string[];
+  activeDiagnosticId?: string;
   /** Affiche uniquement les principales les plus fréquentes en conservant les égalités. */
   mainDiagnosticTopOnly?: boolean;
 }

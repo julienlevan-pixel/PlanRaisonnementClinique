@@ -95,3 +95,11 @@ Ces mesures ne couvrent ni Internet/TLS, ni le pooler Supabase distant, ni les d
 - La démonstration est explicitement fictive et pédagogique ; ses choix/scores ne constituent pas une validation clinique.
 - Un accès Netlify protégé par une connexion Netlify peut empêcher des participants externes d'atteindre l'application, indépendamment des droits PRC.
 - Le compte initial, les mots de passe et les réponses réels n'ont pas été réinitialisés par ces tests.
+
+## Séances étudiantes guidées et asynchrones
+
+`student-review.ts` construit les comparaisons et les corrections en filtrant les diagnostics autorisés avant toute réponse API. Les nouveaux lancements étudiants créés avec `deliveryMode` figent `case_snapshot.studentWorkflow` (mode, cinq choix requis). Ils utilisent la référence validée existante en réunissant les distributions principales/alternatives par diagnostic. Le reste des lancements conserve le barème historique et les notes déjà enregistrées.
+
+`POST /api/launches/:id/discussion` est réservé au propriétaire d’un groupe synchrone fermé. La transaction verrouille le lancement et conserve l’union des diagnostics révélés, même lors d’actions concurrentes. La projection reçoit uniquement les étapes publiques. La restitution étudiante reçoit les points personnels uniquement pour les diagnostics révélés ; le total reste privé et masqué jusqu’à publication. En asynchrone, seules les deux hypothèses d’une copie soumise sont corrigées immédiatement et aucune statistique de classe n’est transmise. Les brouillons restent non soumis sans zéro.
+
+Vérifications locales : intégration PostgreSQL (fermeture, dénominateurs, étapes, verrouillage concurrent, scores partiels, diagnostic absent, confidentialité, correction asynchrone) ; navigateur avec API simulée ; parcours réel administrateur → professeur → expert → étudiant synchrone puis étudiant asynchrone. Aucun test n’écrit dans Supabase de production.

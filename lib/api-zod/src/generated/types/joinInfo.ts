@@ -6,10 +6,19 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { CaseSnapshot } from './caseSnapshot';
+import type { JoinInfoDeliveryMode } from './joinInfoDeliveryMode';
 
-export type JoinInfo = CaseSnapshot & {
+export type JoinInfo = CaseSnapshot & ({
   launchId: string;
   role: string;
   status: string;
   isTrial?: boolean;
-};
+  guidedReview?: boolean;
+  deliveryMode?: JoinInfoDeliveryMode;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  requiredChoices?: number | null;
+});

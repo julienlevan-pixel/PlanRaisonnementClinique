@@ -8,6 +8,7 @@
 import type { CaseSnapshot } from './caseSnapshot';
 import type { ProjectionLaunch } from './projectionLaunch';
 import type { RevealState } from './revealState';
+import type { StudentReview } from './studentReview';
 import type { VisibleAggregate } from './visibleAggregate';
 import type { VisibleReference } from './visibleReference';
 
@@ -17,6 +18,7 @@ import type { VisibleReference } from './visibleReference';
 export interface Projection {
   launch: ProjectionLaunch;
   case: CaseSnapshot;
+  discussion?: StudentReview;
   role: string;
   status: string;
   reveals: RevealState;

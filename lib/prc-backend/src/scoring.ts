@@ -43,6 +43,45 @@ export interface ScoreResult {
   alternative: ScoreComponent;
 }
 
+/** Two distinct diagnoses per expert: combining roles never counts an expert twice. */
+export function combineDiagnostic(
+  panel: PanelDistribution[],
+  diagnosticId: string,
+): PanelDistribution {
+  const matching = panel.filter((row) => row.diagnosticId === diagnosticId);
+  const observations = new Map<
+    string,
+    PanelDistribution["observations"][number]
+  >();
+  for (const distribution of matching)
+    for (const row of distribution.observations) {
+      const prior = observations.get(row.observationId) ?? {
+        observationId: row.observationId,
+        label: row.label,
+        category: row.category,
+        positive: 0,
+        negative: 0,
+        positivePoints: 0,
+        negativePoints: 0,
+        notSelected: 0,
+      };
+      prior.positive += row.positive;
+      prior.negative += row.negative;
+      prior.positivePoints! += row.positivePoints ?? row.positive;
+      prior.negativePoints! += row.negativePoints ?? row.negative;
+      prior.notSelected += row.notSelected;
+      observations.set(row.observationId, prior);
+    }
+  const rows = [...observations.values()];
+  return {
+    diagnosticId,
+    role: "main",
+    expertCount: matching.reduce((n, row) => n + row.expertCount, 0),
+    observations: rows,
+    ceiling: computeCeiling(rows),
+  };
+}
+
 export function computeCeiling(
   observations: Array<{
     positive: number;
@@ -110,15 +149,21 @@ export function scoreSubmission(input: {
   mainChoices: Choice[];
   alternativeChoices: Choice[];
   panel: PanelDistribution[];
+  combineRoles?: boolean;
 }): ScoreResult {
-  const mainDistribution = input.panel.find(
-    (row) => row.role === "main" && row.diagnosticId === input.mainDiagnosticId,
-  );
-  const alternativeDistribution = input.panel.find(
-    (row) =>
-      row.role === "alternative" &&
-      row.diagnosticId === input.alternativeDiagnosticId,
-  );
+  const mainDistribution = input.combineRoles
+    ? combineDiagnostic(input.panel, input.mainDiagnosticId ?? "")
+    : input.panel.find(
+        (row) =>
+          row.role === "main" && row.diagnosticId === input.mainDiagnosticId,
+      );
+  const alternativeDistribution = input.combineRoles
+    ? combineDiagnostic(input.panel, input.alternativeDiagnosticId ?? "")
+    : input.panel.find(
+        (row) =>
+          row.role === "alternative" &&
+          row.diagnosticId === input.alternativeDiagnosticId,
+      );
   const main = scoreRole({
     diagnosisId: input.mainDiagnosticId ?? "",
     choices: input.mainChoices,

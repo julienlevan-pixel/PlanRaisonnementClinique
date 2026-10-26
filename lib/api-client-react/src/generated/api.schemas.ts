@@ -132,6 +132,14 @@ export const LaunchRole = {
   students: 'students',
 } as const;
 
+export type LaunchDeliveryMode = typeof LaunchDeliveryMode[keyof typeof LaunchDeliveryMode];
+
+
+export const LaunchDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 export interface Launch {
   id: string;
   prcId: string;
@@ -141,6 +149,8 @@ export interface Launch {
   prcName?: string;
   caseVersion?: number;
   isTrial?: boolean;
+  guidedReview?: boolean;
+  deliveryMode?: LaunchDeliveryMode;
   code: string;
   status: string;
   createdAt: string;
@@ -180,6 +190,9 @@ export interface RevealState {
   alternativeDiagnostic: boolean;
   alternativeArguments: boolean;
   reference: boolean;
+  diagnosticComparison?: boolean;
+  correctedDiagnosticIds?: string[];
+  activeDiagnosticId?: string;
   /** Affiche uniquement les principales les plus fréquentes en conservant les égalités. */
   mainDiagnosticTopOnly?: boolean;
 }
@@ -296,6 +309,17 @@ export const LaunchInputRole = {
   students: 'students',
 } as const;
 
+/**
+ * Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété
+ */
+export type LaunchInputDeliveryMode = typeof LaunchInputDeliveryMode[keyof typeof LaunchInputDeliveryMode];
+
+
+export const LaunchInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 export interface LaunchInput {
   role: LaunchInputRole;
   /**
@@ -305,6 +329,8 @@ export interface LaunchInput {
      */
   name?: string;
   isTrial?: boolean;
+  /** Active le parcours étudiant guidé ou la correction immédiate. Sans cette propriété */
+  deliveryMode?: LaunchInputDeliveryMode;
 }
 
 export interface InvitationInput {
@@ -322,12 +348,28 @@ export interface Invitation {
   code: string;
 }
 
-export type JoinInfo = CaseSnapshot & {
+export type JoinInfoDeliveryMode = typeof JoinInfoDeliveryMode[keyof typeof JoinInfoDeliveryMode];
+
+
+export const JoinInfoDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export type JoinInfo = CaseSnapshot & ({
   launchId: string;
   role: string;
   status: string;
   isTrial?: boolean;
-};
+  guidedReview?: boolean;
+  deliveryMode?: JoinInfoDeliveryMode;
+  /**
+     * @minimum 1
+     * @maximum 5
+     * @nullable
+     */
+  requiredChoices?: number | null;
+});
 
 export interface JoinInput {
   /**
@@ -517,6 +559,96 @@ export interface VisibleAggregate {
   [key: string]: unknown;
  }
 
+export type StudentReviewDeliveryMode = typeof StudentReviewDeliveryMode[keyof typeof StudentReviewDeliveryMode];
+
+
+export const StudentReviewDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+/**
+ * @nullable
+ */
+export type StudentReviewCorrectionsItemSelectedRole = typeof StudentReviewCorrectionsItemSelectedRole[keyof typeof StudentReviewCorrectionsItemSelectedRole] | null;
+
+
+export const StudentReviewCorrectionsItemSelectedRole = {
+  main: 'main',
+  alternative: 'alternative',
+} as const;
+
+/**
+ * @nullable
+ */
+export type StudentReviewCorrectionsItemObservationsItemStudentSign = typeof StudentReviewCorrectionsItemObservationsItemStudentSign[keyof typeof StudentReviewCorrectionsItemObservationsItemStudentSign] | null;
+
+
+export const StudentReviewCorrectionsItemObservationsItemStudentSign = {
+  '+': '+',
+  '-': '-',
+} as const;
+
+export type StudentReviewComparisonItem = {
+  diagnosticId?: string;
+  label?: string;
+  panelCount?: number;
+  panelTotal?: number;
+  panelPercent?: number;
+  studentCount?: number;
+  studentTotal?: number;
+  studentPercent?: number;
+  [key: string]: unknown;
+ };
+
+export type StudentReviewCorrectionsItemObservationsItem = {
+  observationId?: string;
+  label?: string;
+  category?: string;
+  positive?: number;
+  negative?: number;
+  positivePoints?: number;
+  negativePoints?: number;
+  /** @nullable */
+  studentSign?: StudentReviewCorrectionsItemObservationsItemStudentSign;
+  earnedPoints?: number;
+  [key: string]: unknown;
+ };
+
+export type StudentReviewCorrectionsItem = {
+  diagnosticId?: string;
+  label?: string;
+  panelCount?: number;
+  represented?: boolean;
+  /** @nullable */
+  selectedRole?: StudentReviewCorrectionsItemSelectedRole;
+  /** @nullable */
+  score?: number | null;
+  /** @nullable */
+  diagnosisScore?: number | null;
+  /** @nullable */
+  justificationScore?: number | null;
+  /** @nullable */
+  raw?: number | null;
+  maximum?: number;
+  ceiling?: number;
+  observations?: StudentReviewCorrectionsItemObservationsItem[];
+  [key: string]: unknown;
+ };
+
+/**
+ * Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux hypothèses d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
+ */
+export interface StudentReview {
+  deliveryMode: StudentReviewDeliveryMode;
+  comparisonVisible: boolean;
+  comparison: StudentReviewComparisonItem[];
+  corrections: StudentReviewCorrectionsItem[];
+  /** @nullable */
+  activeDiagnosticId?: string | null;
+  explanation?: string;
+}
+
 export interface LaunchResults {
   launch: Launch;
   participants: LaunchParticipantResult[];
@@ -526,7 +658,16 @@ export interface LaunchResults {
   reveals?: RevealState;
   class?: VisibleAggregate;
   panel?: VisibleAggregate;
+  discussion?: StudentReview;
 }
+
+export type ParticipantResultsDeliveryMode = typeof ParticipantResultsDeliveryMode[keyof typeof ParticipantResultsDeliveryMode];
+
+
+export const ParticipantResultsDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
 
 export type ParticipantResultsRole = typeof ParticipantResultsRole[keyof typeof ParticipantResultsRole];
 
@@ -538,6 +679,9 @@ export const ParticipantResultsRole = {
 
 export interface ParticipantResults {
   published: boolean;
+  guidedReview?: boolean;
+  deliveryMode?: ParticipantResultsDeliveryMode;
+  studentReview?: StudentReview;
   case: JoinInfo;
   response: ParticipantResponse;
   /**
@@ -599,11 +743,21 @@ export const ParticipantActivityStateRole = {
   students: 'students',
 } as const;
 
+export type ParticipantActivityStateDeliveryMode = typeof ParticipantActivityStateDeliveryMode[keyof typeof ParticipantActivityStateDeliveryMode];
+
+
+export const ParticipantActivityStateDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 export interface ParticipantActivityState {
   status: string;
   role: ParticipantActivityStateRole;
   reveals: RevealState;
   published: boolean;
+  guidedReview?: boolean;
+  deliveryMode?: ParticipantActivityStateDeliveryMode;
   responseState: string;
   /** @minimum 0 */
   revision: number;
@@ -621,6 +775,7 @@ export type ProjectionLaunch = Launch & {
 export interface Projection {
   launch: ProjectionLaunch;
   case: CaseSnapshot;
+  discussion?: StudentReview;
   role: string;
   status: string;
   reveals: RevealState;
@@ -678,6 +833,19 @@ export interface SubmissionInput {
      * @minimum 0
      */
   expectedRevision?: number;
+}
+
+export type DiscussionInputAction = typeof DiscussionInputAction[keyof typeof DiscussionInputAction];
+
+
+export const DiscussionInputAction = {
+  comparison: 'comparison',
+  diagnostic: 'diagnostic',
+} as const;
+
+export interface DiscussionInput {
+  action: DiscussionInputAction;
+  diagnosticId?: string;
 }
 
 export type ListPrcsParams = {

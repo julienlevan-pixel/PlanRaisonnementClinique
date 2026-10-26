@@ -89,11 +89,12 @@ async function questionnaire(
   options: {
     response?: any;
     role?: string;
+    requiredChoices?: number;
     put?: (route: Route, input: any) => Promise<void> | void;
   } = {},
 ) {
   let response = options.response ?? draft();
-  const info = { ...caseData, role: options.role ?? caseData.role };
+  const info = { ...caseData, role: options.role ?? caseData.role, requiredChoices: options.requiredChoices };
   await page.route("**/api/participant/response", async (route) => {
     if (route.request().method() === "PUT") {
       const input = route.request().postDataJSON();
@@ -265,6 +266,17 @@ test("submitted expert immediately sees all diagnostic tables and totals refresh
       () => document.documentElement.scrollWidth <= window.innerWidth,
     ),
   ).toBe(true);
+});
+
+test('a new student group requires five data per hypothesis without asking for expert points', async ({ page }) => {
+  await questionnaire(page, { requiredChoices: 5 });
+  for (let i = 1; i <= 4; i++) {
+    await page.getByTestId(`choice-main-positive-obs-${i}`).click();
+    await page.getByTestId(`choice-alternative-negative-obs-${i}`).click();
+  }
+  await page.getByRole('button', { name: 'Vérifier et transmettre', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('exactement cinq observations signées');
+  await expect(page.getByRole('combobox', { name: /^Points hypothèse/ })).toHaveCount(0);
 });
 
 test("saves signed choices, prevents a sixth choice and restores the acknowledged draft", async ({

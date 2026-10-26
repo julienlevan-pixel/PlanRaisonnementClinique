@@ -4,7 +4,7 @@ import { randomUUID } from "node:crypto";
 import { testServices } from "./test-support.js";
 
 test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.env.PRC_TEST_DATABASE_URL }, async t => {
-  const { pool, Session, newUser, completeCase, answer, save } = await testServices();
+  const { pool, Session, newUser, completeCase, answer, save, createReference } = await testServices();
   t.after(() => pool.end());
   const admin = await newUser("admin");
   const owner = await newUser();
@@ -191,6 +191,102 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal((await expert.call(`/launches/${panel.id}/panel-results`)).totalSubmissions, 2);
     const expertResults = await expert.call("/participant/results");
     assert.equal(expertResults.score, null);
+  });
+
+  await t.test("guided synchronous discussion reveals only the chosen stage, compares counts and gives private partial scores", async () => {
+    const item = await owner.session.call('/prcs', 'POST', { ...completeCase(), diagnostics: ['A', 'B', 'C', 'D', 'E'] }, 201);
+    await createReference(owner.session, item, 2);
+    const launch = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'synchronous' }, 201);
+    assert.equal(launch.guidedReview, true);
+    const a = new Session(), b = new Session(), unsent = new Session();
+    for (const session of [a, b, unsent]) await session.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: 'Private student' });
+    const first = { ...answer(item), alternativeDiagnosticId: item.diagnostics[3].id };
+    await save(a, first);
+    await a.call('/participant/submit', 'POST', {});
+    const second = { mainDiagnosticId: item.diagnostics[1].id, alternativeDiagnosticId: item.diagnostics[0].id,
+      mainChoices: answer(item).alternativeChoices, alternativeChoices: answer(item).mainChoices };
+    await save(b, second);
+    await b.call('/participant/submit', 'POST', {});
+    assert.equal((await a.call('/participant/results')).studentReview, undefined);
+    await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' }, 409);
+    await owner.session.call(`/launches/${launch.id}/close`, 'POST', {});
+    await other.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' }, 404);
+    await a.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' }, 401);
+    const hidden = await a.call('/participant/results');
+    assert.equal(hidden.score, null);
+    assert.equal(hidden.studentReview.comparisonVisible, false);
+    assert.deepEqual(hidden.studentReview.corrections, []);
+    await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[1].id }, 409);
+    await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' });
+    await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: 'invalid' }, 400);
+    const comparison = (await a.call('/participant/results')).studentReview;
+    assert.equal(comparison.comparison.length, 5);
+    assert.equal(comparison.comparison[0].diagnosticId, item.diagnostics[1].id);
+    assert.equal(comparison.comparison[0].panelPercent, 100);
+    assert.equal(comparison.comparison[0].studentPercent, 50);
+    assert.equal(comparison.comparison[0].studentTotal, 2);
+    assert.deepEqual(comparison.corrections, []);
+    await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[1].id });
+    const notChosen = await a.call('/participant/results');
+    assert.equal(notChosen.studentReview.corrections.length, 1);
+    assert.equal(notChosen.studentReview.corrections[0].selectedRole, null);
+    assert.equal(notChosen.studentReview.corrections[0].score, null);
+    const chosen = (await b.call('/participant/results')).studentReview.corrections[0];
+    assert.equal(chosen.selectedRole, 'main');
+    assert.equal(chosen.score, 10); // Experts chose B as alternative: credit is diagnostic-specific.
+    assert.equal(chosen.observations.length, 20);
+    const projection = await owner.session.call(`/launches/${launch.id}/projection`);
+    assert.equal(projection.discussion.corrections.length, 1);
+    assert.equal(projection.discussion.corrections[0].score, undefined);
+    assert.equal(projection.discussion.corrections[0].observations[0].studentSign, undefined);
+    assert.equal(JSON.stringify(projection).includes('Private student'), false);
+    await Promise.all([0, 3].map(i => owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[i].id })));
+    const stages = (await owner.session.call(`/launches/${launch.id}`)).reveals.correctedDiagnosticIds;
+    assert.equal(new Set(stages).size, 3);
+    const partial = await a.call('/participant/results');
+    assert.equal(partial.score, null);
+    const zero = partial.studentReview.corrections.find((row: any) => row.diagnosticId === item.diagnostics[3].id);
+    assert.equal(zero.diagnosisScore, 0);
+    assert.equal(zero.justificationScore, 0);
+    assert.equal(zero.score, 0);
+    assert.deepEqual(partial.components, {});
+    await owner.session.call(`/launches/${launch.id}/publish`, 'POST', {});
+    const published = await a.call('/participant/results');
+    assert.equal(published.score, 10);
+    assert.equal(published.studentReview.corrections.length, 5);
+    assert.equal((await unsent.call('/participant/results')).score, null);
+  });
+
+  await t.test("asynchronous students get only their own two corrections immediately and drafts stay ungraded", async () => {
+    const item = await owner.session.call('/prcs', 'POST', { ...completeCase(), diagnostics: ['A', 'B', 'C', 'D', 'E'] }, 201);
+    await createReference(owner.session, item, 2);
+    await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'invalid' }, 400);
+    const launch = await owner.session.call(`/prcs/${item.id}/launches`, 'POST', { role: 'students', deliveryMode: 'asynchronous' }, 201);
+    const a = new Session(), unsent = new Session();
+    await a.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: 'Async student' });
+    await unsent.call(`/launches/${launch.id}/join`, 'POST', { pseudonym: 'Other student' });
+    assert.equal((await a.call('/participant/response')).joinInfo.requiredChoices, 5);
+    await save(a, answer(item, false, 4));
+    await a.call('/participant/submit', 'POST', {}, 400);
+    assert.equal((await a.call('/participant/results')).studentReview, undefined);
+    await save(a, { ...answer(item), alternativeDiagnosticId: item.diagnostics[4].id });
+    await a.call('/participant/submit', 'POST', {});
+    const result = await a.call('/participant/results');
+    assert.equal(result.status, 'open');
+    assert.equal(result.published, true);
+    assert.equal(result.score, 10);
+    assert.equal((await a.call('/participant/state')).published, true);
+    assert.equal(result.studentReview.corrections.length, 2);
+    assert.deepEqual(result.studentReview.comparison, []);
+    assert.deepEqual(result.class, {});
+    assert.deepEqual(result.panel, {});
+    assert.equal(JSON.stringify(result).includes('Other student'), false);
+    await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' }, 400);
+    await owner.session.call(`/launches/${launch.id}/close`, 'POST', {});
+    const draftResult = await unsent.call('/participant/results');
+    assert.equal(draftResult.score, null);
+    assert.equal(draftResult.studentReview, undefined);
+    assert.equal((await a.call('/participant/results')).score, 10);
   });
 
   await t.test("drafts survive refresh and stale saves cannot overwrite a later revision", async () => {

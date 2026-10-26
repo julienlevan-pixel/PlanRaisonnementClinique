@@ -30,6 +30,7 @@ import type {
   CurrentUser,
   DemoCase,
   DemoSetupResult,
+  DiscussionInput,
   DuplicatePrcResult,
   ErrorResponse,
   HealthStatus,
@@ -1505,6 +1506,92 @@ export function useGetLaunch<TData = Awaited<ReturnType<typeof getLaunch>>, TErr
 
 
 
+export const getAdvanceDiscussionUrl = (launchId: string,) => {
+
+
+
+
+  return `/api/launches/${launchId}/discussion`
+}
+
+/**
+ * Révèle la comparaison puis un corrigé par diagnostic. Réservé au propriétaire d’une séance synchrone fermée. Les étapes concurrentes sont sérialisées et les corrigés révélés sont conservés.
+ */
+export const advanceDiscussion = async (launchId: string,
+    discussionInput: DiscussionInput, options?: Parameters<typeof customFetch>[1]): Promise<Launch> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<Launch>(getAdvanceDiscussionUrl(launchId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(discussionInput)
+  }
+);}
+
+
+
+
+
+export const getAdvanceDiscussionMutationKey = () => ['advanceDiscussion'] as const;
+
+export const getAdvanceDiscussionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceDiscussion>>, TError,AdvanceDiscussionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceDiscussion>>, TError,AdvanceDiscussionMutationVariables, TContext> => {
+
+const mutationKey = getAdvanceDiscussionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceDiscussion>>, AdvanceDiscussionMutationVariables> = (props) => {
+          const {launchId,data} = props ?? {};
+
+          return  advanceDiscussion(launchId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceDiscussionMutationResult = NonNullable<Awaited<ReturnType<typeof advanceDiscussion>>>
+    export type AdvanceDiscussionMutationBody = BodyType<DiscussionInput>
+    export type AdvanceDiscussionMutationError = ErrorType<unknown>
+    export type AdvanceDiscussionMutationVariables = {launchId: string;data: BodyType<DiscussionInput>}
+
+    export const useAdvanceDiscussion = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceDiscussion>>, TError,AdvanceDiscussionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof advanceDiscussion>>,
+        TError,
+        AdvanceDiscussionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAdvanceDiscussionMutationOptions(options), queryClient);
+    }
+
 export const getCreateInvitationUrl = (launchId: string,) => {
 
 
@@ -2618,7 +2705,7 @@ export const getGetParticipantResultsUrl = () => {
 }
 
 /**
- * Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel contient immédiatement les agrégats anonymes du panel, même pendant la collecte. Les autres agrégats suivent les étapes de révélation après fermeture. Le score privé n’apparaît qu’après publication étudiante. Un brouillon reste non soumis avec score et pourcentage nuls ; les experts ne sont jamais notés.
+ * Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel contient immédiatement les agrégats anonymes du panel, même pendant la collecte. studentReview suit les étapes révélées en synchrone, avec des sous-totaux personnels uniquement pour les diagnostics corrigés ; la note globale attend la publication. En asynchrone, la copie soumise reçoit immédiatement ses deux corrections et sa note, sans résultats des autres étudiants. Un brouillon reste non soumis, sans note ; les experts ne sont jamais notés. Les anciens groupes conservent leurs étapes historiques.
  */
 export const getParticipantResults = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParticipantResults> => {
 
