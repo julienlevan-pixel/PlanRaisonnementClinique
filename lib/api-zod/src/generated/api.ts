@@ -653,6 +653,7 @@ export const ListTeachingSessionsQueryParams = zod.object({
 })
 
 export const ListTeachingSessionsResponseItem = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "archivedAt": zod.coerce.date().nullish(),
   "id": zod.string(),
   "name": zod.string(),
@@ -669,6 +670,7 @@ export const ListTeachingSessionsResponse = zod.array(ListTeachingSessionsRespon
 /**
  * Crée atomiquement les activités des cas dans l’ordre choisi, avec des versions et barèmes figés. Un seul code et une identité par participant pour toute la séance synchrone.
  */
+export const createTeachingSessionBodyDeliveryModeDefault = `synchronous`;
 export const createTeachingSessionBodyNameMax = 160;
 
 export const createTeachingSessionBodyPrcIdsMax = 20;
@@ -676,6 +678,7 @@ export const createTeachingSessionBodyPrcIdsMax = 20;
 
 
 export const CreateTeachingSessionBody = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).default(createTeachingSessionBodyDeliveryModeDefault).describe('Choix du professeur. Le mode peut être changé avant le début et avant toute inscription.'),
   "name": zod.string().min(1).max(createTeachingSessionBodyNameMax),
   "role": zod.enum(['panel', 'students']),
   "prcIds": zod.array(zod.string()).min(1).max(createTeachingSessionBodyPrcIdsMax)
@@ -702,6 +705,7 @@ export const GetTeachingSessionParams = zod.object({
 })
 
 export const GetTeachingSessionResponse = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "archivedAt": zod.coerce.date().nullish(),
   "id": zod.string(),
   "name": zod.string(),
@@ -767,6 +771,7 @@ export const GetTeachingProjectionParams = zod.object({
 })
 
 export const GetTeachingProjectionResponse = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
   "archivedAt": zod.coerce.date().nullish(),
   "id": zod.string(),
   "name": zod.string(),
@@ -802,6 +807,46 @@ export const ArchiveTeachingSessionBody = zod.object({
 export const ArchiveTeachingSessionResponse = zod.unknown()
 
 
+export const ReuseTeachingSessionAsynchronouslyParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const ReuseTeachingSessionAsynchronouslyResponse = zod.object({
+  "id": zod.string(),
+  "code": zod.string()
+})
+
+
+export const SetTeachingSessionModeParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const SetTeachingSessionModeBody = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous'])
+})
+
+export const SetTeachingSessionModeResponse = zod.unknown()
+
+
+export const FinishAsyncTeachingSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const FinishAsyncTeachingSessionResponse = zod.unknown()
+
+
+export const advanceOwnTeachingSessionBodyExpectedPositionMin = 0;
+
+
+
+export const AdvanceOwnTeachingSessionBody = zod.object({
+  "launchId": zod.string(),
+  "expectedPosition": zod.number().int().min(advanceOwnTeachingSessionBodyExpectedPositionMin)
+})
+
+export const AdvanceOwnTeachingSessionResponse = zod.unknown()
+
+
 export const GetParticipantTeachingSessionResponse = zod.object({
   "session": zod.object({
   "id": zod.string().optional(),
@@ -810,7 +855,10 @@ export const GetParticipantTeachingSessionResponse = zod.object({
   "role": zod.enum(['panel', 'students']).optional(),
   "position": zod.number().int().optional(),
   "total": zod.number().int().optional(),
-  "currentLaunchId": zod.string().optional()
+  "currentLaunchId": zod.string().optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "currentSubmitted": zod.boolean().optional(),
+  "groupFinished": zod.boolean().optional()
 }).nullable(),
   "report": zod.record(zod.string(), zod.unknown()).optional().describe('Seulement son bilan personnel et les statistiques anonymes')
 })

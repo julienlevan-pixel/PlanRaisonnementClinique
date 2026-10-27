@@ -1140,6 +1140,7 @@ type TeachingSessionRow = {
   role: "panel" | "students";
   status: "open" | "finished";
   current_position: number;
+  delivery_mode?: "synchronous" | "asynchronous";
   archived_at: string | null;
   created_at: string;
 };
@@ -1153,6 +1154,54 @@ async function teachingReady() {
       503,
       "Installez la migration 005_teaching_sessions.sql dans Supabase pour activer les séances.",
     );
+}
+async function asyncTeachingReady() {
+  const ready = await pool.query(
+    "SELECT EXISTS(SELECT 1 FROM information_schema.columns WHERE table_schema='prc_private' AND table_name='teaching_sessions' AND column_name='delivery_mode') AS ready",
+  );
+  if (!ready.rows[0].ready)
+    fail(
+      503,
+      "Installez la migration 006_async_teaching_sessions.sql ou le script complet des séances dans Supabase.",
+    );
+}
+async function lockTeachingParticipant(
+  client: PoolClient,
+  participant: ParticipantPrincipal,
+) {
+  if (!participant.teachingSessionId) return;
+  const session = (
+    await client.query<TeachingSessionRow>(
+      "SELECT * FROM prc_private.teaching_sessions WHERE id=$1 FOR SHARE",
+      [participant.teachingSessionId],
+    )
+  ).rows[0];
+  const member = (
+    await client.query(
+      "SELECT * FROM prc_private.teaching_members WHERE id=$1 FOR UPDATE",
+      [participant.teachingMemberId],
+    )
+  ).rows[0];
+  const position =
+    session.delivery_mode === "asynchronous"
+      ? member.current_position
+      : session.current_position;
+  const current = (
+    await client.query(
+      "SELECT launch_id FROM prc_private.teaching_session_cases WHERE session_id=$1 AND position=$2",
+      [session.id, position],
+    )
+  ).rows[0];
+  if (
+    current?.launch_id !== participant.launchId ||
+    session.status !== "open" ||
+    (session.delivery_mode === "asynchronous" && member.finished_at)
+  )
+    fail(
+      409,
+      "Le parcours a avancé ou la séance est terminée. Actualisez votre page.",
+    );
+  return session;
 }
 async function ownedTeachingSession(request: Request, id: string) {
   const teacher = await requireTeacher(request);
@@ -1181,7 +1230,7 @@ async function assertTeachingCurrent(
   const context = launch.case_snapshot.teachingSession;
   if (!context) return;
   const found = await executor.query(
-    "SELECT 1 FROM prc_private.teaching_sessions WHERE id=$1 AND current_position=$2 AND status='open'",
+    "SELECT 1 FROM prc_private.teaching_sessions WHERE id=$1 AND current_position=$2 AND status='open' AND COALESCE(to_jsonb(teaching_sessions)->>'delivery_mode','synchronous')='synchronous'",
     [context.id, context.position],
   );
   if (!found.rows[0]) fail(409, "Ce cas n’est pas le cas actif de la séance.");
@@ -1229,7 +1278,10 @@ async function teachingReport(session: TeachingSessionRow, memberId?: string) {
       );
       const submitted = response?.state === "submitted";
       const visible =
-        c.status === "published" && submitted && response.score !== null;
+        (c.status === "published" ||
+          session.delivery_mode === "asynchronous") &&
+        submitted &&
+        response.score !== null;
       return {
         position: c.position,
         name: c.case_snapshot.name,
@@ -1272,7 +1324,11 @@ async function teachingReport(session: TeachingSessionRow, memberId?: string) {
     caseCount: cases.length,
     gradedCaseCount: cases.filter((c) => !c.reveals.sessionSkipped).length,
     memberCount: members.length,
-    ...(session.role === "students" && maximum > 0
+    ...(session.role === "students" &&
+    maximum > 0 &&
+    (!memberId ||
+      memberId === "anonymous-projection" ||
+      session.status === "finished")
       ? {
           distribution: gradeDistribution(
             records.map((r) => ({
@@ -1294,7 +1350,7 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
     method = request.method;
   const relevant =
     path.startsWith("/api/teaching-sessions") ||
-    path === "/api/participant/teaching-session" ||
+    path.startsWith("/api/participant/teaching-session") ||
     /^\/api\/join\/S-/i.test(path);
   if (!relevant) return;
   await teachingReady();
@@ -1333,6 +1389,7 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       sessions.map((s) => ({
         ...s,
         owner_id: undefined,
+        deliveryMode: s.delivery_mode ?? "synchronous",
         currentPosition: s.current_position,
         caseCount: s.case_count,
         memberCount: s.member_count,
@@ -1344,8 +1401,14 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       input = await body(request);
     const name = stringValue(input.name, "Nom de la séance", 160);
     if (!name) fail(400, "Nommez la séance.");
-    const role = validRole(input.role),
-      ids = arrayValue(input.prcIds, "Cas de la séance");
+    const deliveryMode = input.deliveryMode ?? "synchronous";
+    if (deliveryMode !== "synchronous" && deliveryMode !== "asynchronous")
+      fail(400, "Mode de séance invalide.");
+    const role = validRole(input.role);
+    if (deliveryMode === "asynchronous" && role !== "students")
+      fail(400, "Le parcours autonome est réservé aux séances étudiantes.");
+    if (deliveryMode === "asynchronous") await asyncTeachingReady();
+    const ids = arrayValue(input.prcIds, "Cas de la séance");
     if (
       !ids.length ||
       ids.length > 20 ||
@@ -1364,14 +1427,19 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
         "INSERT INTO prc_private.teaching_sessions(id,owner_id,name,code,role) VALUES($1,$2,$3,$4,$5)",
         [id, teacher.id, name, code, role],
       );
+      if (deliveryMode === "asynchronous")
+        await client.query(
+          "UPDATE prc_private.teaching_sessions SET delivery_mode='asynchronous' WHERE id=$1",
+          [id],
+        );
       for (let position = 0; position < ids.length; position++) {
         const launch = await createLaunch(
           request,
           String(ids[position]),
           {
             role,
-            sessionMode: "synchronous",
-            ...(role === "students" ? { deliveryMode: "synchronous" } : {}),
+            sessionMode: deliveryMode,
+            ...(role === "students" ? { deliveryMode } : {}),
           },
           false,
           false,
@@ -1416,6 +1484,7 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       canResume:
         principal?.kind === "participant" &&
         principal.teachingSessionId === found.id,
+      deliveryMode: found.delivery_mode ?? "synchronous",
       teachingSessionId: found.id,
       launchId: found.id,
       name: found.name,
@@ -1494,14 +1563,20 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
         }
       }
       const rawToken = token(),
-        csrfToken = token();
+        csrfToken = token(),
+        lifetime =
+          session.delivery_mode === "asynchronous" ? 30 * 86400 : 43200;
       await client.query(
-        "INSERT INTO prc_private.sessions(token_hash,teaching_member_id,csrf_token,expires_at) VALUES($1,$2,$3,now()+interval '12 hours')",
-        [hashToken(rawToken), member.id, csrfToken],
+        "INSERT INTO prc_private.sessions(token_hash,teaching_member_id,csrf_token,expires_at) VALUES($1,$2,$3,now()+$4*interval '1 second')",
+        [hashToken(rawToken), member.id, csrfToken, lifetime],
       );
       await client.query("COMMIT");
       return send({ csrfToken }, 200, {
-        "set-cookie": cookieHeader(rawToken, 43200, "prc_participant_session"),
+        "set-cookie": cookieHeader(
+          rawToken,
+          lifetime,
+          "prc_participant_session",
+        ),
       });
     } catch (error) {
       await client.query("ROLLBACK");
@@ -1520,25 +1595,92 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       )
     ).rows[0];
     const cases = await teachingCases(session.id);
+    const member = (
+      await pool.query(
+        "SELECT * FROM prc_private.teaching_members WHERE id=$1",
+        [participant.teachingMemberId],
+      )
+    ).rows[0];
+    const asynchronous = session.delivery_mode === "asynchronous";
+    const position = asynchronous
+      ? member.current_position
+      : session.current_position;
+    const finished =
+      session.status === "finished" || (asynchronous && !!member.finished_at);
+    const currentResponse = (
+      await pool.query(
+        "SELECT state FROM prc_private.responses WHERE participant_id=$1",
+        [participant.id],
+      )
+    ).rows[0];
     return send({
       session: {
         id: session.id,
         name: session.name,
-        status: session.status,
+        status: finished ? "finished" : "open",
+        deliveryMode: session.delivery_mode ?? "synchronous",
+        currentSubmitted: currentResponse?.state === "submitted",
+        groupFinished: session.status === "finished",
         role: session.role,
-        position: session.current_position,
+        position,
         total: cases.length,
-        currentLaunchId: cases[session.current_position].id,
+        currentLaunchId: cases[position].id,
       },
-      ...(session.status === "finished"
+      ...(finished
         ? {
             report: await teachingReport(session, participant.teachingMemberId),
           }
         : {}),
     });
   }
+  if (path === "/api/participant/teaching-session/next" && method === "POST") {
+    const participant = await requireParticipant(request);
+    const input = await body(request);
+    if (!participant.teachingSessionId)
+      fail(400, "Vous ne participez pas à une séance.");
+    await asyncTeachingReady();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const session = await lockTeachingParticipant(client, participant);
+      if (session?.delivery_mode !== "asynchronous")
+        fail(409, "Le professeur guide cette séance synchrone.");
+      const member = (
+        await client.query(
+          "SELECT * FROM prc_private.teaching_members WHERE id=$1",
+          [participant.teachingMemberId],
+        )
+      ).rows[0];
+      if (
+        input.launchId !== participant.launchId ||
+        input.expectedPosition !== member.current_position
+      )
+        fail(409, "Votre parcours a déjà avancé. Actualisez cette page.");
+      const response = (
+        await client.query(
+          "SELECT state FROM prc_private.responses WHERE participant_id=$1",
+          [participant.id],
+        )
+      ).rows[0];
+      if (response?.state !== "submitted")
+        fail(409, "Soumettez vos réponses avant de passer au cas suivant.");
+      const cases = await teachingCases(session.id, client);
+      const last = member.current_position === cases.length - 1;
+      await client.query(
+        "UPDATE prc_private.teaching_members SET current_position=current_position+$1,finished_at=CASE WHEN $2 THEN now() ELSE NULL END WHERE id=$3",
+        [last ? 0 : 1, last, participant.teachingMemberId],
+      );
+      await client.query("COMMIT");
+      return send({ advanced: true, finished: last });
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
   const detail = path.match(
-    /^\/api\/teaching-sessions\/([^/]+)(?:\/(next|projection|archive))?$/,
+    /^\/api\/teaching-sessions\/([^/]+)(?:\/(next|projection|archive|mode|finish|asynchronous))?$/,
   );
   if (detail) {
     const id = segment(detail[1]);
@@ -1551,6 +1693,7 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
         code: session.code,
         role: session.role,
         status: session.status,
+        deliveryMode: session.delivery_mode ?? "synchronous",
         currentPosition: session.current_position,
         archivedAt: session.archived_at,
         cases: cases.map((c) => ({
@@ -1567,6 +1710,68 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
         ),
       });
     }
+    if (method === "POST" && detail[2] === "asynchronous") {
+      await asyncTeachingReady();
+      const client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const locked = await lockTeaching(client, id, teacher);
+        if (locked.session.role !== "students")
+          fail(
+            400,
+            "Seule une séance étudiante peut être réutilisée dans ce parcours.",
+          );
+        const targetId = newId(),
+          code = `S-${randomCode()}`,
+          name = `${locked.session.name.slice(0, 145)} · Asynchrone`;
+        await client.query(
+          "INSERT INTO prc_private.teaching_sessions(id,owner_id,name,code,role,delivery_mode) VALUES($1,$2,$3,$4,'students','asynchronous')",
+          [targetId, teacher.id, name, code],
+        );
+        for (const c of locked.cases) {
+          const launchId = newId();
+          const snapshot = {
+            ...c.case_snapshot,
+            sessionMode: "asynchronous",
+            studentWorkflow: {
+              ...c.case_snapshot.studentWorkflow!,
+              deliveryMode: "asynchronous",
+            },
+            teachingSession: {
+              id: targetId,
+              name,
+              code,
+              position: c.position,
+              total: locked.cases.length,
+            },
+          };
+          await client.query(
+            "INSERT INTO prc_private.launches(id,prc_id,owner_id,role,name,code,status,case_version,case_snapshot,reference_id,is_trial) VALUES($1,$2,$3,'students',$4,$5,'open',$6,$7::jsonb,$8,false)",
+            [
+              launchId,
+              c.prc_id,
+              c.owner_id,
+              c.name,
+              randomCode(),
+              c.case_version,
+              JSON.stringify(snapshot),
+              c.reference_id,
+            ],
+          );
+          await client.query(
+            "INSERT INTO prc_private.teaching_session_cases(session_id,position,launch_id) VALUES($1,$2,$3)",
+            [targetId, c.position, launchId],
+          );
+        }
+        await client.query("COMMIT");
+        return send({ id: targetId, code }, 201);
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
     if (method === "POST" && detail[2] === "next") {
       const input = await body(request),
         client = await pool.connect();
@@ -1579,6 +1784,11 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
           locked.session.status !== "open"
         )
           fail(409, "La séance a déjà avancé. Actualisez avant de continuer.");
+        if (locked.session.delivery_mode === "asynchronous")
+          fail(
+            409,
+            "Les étudiants avancent individuellement dans cette séance.",
+          );
         const skip = input.skipUnanswered === true;
         if (
           input.skipUnanswered !== undefined &&
@@ -1622,6 +1832,83 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
         );
         await client.query("COMMIT");
         return send({ advanced: true, finished: last });
+      } catch (error) {
+        await client.query("ROLLBACK");
+        throw error;
+      } finally {
+        client.release();
+      }
+    }
+    if (method === "POST" && ["mode", "finish"].includes(detail[2])) {
+      await asyncTeachingReady();
+      const input = request.body ? await body(request) : {},
+        client = await pool.connect();
+      try {
+        await client.query("BEGIN");
+        const locked = await lockTeaching(client, id, teacher);
+        if (locked.session.status !== "open")
+          fail(409, "Cette séance est terminée.");
+        if (detail[2] === "mode") {
+          if (
+            (input.deliveryMode !== "synchronous" &&
+              input.deliveryMode !== "asynchronous") ||
+            locked.session.role !== "students"
+          )
+            fail(400, "Mode étudiant invalide.");
+          const count = await client.query(
+            "SELECT 1 FROM prc_private.teaching_members WHERE session_id=$1 LIMIT 1",
+            [id],
+          );
+          if (
+            count.rows.length ||
+            locked.cases.some(
+              (c) =>
+                c.status !== "open" ||
+                (c.reveals.liveSession &&
+                  c.reveals.liveSession.phase !== "lobby"),
+            )
+          )
+            fail(
+              409,
+              "Choisissez le mode avant l’arrivée des participants et le début de la présentation.",
+            );
+          for (const c of locked.cases) {
+            const snapshot = {
+              ...c.case_snapshot,
+              sessionMode: input.deliveryMode,
+              studentWorkflow: {
+                ...c.case_snapshot.studentWorkflow!,
+                deliveryMode: input.deliveryMode,
+              },
+            };
+            const reveals = { ...c.reveals };
+            if (input.deliveryMode === "asynchronous")
+              delete reveals.liveSession;
+            else reveals.liveSession = { phase: "lobby" };
+            await client.query(
+              "UPDATE prc_private.launches SET case_snapshot=$1::jsonb,reveals=$2::jsonb WHERE id=$3",
+              [JSON.stringify(snapshot), JSON.stringify(reveals), c.id],
+            );
+          }
+          await client.query(
+            "UPDATE prc_private.teaching_sessions SET delivery_mode=$1 WHERE id=$2",
+            [input.deliveryMode, id],
+          );
+        } else {
+          if (locked.session.delivery_mode !== "asynchronous")
+            fail(409, "Terminez la séance synchrone depuis son dernier cas.");
+          for (const c of locked.cases)
+            await client.query(
+              "UPDATE prc_private.launches SET status='published',closed_at=COALESCE(closed_at,now()),published_at=COALESCE(published_at,now()) WHERE id=$1",
+              [c.id],
+            );
+          await client.query(
+            "UPDATE prc_private.teaching_sessions SET status='finished',finished_at=now() WHERE id=$1",
+            [id],
+          );
+        }
+        await client.query("COMMIT");
+        return send({ updated: true });
       } catch (error) {
         await client.query("ROLLBACK");
         throw error;
@@ -2757,6 +3044,7 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await lockTeachingParticipant(client, participant);
       const lockedLaunch = await client.query<LaunchRow>(
         "SELECT * FROM prc_private.launches WHERE id = $1 FOR UPDATE",
         [launch.id],
@@ -2856,6 +3144,7 @@ async function handle(request: Request): Promise<Response> {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      await lockTeachingParticipant(client, participant);
       const lockedLaunch = await client.query<LaunchRow>(
         "SELECT * FROM prc_private.launches WHERE id = $1 FOR UPDATE",
         [launch.id],

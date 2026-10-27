@@ -142,6 +142,7 @@ test("professor organizes corrected cases in order and creates one session", asy
     name: "Séance choisie",
     role: "students",
     prcIds: ["b", "a"],
+    deliveryMode: "synchronous",
   });
 });
 
@@ -348,7 +349,10 @@ test("participant automatically follows the next case and sees only their cumula
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  const lastBar = await page.locator('.distribution-column').last().boundingBox();
+  const lastBar = await page
+    .locator(".distribution-column")
+    .last()
+    .boundingBox();
   expect(lastBar!.x + lastBar!.width).toBeLessThanOrEqual(390);
   await page.screenshot({
     path: testInfo.outputPath("session-student-summary-mobile.png"),
@@ -385,17 +389,176 @@ test("session projection ends on an anonymous cumulative distribution", async ({
   });
 });
 
+test("a professor can explicitly skip an unanswered closed case", async ({
+  page,
+}) => {
+  const s = session();
+  s.cases[0].status = "closed";
+  s.report.members = [];
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({ json: { user } }),
+  );
+  await page.route("**/api/teaching-sessions/lesson", (route) =>
+    route.fulfill({ json: s }),
+  );
+  await page.route("**/api/launches/one", (route) =>
+    route.fulfill({
+      json: {
+        ...caseData("one"),
+        id: "one",
+        prcId: "prc",
+        code: "PRIVATE",
+        status: "closed",
+        guidedReview: true,
+        deliveryMode: "synchronous",
+        createdAt: "2026-01-01",
+        participantCount: 0,
+        submissionCount: 0,
+        referenceStatus: "validated",
+        reveals: {},
+      },
+    }),
+  );
+  await page.route("**/api/launches/one/results", (route) =>
+    route.fulfill({
+      json: {
+        participants: [],
+        discussion: { comparison: [], corrections: [] },
+      },
+    }),
+  );
+  let advanced = false;
+  await page.route("**/api/teaching-sessions/lesson/next", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      expectedPosition: 0,
+      skipUnanswered: true,
+    });
+    advanced = true;
+    return route.fulfill({ json: { advanced: true, finished: false } });
+  });
+  await page.goto("/seances/lesson");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page
+    .getByRole("button", { name: "Passer sans noter ce cas", exact: true })
+    .click();
+  await expect.poll(() => advanced).toBe(true);
+});
 
-test('a professor can explicitly skip an unanswered closed case',async({page})=>{
-  const s=session();s.cases[0].status='closed';s.report.members=[];
-  await page.route('**/api/auth/me',route=>route.fulfill({json:{user}}));
-  await page.route('**/api/teaching-sessions/lesson',route=>route.fulfill({json:s}));
-  await page.route('**/api/launches/one',route=>route.fulfill({json:{...caseData('one'),id:'one',prcId:'prc',code:'PRIVATE',status:'closed',guidedReview:true,deliveryMode:'synchronous',createdAt:'2026-01-01',participantCount:0,submissionCount:0,referenceStatus:'validated',reveals:{}}}));
-  await page.route('**/api/launches/one/results',route=>route.fulfill({json:{participants:[],discussion:{comparison:[],corrections:[]}}}));
-  let advanced=false;
-  await page.route('**/api/teaching-sessions/lesson/next',route=>{expect(route.request().postDataJSON()).toEqual({expectedPosition:0,skipUnanswered:true});advanced=true;return route.fulfill({json:{advanced:true,finished:false}});});
-  await page.goto('/seances/lesson');
-  page.once('dialog',dialog=>dialog.accept());
-  await page.getByRole('button',{name:'Passer sans noter ce cas',exact:true}).click();
-  await expect.poll(()=>advanced).toBe(true);
+test("teacher chooses asynchronous delivery without changing the selected clinical cases", async ({
+  page,
+}) => {
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({ json: { user } }),
+  );
+  await page.route("**/api/teaching-sessions/options", (route) =>
+    route.fulfill({
+      json: [
+        { id: "a", name: "Toux", version: 1, ready: true, corrected: true },
+      ],
+    }),
+  );
+  let saved: any;
+  await page.route("**/api/teaching-sessions", (route) => {
+    if (route.request().method() === "POST") {
+      saved = route.request().postDataJSON();
+      return route.fulfill({
+        status: 201,
+        json: { id: "async", code: "S-ASYNC" },
+      });
+    }
+    return route.fulfill({ json: [] });
+  });
+  await page.route("**/api/teaching-sessions/async", (route) =>
+    route.fulfill({
+      json: { ...session(), id: "async", deliveryMode: "asynchronous" },
+    }),
+  );
+  await page.goto("/seances?new=1");
+  await page.getByLabel("Nom de la séance", { exact: true }).fill("Autonomie");
+  await page.getByRole("checkbox", { name: /Toux/ }).check();
+  await page
+    .getByRole("combobox", { name: /Déroulement de la séance/ })
+    .selectOption("asynchronous");
+  await page
+    .getByRole("button", { name: "Créer la séance (1 cas)", exact: true })
+    .click();
+  await expect(page).toHaveURL("/seances/async");
+  expect(saved).toEqual({
+    name: "Autonomie",
+    role: "students",
+    prcIds: ["a"],
+    deliveryMode: "asynchronous",
+  });
+  await expect(
+    page.getByRole("heading", {
+      name: "Parcours asynchrone activé",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Présenter le cas", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("link", { name: "Ouvrir le lien étudiant", exact: true }),
+  ).toHaveAttribute("href", "/join/S-COMMUN");
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+});
+
+test("a prepared synchronous session can be activated as asynchronous before anyone joins", async ({
+  page,
+}) => {
+  const s = {
+    ...session(),
+    deliveryMode: "synchronous",
+    report: { ...report(), memberCount: 0, members: [] },
+  };
+  await page.route("**/api/auth/me", (r) => r.fulfill({ json: { user } }));
+  await page.route("**/api/teaching-sessions/lesson", (r) =>
+    r.fulfill({ json: s }),
+  );
+  await page.route("**/api/launches/one", (r) =>
+    r.fulfill({
+      json: {
+        ...caseData("one"),
+        id: "one",
+        prcId: "p",
+        code: "PRIVATE",
+        createdAt: "2026-01-01",
+        participantCount: 0,
+        submissionCount: 0,
+        reveals: {},
+      },
+    }),
+  );
+  await page.route("**/api/launches/one/results", (r) =>
+    r.fulfill({ json: { participants: [] } }),
+  );
+  await page.route("**/api/teaching-sessions/lesson/mode", (r) => {
+    expect(r.request().postDataJSON()).toEqual({
+      deliveryMode: "asynchronous",
+    });
+    s.deliveryMode = "asynchronous";
+    return r.fulfill({ json: { updated: true } });
+  });
+  await page.goto("/seances/lesson");
+  await page
+    .getByRole("button", {
+      name: "Activer le parcours asynchrone",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("heading", {
+      name: "Parcours asynchrone activé",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Revenir au synchrone", exact: true }),
+  ).toBeVisible();
 });

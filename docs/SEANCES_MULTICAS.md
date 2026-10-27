@@ -5,7 +5,7 @@
 ## Préparer
 
 1. Ouvrir **Mes séances → Nouvelle séance**, puis nommer la séance.
-2. Choisir le public : **Étudiants** ou **Cliniciens experts**. Le parcours multi-cas est synchrone ; les accès asynchrones par PRC restent disponibles et autorisés par le professeur.
+2. Choisir le public : **Étudiants** ou **Cliniciens experts**. Pour les étudiants, choisir **Synchrone · je guide le groupe** ou **Asynchrone · chacun avance à son rythme**. Les séances multi-cas expertes restent synchrones. Les accès asynchrones individuels par PRC restent disponibles.
 3. Sélectionner de 1 à 20 PRC distincts et ajuster leur ordre avec les flèches. Les cas doivent être complets. Pour une séance étudiante, chaque version doit déjà disposer d’un corrigé validé.
 4. Cliquer sur **Créer la séance**. Les versions cliniques et les barèmes sont fixés à cet instant pour tous les cas. Une modification ultérieure du PRC ou du barème ne réécrit pas cette séance.
 
@@ -23,6 +23,19 @@ Seuls les cas sur lesquels le professeur a le droit de gérer les séances sont 
 
 Pendant la correction, **Revoir le cas clinique** permet de revenir au scénario et aux données sans rouvrir les réponses. Après une séance experte, les liens vers chaque panel permettent de générer et valider ses corrigés avant de préparer une séance étudiante.
 
+## Activer un parcours asynchrone
+
+Le professeur choisit le mode ; un étudiant ne peut pas rendre une séance synchrone autonome.
+
+- Une séance préparée en synchrone peut être basculée avec **Activer le parcours asynchrone**, avant toute inscription et avant le début de la présentation. Le même code, l’ordre, les versions des cas et les barèmes sont conservés. **Revenir au synchrone** est possible dans les mêmes conditions.
+- Pour une séance déjà utilisée, **Réutiliser en asynchrone** ouvre une nouvelle participation avec un nouveau code. Elle utilise exactement les versions cliniques et les barèmes de la séance source, même si les PRC ont été modifiés depuis. Les PRC de la bibliothèque ne sont pas dupliqués. Les réponses de la séance source ne sont ni déplacées ni modifiées.
+- Partager le lien, le code ou le QR. L’étudiant s’identifie une fois, voit immédiatement le premier cas et répond avec ses deux impressions et cinq données par impression. Il n’y a ni salle d’attente ni ouverture manuelle par le professeur.
+- Après chaque soumission définitive, son score sur le maximum et ses deux corrigés personnels sont disponibles immédiatement, sans attendre ses collègues. Il consulte le corrigé puis choisit **Passer au cas suivant**. La progression est individuelle, sauvegardée côté serveur. Une actualisation ou une reprise avec le même navigateur retrouve son cas et son brouillon. La reprise n’est pas une connexion inter-appareils : conserver le navigateur et ses cookies. L’accès asynchrone est conservé pendant 30 jours dans ce navigateur. Un accès déjà reconnu propose **Reprendre mon parcours** sans redemander le pseudonyme.
+- Au dernier cas, **Voir mon bilan de séance** affiche ses scores par cas et sa note globale. La distribution des notes du groupe n’est pas encore transmise à l’étudiant. Celui-ci a terminé son parcours, mais la séance reste ouverte aux autres.
+- Le professeur suit les soumissions par participant. Il utilise **Clôturer et publier le bilan du groupe** quand la période de participation est terminée. Cette action ferme tous les cas et publie la distribution anonyme. Elle n’est pas nécessaire pour débloquer les étapes ou le bilan personnel d’un étudiant. Une copie incomplète reste sans note globale et conserve ses résultats partiels.
+
+Une soumission est définitive. Deux clics simultanés ne permettent pas de sauter un cas. Un onglet périmé ne peut pas écraser la copie du cas suivant.
+
 ## Lire le bilan
 
 Le maximum de la séance est la **somme des maxima des barèmes des cas évalués**, avec arrondi à deux décimales. Les maxima peuvent être différents selon les cas.
@@ -35,7 +48,7 @@ Les cliniciens experts voient un récapitulatif de leurs contributions, sans not
 
 ## Installer sur une base Supabase existante
 
-Exécuter **`docs/UPGRADE_TEACHING_SESSIONS.sql`** dans SQL Editor, sur le projet PRC, après les migrations 001 à 004. Le script crée les tables privées de séances, les relations entre cas et les identités participantes ; il adapte le contrôle d’accès sans donner de droit aux rôles publics Supabase. Il ne remplace aucun compte, cas, corrigé ou réponse. Il peut être exécuté à nouveau.
+Exécuter **`docs/UPGRADE_TEACHING_SESSIONS.sql`** dans SQL Editor, sur le projet PRC, après les migrations 001 à 004. Le script complet inclut les migrations 005 et 006 et peut également compléter une base où 005 est déjà installée. Le script crée les tables privées de séances, les relations entre cas et les identités participantes ; il adapte le contrôle d’accès sans donner de droit aux rôles publics Supabase. Il ne remplace aucun compte, cas, corrigé ou réponse. Il peut être exécuté à nouveau.
 
 Vérification :
 
@@ -43,7 +56,8 @@ Vérification :
 SELECT
   to_regclass('prc_private.teaching_sessions') IS NOT NULL AS seances,
   to_regclass('prc_private.teaching_members') IS NOT NULL AS participants,
-  EXISTS(SELECT 1 FROM prc_private.schema_migrations WHERE filename='005_teaching_sessions.sql') AS migration;
+  EXISTS(SELECT 1 FROM prc_private.schema_migrations WHERE filename='005_teaching_sessions.sql') AS migration,
+  EXISTS(SELECT 1 FROM prc_private.schema_migrations WHERE filename='006_async_teaching_sessions.sql') AS asynchrone;
 ```
 
-Les trois valeurs doivent être `true`. Fusionner ensuite la branche et laisser Netlify déployer. Aucune nouvelle variable d’environnement n’est nécessaire. Les anciennes activités et leurs codes restent utilisables ; les nouvelles séances sont créées depuis **Mes séances**.
+Les quatre valeurs doivent être `true`. Fusionner ensuite la branche et laisser Netlify déployer. Aucune nouvelle variable d’environnement n’est nécessaire. Les anciennes activités et leurs codes restent utilisables ; les nouvelles séances sont créées depuis **Mes séances**.

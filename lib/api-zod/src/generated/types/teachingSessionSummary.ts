@@ -5,10 +5,12 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { TeachingSessionSummaryDeliveryMode } from './teachingSessionSummaryDeliveryMode';
 import type { TeachingSessionSummaryRole } from './teachingSessionSummaryRole';
 import type { TeachingSessionSummaryStatus } from './teachingSessionSummaryStatus';
 
 export interface TeachingSessionSummary {
+  deliveryMode?: TeachingSessionSummaryDeliveryMode;
   /** @nullable */
   archivedAt?: Date | null;
   id: string;

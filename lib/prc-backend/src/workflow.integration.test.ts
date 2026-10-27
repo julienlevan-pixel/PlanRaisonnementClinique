@@ -897,6 +897,117 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.notEqual(recreated.prcId, first.prcId);
     assert.equal((await independentOwner.session.call(`/prcs/${independent.prcId}`)).id, independent.prcId);
   });
+  await t.test('teacher-authorized asynchronous session advances each learner independently and releases only personal correction before closure', async () => {
+    const host=await newUser(), outsider=await newUser();
+    const items=[];
+    for(const name of ['Asynchrone A','Asynchrone B']) {
+      const item=await host.session.call('/prcs','POST',{...completeCase(),name},201);
+      await createReference(host.session,item,1); items.push(item);
+    }
+    const created=await host.session.call('/teaching-sessions','POST',{name:'Même préparation, parcours autonome',role:'students',prcIds:items.map(i=>i.id)},201);
+    const endpoint=`/teaching-sessions/${created.id}`;
+    const before=await host.session.call(endpoint);
+    assert.equal(before.deliveryMode,'synchronous');
+    const snapshots=(await pool.query('SELECT case_snapshot FROM prc_private.launches WHERE id=ANY($1::uuid[]) ORDER BY id',[before.cases.map((c:any)=>c.id)])).rows;
+    await anonymous.call(`${endpoint}/mode`,'POST',{deliveryMode:'asynchronous'},401);
+    await outsider.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'asynchronous'},404);
+    await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'invalid'},400);
+    await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:['asynchronous']},400);
+    await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'asynchronous'});
+    await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'synchronous'});
+    const restored=(await pool.query('SELECT case_snapshot FROM prc_private.launches WHERE id=ANY($1::uuid[]) ORDER BY id',[before.cases.map((c:any)=>c.id)])).rows;
+    assert.deepEqual(restored,snapshots);
+    await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'asynchronous'});
+    assert.equal((await anonymous.call(`/join/${created.code}`)).deliveryMode,'asynchronous');
+    const first=new Session(),second=new Session(),key=randomUUID();
+    for(const [learner,joinKey] of [[first,key],[second,randomUUID()]] as const) await learner.call(`${endpoint}/join`,'POST',{pseudonym:learner===first?'Premier':'Autre étudiant secret',code:created.code,joinKey});
+    const expiry=(await pool.query("SELECT extract(epoch FROM expires_at-now()) AS remaining FROM prc_private.sessions WHERE teaching_member_id=(SELECT id FROM prc_private.teaching_members WHERE session_id=$1 AND join_key_hash=$2)",[created.id,(await import('./security.js')).hashToken(key)])).rows[0];
+    assert.ok(Number(expiry.remaining)>29*86400);
+    const cases=before.cases;
+    const next={launchId:cases[0].id,expectedPosition:0};
+    await first.call(`${endpoint}/mode`,'POST',{deliveryMode:'synchronous'},401);
+    await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'synchronous'},409);
+    await host.session.call(`${endpoint}/next`,'POST',{expectedPosition:0},409);
+    await host.session.call(`/launches/${cases[0].id}/close`,'POST',{},409);
+    await first.call('/participant/teaching-session/next','POST',next,409);
+    const initial=await first.call('/participant/response');
+    assert.equal(initial.joinInfo.scenario,items[0].scenario);
+    assert.equal(initial.joinInfo.liveSession,undefined);
+    assert.equal((await first.call('/participant/results')).studentReview,undefined);
+    assert.equal((await first.call('/participant/results')).score,null);
+    await first.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:cases[1].id},409);
+    await first.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:cases[0].id});
+    await first.call('/participant/submit','POST',{launchId:cases[0].id});
+    const corrected=await first.call('/participant/results');
+    assert.equal(corrected.score,15); assert.equal(corrected.published,true);
+    assert.ok(corrected.studentReview.corrections.length);
+    assert.equal(corrected.gradeDistribution,undefined);
+    assert.equal(JSON.stringify(corrected).includes('Autre étudiant secret'),false);
+    assert.equal((await second.call('/participant/teaching-session')).session.currentSubmitted,false);
+    // Concurrent double clicks cannot skip an unanswered case, and do not move peers.
+    const concurrent=await Promise.all([1,2].map(()=>first.call('/participant/teaching-session/next','POST',next,[200,409])));
+    assert.equal(concurrent.filter(r=>r.advanced).length,1);
+    assert.equal((await first.call('/participant/teaching-session')).session.position,1);
+    assert.equal((await second.call('/participant/teaching-session')).session.position,0);
+    assert.equal((await host.session.call(endpoint)).currentPosition,0);
+    await first.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:cases[0].id},409);
+    await first.call('/participant/submit','POST',{launchId:cases[0].id},409);
+    const resume=new Session(); await resume.call(`${endpoint}/join`,'POST',{pseudonym:'Reprise',code:created.code,joinKey:key});
+    assert.equal((await resume.call('/participant/teaching-session')).session.position,1);
+    await resume.call('/participant/response','PUT',{...answer(items[1]),revision:0,launchId:cases[1].id});
+    await resume.call('/participant/submit','POST',{launchId:cases[1].id});
+    assert.equal((await resume.call('/participant/results')).score,15);
+    await resume.call('/participant/teaching-session/next','POST',{launchId:cases[1].id,expectedPosition:1});
+    const own=await resume.call('/participant/teaching-session');
+    assert.equal(own.session.status,'finished');assert.equal(own.session.groupFinished,false);
+    assert.equal(own.report.own.score,30); assert.equal(own.report.own.complete,true);
+    assert.equal(own.report.members,undefined);assert.equal(own.report.distribution,undefined);
+    assert.equal(JSON.stringify(own).includes('Autre étudiant secret'),false);
+    await resume.call('/participant/teaching-session/next','POST',{launchId:cases[1].id,expectedPosition:1},409);
+    // Applying the complete SQL installer again preserves progress and corrected copies.
+    const upgrade=await readFile(new URL('../../../docs/UPGRADE_TEACHING_SESSIONS.sql',import.meta.url),'utf8');
+    await pool.query(upgrade);await pool.query(upgrade);
+    assert.equal((await resume.call('/participant/teaching-session')).report.own.score,30);
+    assert.equal((await second.call('/participant/teaching-session')).session.position,0);
+    await outsider.session.call(`${endpoint}/finish`,'POST',{},404);
+    await second.call(`${endpoint}/finish`,'POST',{},401);
+    await host.session.call(`${endpoint}/finish`,'POST');
+    const final=await resume.call('/participant/teaching-session');
+    assert.equal(final.session.groupFinished,true);
+    assert.equal(final.report.distribution.gradedCount,1);assert.equal(final.report.distribution.excludedCount,1);
+    assert.equal(final.report.own.score,30);
+    const partial=await second.call('/participant/teaching-session');
+    assert.equal(partial.report.own.score,null);assert.equal(partial.report.own.complete,false);
+    await second.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:cases[0].id},409);
+    await second.call('/participant/submit','POST',{launchId:cases[0].id},409);
+    const projection=await host.session.call(`${endpoint}/projection`);
+    assert.equal(projection.report.members,undefined);assert.equal(projection.report.distribution.gradedCount,1);
+    await new Session().call(`${endpoint}/join`,'POST',{pseudonym:'Tardif',code:created.code,joinKey:randomUUID()},409);
+    await host.session.call('/teaching-sessions','POST',{name:'Autonome direct',role:'students',deliveryMode:'asynchronous',prcIds:[items[0].id]},201);
+    await host.session.call('/teaching-sessions','POST',{name:'Panel invalide',role:'panel',deliveryMode:'asynchronous',prcIds:[items[0].id]},400);
+    // A student cannot activate personal advancement within a synchronous lesson.
+    const sync=await host.session.call('/teaching-sessions','POST',{name:'Synchrone intact',role:'students',prcIds:[items[0].id]},201);
+    const synchronous=new Session();await synchronous.call(`/teaching-sessions/${sync.id}/join`,'POST',{pseudonym:'Synchrone',code:sync.code,joinKey:randomUUID()});
+    const context=(await synchronous.call('/participant/teaching-session')).session;
+    await synchronous.call('/participant/teaching-session/next','POST',{launchId:context.currentLaunchId,expectedPosition:0},409);
+    await synchronous.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:context.currentLaunchId},409);
+    // Reuse also works after a synchronous session has started, without altering it.
+    await host.session.call(`/launches/${context.currentLaunchId}/session`,'POST',{action:'present'});
+    const originalSnapshot=(await pool.query('SELECT case_snapshot FROM prc_private.launches WHERE id=$1',[context.currentLaunchId])).rows[0].case_snapshot;
+    const countBefore=(await pool.query('SELECT count(*)::int AS n FROM prc_private.prcs')).rows[0].n;
+    const reuse=await host.session.call(`/teaching-sessions/${sync.id}/asynchronous`,'POST',{},201);
+    const reused=await host.session.call(`/teaching-sessions/${reuse.id}`);
+    assert.notEqual(reuse.code,sync.code);assert.equal(reused.deliveryMode,'asynchronous');assert.equal(reused.report.memberCount,0);
+    const reusedSnapshot=(await pool.query('SELECT case_snapshot FROM prc_private.launches WHERE id=$1',[reused.cases[0].id])).rows[0].case_snapshot;
+    assert.deepEqual(reusedSnapshot.studentWorkflow.rubric,originalSnapshot.studentWorkflow.rubric);
+    assert.deepEqual(reusedSnapshot.observations,originalSnapshot.observations);
+    assert.equal((await pool.query('SELECT count(*)::int AS n FROM prc_private.prcs')).rows[0].n,countBefore);
+    assert.equal((await synchronous.call('/participant/teaching-session')).session.deliveryMode,'synchronous');
+    assert.equal((await synchronous.call('/participant/state')).liveSession.phase,'case');
+    await outsider.session.call(`/teaching-sessions/${sync.id}/asynchronous`,'POST',{},404);
+
+  });
+
   await t.test('one session identity follows ordered cases, freezes grading and publishes a private cumulative report', async () => {
     const host=await newUser(), outsider=await newUser();
     const a=await host.session.call('/prcs','POST',{...completeCase(),name:'Séance — cas A'},201);

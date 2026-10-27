@@ -465,6 +465,52 @@ paths:
       responses:
         "200":
           description: Séance terminée archivée, bilans conservés
+  /teaching-sessions/{sessionId}/asynchronous:
+    post:
+      operationId: reuseTeachingSessionAsynchronously
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "201":
+          description: Nouvelle participation asynchrone aux mêmes cas et barèmes figés sans duplication des PRC ni des réponses
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingSessionCreated" }
+  /teaching-sessions/{sessionId}/mode:
+    post:
+      operationId: setTeachingSessionMode
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingModeInput" }
+      responses:
+        "200": { description: Mode mis à jour avant le début de la séance }
+        "409": { $ref: "#/components/responses/Error" }
+  /teaching-sessions/{sessionId}/finish:
+    post:
+      operationId: finishAsyncTeachingSession
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Réponses fermées et distribution anonyme publiée }
+  /participant/teaching-session/next:
+    post:
+      operationId: advanceOwnTeachingSession
+      tags: [participants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingMemberAdvanceInput" }
+      responses:
+        "200": { description: "Après soumission, seul ce participant passe au cas suivant ou à son bilan" }
+        "409": { $ref: "#/components/responses/Error" }
   /participant/teaching-session:
     get:
       operationId: getParticipantTeachingSession
@@ -1099,6 +1145,7 @@ components:
     TeachingSessionInput:
       type: object
       properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous], default: synchronous, description: Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. }
         name: { type: string, minLength: 1, maxLength: 160 }
         role: { type: string, enum: [panel, students] }
         prcIds: { type: array, minItems: 1, maxItems: 20, uniqueItems: true, items: { type: string } }
@@ -1110,6 +1157,17 @@ components:
         code: { type: string }
         joinKey: { type: string, format: uuid, description: Clé de reprise aléatoire ; le nom seul ne permet pas de retrouver une copie. }
       required: [pseudonym, code, joinKey]
+    TeachingModeInput:
+      type: object
+      properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+      required: [deliveryMode]
+    TeachingMemberAdvanceInput:
+      type: object
+      properties:
+        launchId: { type: string }
+        expectedPosition: { type: integer, minimum: 0 }
+      required: [launchId, expectedPosition]
     TeachingArchiveInput:
       type: object
       properties:
@@ -1138,6 +1196,7 @@ components:
     TeachingSessionSummary:
       type: object
       properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         archivedAt: { type: [string, "null"], format: date-time }
         id: { type: string }
         name: { type: string }
@@ -1179,6 +1238,9 @@ components:
             position: { type: integer }
             total: { type: integer }
             currentLaunchId: { type: string }
+            deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+            currentSubmitted: { type: boolean }
+            groupFinished: { type: boolean }
         report: { type: object, additionalProperties: true, description: Seulement son bilan personnel et les statistiques anonymes, disponible à la fin. Les participations incomplètes ne reçoivent pas de note globale. }
       required: [session]
     TeachingCaseContext:

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
+import { QRCodeSVG } from "qrcode.react";
 import type { AppActions } from "../app/actions";
 import { api } from "../app/api";
 import { getError } from "../app/utils";
@@ -62,6 +63,7 @@ type Report = {
   own?: Member | null;
 };
 type TeachingSession = {
+  deliveryMode?: "synchronous" | "asynchronous";
   archivedAt?: string | null;
   id: string;
   name: string;
@@ -84,6 +86,9 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
   const [name, setName] = useState(""),
     [role, setRole] = useState<"students" | "panel">("students"),
     [ids, setIds] = useState<string[]>([]);
+  const [deliveryMode, setDeliveryMode] = useState<
+    "synchronous" | "asynchronous"
+  >("synchronous");
   const [archived, setArchived] = useState(false);
   const list = useQuery({
     queryKey: ["teaching-sessions", archived],
@@ -101,6 +106,7 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
         name,
         role,
         prcIds: ids,
+        deliveryMode: role === "students" ? deliveryMode : "synchronous",
       }),
     onSuccess: async (data) => {
       await cache.invalidateQueries({ queryKey: ["teaching-sessions"] });
@@ -128,7 +134,8 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
       />
       <p>
         Une séance, un code, plusieurs cas. Les participants s’identifient une
-        seule fois ; vous guidez la progression et partagez le bilan à la fin.
+        seule fois. Guidez le groupe en synchrone ou autorisez un parcours
+        autonome en asynchrone.
       </p>
       <label className="session-archive-filter">
         <input
@@ -150,7 +157,7 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
             if (name.trim() && ids.length && !invalid) create.mutate();
           }}
         >
-          <h2>Préparer une séance synchrone</h2>
+          <h2>Préparer une séance</h2>
           <Input
             label="Nom de la séance"
             value={name}
@@ -173,6 +180,30 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
               </option>
             </select>
           </label>
+          {role === "students" && (
+            <label className="field">
+              <span>Déroulement de la séance</span>
+              <select
+                value={deliveryMode}
+                onChange={(e) =>
+                  setDeliveryMode(e.target.value as typeof deliveryMode)
+                }
+                disabled={create.isPending}
+              >
+                <option value="synchronous">
+                  Synchrone · je guide le groupe
+                </option>
+                <option value="asynchronous">
+                  Asynchrone · chacun avance à son rythme
+                </option>
+              </select>
+              <small>
+                En asynchrone : réponse, corrigé personnel, cas suivant et
+                bilan, sans attendre le groupe. Ce choix est réservé au
+                professeur.
+              </small>
+            </label>
+          )}
           <p>
             Choisissez jusqu’à 20 PRC. Pour les étudiants, chaque cas doit
             disposer d’un corrigé validé. Les versions des cas et des barèmes
@@ -305,8 +336,9 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
               </div>
               <h2>{s.name}</h2>
               <p>
-                {s.caseCount} cas · {s.memberCount} participant(s) · Code{" "}
-                <b>{s.code}</b>
+                {s.caseCount} cas ·{" "}
+                {s.deliveryMode === "asynchronous" ? "Asynchrone" : "Synchrone"}{" "}
+                · {s.memberCount} participant(s) · Code <b>{s.code}</b>
               </p>
               <Link className="btn btn-primary" href={`/seances/${s.id}`}>
                 {s.status === "finished"
@@ -336,14 +368,16 @@ function SessionCaseProgress({ session }: { session: TeachingSession }) {
           <span>Cas {c.position + 1}</span>
           <strong>{c.name}</strong>
           <small>
-            {c.skipped
-              ? "Non évalué"
-              : c.position < session.currentPosition ||
-                  session.status === "finished"
-                ? "Révision terminée"
-                : c.position === session.currentPosition
-                  ? "Cas actif"
-                  : "À venir"}
+            {session.deliveryMode === "asynchronous"
+              ? "Parcours individuel"
+              : c.skipped
+                ? "Non évalué"
+                : c.position < session.currentPosition ||
+                    session.status === "finished"
+                  ? "Révision terminée"
+                  : c.position === session.currentPosition
+                    ? "Cas actif"
+                    : "À venir"}
           </small>
         </li>
       ))}
@@ -525,6 +559,30 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
       navigate("/seances");
     },
   });
+  const reuse = useMutation({
+    mutationFn: () =>
+      api<{ id: string }>(
+        `/api/teaching-sessions/${sessionId}/asynchronous`,
+        "POST",
+        {},
+      ),
+    onSuccess: async (created) => {
+      await cache.invalidateQueries({ queryKey: ["teaching-sessions"] });
+      navigate(`/seances/${created.id}`);
+    },
+  });
+  const mode = useMutation({
+    mutationFn: (deliveryMode: string) =>
+      api(`/api/teaching-sessions/${sessionId}/mode`, "POST", { deliveryMode }),
+    onSuccess: () =>
+      cache.invalidateQueries({ queryKey: ["teaching-session", sessionId] }),
+  });
+  const finish = useMutation({
+    mutationFn: () =>
+      api(`/api/teaching-sessions/${sessionId}/finish`, "POST", {}),
+    onSuccess: () =>
+      cache.invalidateQueries({ queryKey: ["teaching-session", sessionId] }),
+  });
   const s = session.data,
     current = s?.cases[s.currentPosition];
   const canAdvance =
@@ -572,6 +630,65 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
           <p className="session-shared-code">
             Code unique pour tous les cas : <strong>{s.code}</strong>
           </p>
+          {s.role === "students" && s.status === "open" && (
+            <section className="panel-card">
+              <h2>
+                {s.deliveryMode === "asynchronous"
+                  ? "Parcours asynchrone activé"
+                  : "Séance synchrone"}
+              </h2>
+              <p>
+                {s.deliveryMode === "asynchronous"
+                  ? "Chaque étudiant répond, consulte son corrigé et passe au cas suivant sans votre intervention. Son bilan personnel apparaît dès qu’il termine."
+                  : "Vous présentez les cas et guidez les étapes pour tout le groupe."}
+              </p>
+              {s.report.memberCount === 0 && (
+                <>
+                  <Btn
+                    kind="outline"
+                    disabled={mode.isPending}
+                    onClick={() =>
+                      mode.mutate(
+                        s.deliveryMode === "asynchronous"
+                          ? "synchronous"
+                          : "asynchronous",
+                      )
+                    }
+                  >
+                    {s.deliveryMode === "asynchronous"
+                      ? "Revenir au synchrone"
+                      : "Activer le parcours asynchrone"}
+                  </Btn>
+                  <p>
+                    Choisissez le mode avant l’arrivée des participants et le
+                    début de la présentation. Les cas et les barèmes restent
+                    identiques.
+                  </p>
+                </>
+              )}
+              {mode.isError && <p role="alert">{getError(mode.error)}</p>}
+            </section>
+          )}
+          {s.role === "students" && s.deliveryMode !== "asynchronous" && (
+            <section className="panel-card">
+              <h2>Proposer cette préparation en asynchrone</h2>
+              <p>
+                Ouvrez un nouveau parcours avec les mêmes cas, leur ordre et
+                leurs barèmes enregistrés. Un nouveau code permettra aux
+                étudiants de répondre à leur rythme. Les réponses de cette
+                séance seront conservées séparément ; les PRC ne sont pas
+                dupliqués.
+              </p>
+              <Btn
+                kind="outline"
+                disabled={reuse.isPending}
+                onClick={() => reuse.mutate()}
+              >
+                {reuse.isPending ? "Préparation…" : "Réutiliser en asynchrone"}
+              </Btn>
+              {reuse.isError && <p role="alert">{getError(reuse.error)}</p>}
+            </section>
+          )}
           <SessionCaseProgress session={s} />
           {s.status === "finished" ? (
             <>
@@ -609,6 +726,76 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
                 {s.archivedAt ? "Restaurer la séance" : "Archiver la séance"}
               </Btn>
               {archive.isError && <p role="alert">{getError(archive.error)}</p>}
+            </>
+          ) : s.deliveryMode === "asynchronous" ? (
+            <>
+              <section
+                className="panel-card session-attendance"
+                aria-label="Suivi des participants"
+              >
+                <h2>Progression des étudiants</h2>
+                <QRCodeSVG
+                  value={new URL(
+                    `/join/${encodeURIComponent(s.code)}`,
+                    window.location.origin,
+                  ).toString()}
+                  size={160}
+                  title="Rejoindre la séance asynchrone"
+                />
+                <p>
+                  {s.report.memberCount} participant(s). Les corrigés
+                  individuels sont disponibles après chaque soumission. La
+                  distribution du groupe sera publiée à la clôture.
+                </p>
+                <ul>
+                  {s.report.members?.map((m) => (
+                    <li key={m.id}>
+                      <span>{m.pseudonym}</span>
+                      <strong>
+                        {m.submittedCount} / {s.cases.length} cas soumis
+                      </strong>
+                    </li>
+                  ))}
+                </ul>
+                <p>
+                  <a
+                    className="btn btn-primary"
+                    href={`/join/${encodeURIComponent(s.code)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Ouvrir le lien étudiant
+                  </a>
+                </p>
+              </section>
+              <CumulativeReport
+                report={s.report}
+                role={s.role}
+                privateResults
+              />
+              <section className="panel-card session-next">
+                <h2>Clôturer la séance</h2>
+                <p>
+                  Les étudiants terminent à leur rythme. Clôturez quand la
+                  période de participation est terminée : les réponses seront
+                  fermées et la distribution anonyme sera publiée. Les copies
+                  incomplètes conserveront leur bilan partiel.
+                </p>
+                <Btn
+                  disabled={finish.isPending}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Fermer les réponses pour tous et publier la distribution anonyme du groupe ? Les étudiants encore en cours ne pourront plus soumettre.",
+                      )
+                    )
+                      finish.mutate();
+                  }}
+                >
+                  Clôturer et publier le bilan du groupe
+                </Btn>
+                {finish.isError && <p role="alert">{getError(finish.error)}</p>}
+              </section>
             </>
           ) : (
             <>
@@ -725,13 +912,23 @@ export function TeachingProjection() {
         <p>
           {s.status === "finished"
             ? "Séance terminée"
-            : `Cas ${s.currentPosition + 1} sur ${s.cases.length}`}{" "}
+            : s.deliveryMode === "asynchronous"
+              ? "Parcours asynchrone"
+              : `Cas ${s.currentPosition + 1} sur ${s.cases.length}`}{" "}
           · Code <strong>{s.code}</strong>
         </p>
       </header>
-      {s.status === "finished" ? (
+      {s.status === "finished" || s.deliveryMode === "asynchronous" ? (
         <main className="projection-page">
-          <CumulativeReport report={s.report} role={s.role} />
+          {s.deliveryMode === "asynchronous" && s.status !== "finished" ? (
+            <p>
+              Parcours asynchrone en cours. Code : <strong>{s.code}</strong>.
+              Chaque étudiant avance à son rythme ; le bilan collectif sera
+              publié à la clôture.
+            </p>
+          ) : (
+            <CumulativeReport report={s.report} role={s.role} />
+          )}
         </main>
       ) : (
         <ProjectionPage
@@ -749,6 +946,8 @@ export function TeachingParticipantBoundary({
 }: {
   children: ReactNode;
 }) {
+  const [location] = useLocation();
+  const cache = useQueryClient();
   const query = useQuery({
     queryKey: ["teaching-member-context"],
     queryFn: () =>
@@ -761,14 +960,30 @@ export function TeachingParticipantBoundary({
           position: number;
           total: number;
           currentLaunchId: string;
+          deliveryMode?: string;
+          currentSubmitted?: boolean;
+          groupFinished?: boolean;
         };
         report?: Report;
       }>("/api/participant/teaching-session"),
     refetchInterval: (q) =>
-      q.state.data?.session?.status === "open" ? 5000 : false,
+      q.state.data?.session &&
+      (q.state.data.session.status === "open" ||
+        q.state.data.session.groupFinished === false)
+        ? 5000
+        : false,
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     retry: false,
+  });
+  const advance = useMutation({
+    mutationFn: () =>
+      api("/api/participant/teaching-session/next", "POST", {
+        launchId: query.data?.session?.currentLaunchId,
+        expectedPosition: query.data?.session?.position,
+      }),
+    onSuccess: () =>
+      cache.invalidateQueries({ queryKey: ["teaching-member-context"] }),
   });
   const initial = useRef<string | null>(null),
     s = query.data?.session;
@@ -800,9 +1015,53 @@ export function TeachingParticipantBoundary({
       {s.status === "finished" && query.data?.report ? (
         <main className="participant-result-content">
           <CumulativeReport role={s.role} report={query.data.report} own />
+          {s.deliveryMode === "asynchronous" && !s.groupFinished && (
+            <p>
+              Votre parcours est terminé. Vous pouvez revenir à ce bilan avec le
+              même navigateur. La distribution anonyme du groupe sera disponible
+              lorsque le professeur clôturera la séance.
+            </p>
+          )}
         </main>
       ) : (
-        children
+        <>
+          {s.deliveryMode === "asynchronous" && !s.currentSubmitted && (
+            <p className="teaching-participant-progress">
+              Avancez à votre rythme : répondez au cas, consultez votre corrigé
+              puis passez au suivant. Vos réponses sont enregistrées
+              automatiquement. Reprenez avec le même navigateur.
+            </p>
+          )}
+          {children}
+          {s.deliveryMode === "asynchronous" &&
+            s.currentSubmitted &&
+            location === "/participant/results" && (
+              <section className="panel-card session-next">
+                <h2>
+                  {s.position === s.total - 1
+                    ? "Vous avez répondu à tous les cas"
+                    : "Prêt pour la suite ?"}
+                </h2>
+                <p>
+                  Vos réponses sont définitives. Prenez le temps de consulter le
+                  corrigé avant de continuer.
+                </p>
+                <Btn
+                  disabled={advance.isPending}
+                  onClick={() => advance.mutate()}
+                >
+                  {advance.isPending
+                    ? "Ouverture…"
+                    : s.position === s.total - 1
+                      ? "Voir mon bilan de séance"
+                      : "Passer au cas suivant"}
+                </Btn>
+                {advance.isError && (
+                  <p role="alert">{getError(advance.error)}</p>
+                )}
+              </section>
+            )}
+        </>
       )}
     </>
   );

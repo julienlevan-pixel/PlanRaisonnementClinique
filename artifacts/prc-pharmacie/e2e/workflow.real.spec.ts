@@ -48,7 +48,7 @@ async function answerAndSubmit(page: Page, pseudonym: string, teacher?: Page) {
 }
 
 test('real PostgreSQL workflow: administrator, teacher, expert and student in separate browser sessions', async ({ browser, baseURL }) => {
-  test.setTimeout(240_000);
+  test.setTimeout(300_000);
   if (!baseURL || !['127.0.0.1', 'localhost', '[::1]'].includes(new URL(baseURL).hostname)) throw new Error('The real workflow may run only against a local test site.');
   const adminName = process.env.PRC_E2E_ADMIN_USERNAME;
   const adminPassword = process.env.PRC_E2E_ADMIN_PASSWORD;
@@ -360,6 +360,44 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(teacher.getByRole('region',{name:'Bilan de la séance',exact:true})).toContainText('31 points');
       await expect(projection.getByRole('region',{name:'Bilan de la séance',exact:true})).toContainText('31 points',{timeout:12000});
       await projection.close();
+      // Reuse the completed synchronous preparation without changing its existing results.
+      await teacher.getByRole('button',{name:'Réutiliser en asynchrone',exact:true}).click();
+      await expect(teacher).not.toHaveURL(new RegExp(lessonPath+'$'));
+      await expect(teacher.getByRole('heading',{name:'Parcours asynchrone activé',exact:true})).toBeVisible();
+      const autonomous=await page(), slower=await page();
+      const access=teacher.getByRole('link',{name:'Ouvrir le lien étudiant',exact:true});
+      await expect(access).toBeVisible();const href=(await access.getAttribute('href'))!;
+      for(const [p,name] of [[autonomous,'Autonome'],[slower,'En attente']] as const){
+        await p.goto(href);await p.getByLabel('Votre nom ou pseudonyme',{exact:true}).fill(name);
+        await p.getByRole('button',{name:'Rejoindre l’activité',exact:true}).click();await expect(p).toHaveURL(/\/participant$/);
+      }
+      for(let position=0;position<2;position++){
+        await expect(autonomous.getByLabel('Impression clinique',{exact:true})).toBeVisible();
+        const payload=await(await autonomous.request.get('/api/participant/response')).json();
+        expect(payload.joinInfo.deliveryMode).toBe('asynchronous');expect(payload.joinInfo.liveSession).toBeUndefined();
+        await autonomous.getByLabel('Impression clinique',{exact:true}).selectOption(payload.joinInfo.diagnostics[0].id);
+        await autonomous.getByLabel('Impression clinique alternative',{exact:true}).selectOption(payload.joinInfo.diagnostics[1].id);
+        for(let i=0;i<5;i++){
+          await autonomous.getByTestId(`choice-main-positive-${payload.joinInfo.observations[i].id}`).click();
+          await autonomous.getByTestId(`choice-alternative-negative-${payload.joinInfo.observations[i+5].id}`).click();
+        }
+        // A refresh restores the server draft and browser identity without another login.
+        if(position===0){await expect(autonomous.getByText(/^Enregistré par le serveur à/)).toBeVisible();await autonomous.reload();await expect(autonomous.locator('#participant-main-counter')).toContainText('5/5');}
+        await confirmClick(autonomous,'Vérifier et transmettre');
+        await expect(autonomous.getByRole('heading',{name:'Votre résultat',exact:true})).toBeVisible();
+        await expect(autonomous.getByRole('region',{name:'Distribution des notes du groupe',exact:true})).toHaveCount(0);
+        await autonomous.getByRole('button',{name:position===0?'Passer au cas suivant':'Voir mon bilan de séance',exact:true}).click();
+        if(position===0) await expect(autonomous).toHaveURL(/\/participant$/);
+      }
+      await expect(autonomous.locator('.session-total')).toBeVisible();
+      const own=await(await autonomous.request.get('/api/participant/teaching-session')).json();
+      expect(own.report.maximum).toBe(31);expect(own.report.own.submittedCount).toBe(2);expect(own.report.distribution).toBeUndefined();
+      expect((await(await slower.request.get('/api/participant/teaching-session')).json()).session.position).toBe(0);
+      await autonomous.setViewportSize({width:390,height:844});
+      expect(await autonomous.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      await autonomous.screenshot({path:'/workspace/attachments/prc-asynchrone-bilan-mobile.png',fullPage:true});
+      await confirmClick(teacher,'Clôturer et publier le bilan du groupe');
+      await expect(autonomous.getByRole('region',{name:'Distribution des notes du groupe',exact:true})).toBeVisible({timeout:12000});
     });
   } finally { await Promise.all(contexts.map(context => context.close())); }
 });

@@ -210,7 +210,7 @@ export async function getPrincipal(
     const current = await pool.query(
       `SELECT m.id AS member_id,m.session_id,m.pseudonym,p.id,p.launch_id,p.role
        FROM prc_private.teaching_members m JOIN prc_private.teaching_sessions ts ON ts.id=m.session_id
-       JOIN prc_private.teaching_session_cases c ON c.session_id=ts.id AND c.position=ts.current_position
+       JOIN prc_private.teaching_session_cases c ON c.session_id=ts.id AND c.position=CASE WHEN to_jsonb(ts)->>'delivery_mode'='asynchronous' THEN COALESCE((to_jsonb(m)->>'current_position')::int,0) ELSE ts.current_position END
        JOIN prc_private.participants p ON p.teaching_member_id=m.id AND p.launch_id=c.launch_id
        WHERE m.id=$1`,
       [row.teaching_member_id],

@@ -271,7 +271,22 @@ export function Join({ actions }: { actions: AppActions }) {
             : "ACTIVITÉ ÉTUDIANTE"}
         </div>
         <h1>{info.data.name}</h1>
+        {info.data.teachingSessionId &&
+          info.data.deliveryMode === "asynchronous" && (
+            <p>
+              Parcours à votre rythme : répondez à chaque cas, consultez votre
+              corrigé et passez au suivant sans attendre le groupe. Votre bilan
+              personnel sera disponible à la fin.
+            </p>
+          )}
         <TrialNotice trial={info.data.isTrial} />
+        {info.data.teachingSessionId && info.data.canResume && (
+          <p>
+            <a href="/participant" className="btn btn-primary">
+              Reprendre mon parcours
+            </a>
+          </p>
+        )}
         {closed && !canResume ? (
           <p className="participant-notice" role="status">
             La collecte est fermée. Une participation existante reste accessible

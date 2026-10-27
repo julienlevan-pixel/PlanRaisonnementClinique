@@ -55,5 +55,12 @@ REVOKE ALL ON prc_private.teaching_sessions,prc_private.teaching_session_cases,p
 REVOKE ALL ON FUNCTION prc_private.can_manage_teaching_session(uuid,uuid) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION prc_private.can_manage_launch(uuid,uuid) FROM PUBLIC,anon,authenticated;
 
+ALTER TABLE prc_private.teaching_sessions ADD COLUMN IF NOT EXISTS delivery_mode text NOT NULL DEFAULT 'synchronous' CHECK (delivery_mode IN ('synchronous','asynchronous'));
+ALTER TABLE prc_private.teaching_sessions DROP CONSTRAINT IF EXISTS teaching_async_students_check;
+ALTER TABLE prc_private.teaching_sessions ADD CONSTRAINT teaching_async_students_check CHECK (delivery_mode='synchronous' OR role='students');
+ALTER TABLE prc_private.teaching_members ADD COLUMN IF NOT EXISTS current_position integer NOT NULL DEFAULT 0 CHECK (current_position>=0);
+ALTER TABLE prc_private.teaching_members ADD COLUMN IF NOT EXISTS finished_at timestamptz;
+
+INSERT INTO prc_private.schema_migrations(filename) VALUES('006_async_teaching_sessions.sql') ON CONFLICT(filename) DO NOTHING;
 INSERT INTO prc_private.schema_migrations(filename) VALUES('005_teaching_sessions.sql') ON CONFLICT(filename) DO NOTHING;
 COMMIT;

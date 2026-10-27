@@ -5,6 +5,7 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { TeachingMemberContextSessionDeliveryMode } from './teachingMemberContextSessionDeliveryMode';
 import type { TeachingMemberContextSessionRole } from './teachingMemberContextSessionRole';
 import type { TeachingMemberContextSessionStatus } from './teachingMemberContextSessionStatus';
 
@@ -19,4 +20,7 @@ export type TeachingMemberContextSession = {
   position?: number;
   total?: number;
   currentLaunchId?: string;
+  deliveryMode?: TeachingMemberContextSessionDeliveryMode;
+  currentSubmitted?: boolean;
+  groupFinished?: boolean;
 } | null;

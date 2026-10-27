@@ -5,9 +5,12 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
+import type { TeachingSessionInputDeliveryMode } from './teachingSessionInputDeliveryMode';
 import type { TeachingSessionInputRole } from './teachingSessionInputRole';
 
 export interface TeachingSessionInput {
+  /** Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. */
+  deliveryMode?: TeachingSessionInputDeliveryMode;
   /**
      * @minLength 1
      * @maxLength 160

@@ -241,6 +241,17 @@ export interface PrcInput {
   observations: ObservationInput[];
 }
 
+/**
+ * Choix du professeur. Le mode peut être changé avant le début et avant toute inscription.
+ */
+export type TeachingSessionInputDeliveryMode = typeof TeachingSessionInputDeliveryMode[keyof typeof TeachingSessionInputDeliveryMode];
+
+
+export const TeachingSessionInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 export type TeachingSessionInputRole = typeof TeachingSessionInputRole[keyof typeof TeachingSessionInputRole];
 
 
@@ -250,6 +261,8 @@ export const TeachingSessionInputRole = {
 } as const;
 
 export interface TeachingSessionInput {
+  /** Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. */
+  deliveryMode?: TeachingSessionInputDeliveryMode;
   /**
      * @minLength 1
      * @maxLength 160
@@ -272,6 +285,24 @@ export interface TeachingSessionJoinInput {
   code: string;
   /** Clé de reprise aléatoire ; le nom seul ne permet pas de retrouver une copie. */
   joinKey: string;
+}
+
+export type TeachingModeInputDeliveryMode = typeof TeachingModeInputDeliveryMode[keyof typeof TeachingModeInputDeliveryMode];
+
+
+export const TeachingModeInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export interface TeachingModeInput {
+  deliveryMode: TeachingModeInputDeliveryMode;
+}
+
+export interface TeachingMemberAdvanceInput {
+  launchId: string;
+  /** @minimum 0 */
+  expectedPosition: number;
 }
 
 export interface TeachingArchiveInput {
@@ -298,6 +329,14 @@ export interface TeachingCaseOption {
   corrected: boolean;
 }
 
+export type TeachingSessionSummaryDeliveryMode = typeof TeachingSessionSummaryDeliveryMode[keyof typeof TeachingSessionSummaryDeliveryMode];
+
+
+export const TeachingSessionSummaryDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 export type TeachingSessionSummaryRole = typeof TeachingSessionSummaryRole[keyof typeof TeachingSessionSummaryRole];
 
 
@@ -315,6 +354,7 @@ export const TeachingSessionSummaryStatus = {
 } as const;
 
 export interface TeachingSessionSummary {
+  deliveryMode?: TeachingSessionSummaryDeliveryMode;
   /** @nullable */
   archivedAt?: string | null;
   id: string;
@@ -363,6 +403,14 @@ export const TeachingMemberContextSessionRole = {
   students: 'students',
 } as const;
 
+export type TeachingMemberContextSessionDeliveryMode = typeof TeachingMemberContextSessionDeliveryMode[keyof typeof TeachingMemberContextSessionDeliveryMode];
+
+
+export const TeachingMemberContextSessionDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
 /**
  * @nullable
  */
@@ -374,6 +422,9 @@ export type TeachingMemberContextSession = {
   position?: number;
   total?: number;
   currentLaunchId?: string;
+  deliveryMode?: TeachingMemberContextSessionDeliveryMode;
+  currentSubmitted?: boolean;
+  groupFinished?: boolean;
 } | null;
 
 /**
