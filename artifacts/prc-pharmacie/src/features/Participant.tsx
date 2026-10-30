@@ -40,6 +40,8 @@ import {
 
 type Role = "main" | "alternative";
 type CaseData = {
+  teachingSessionId?: string;
+  canResume?: boolean;
   liveSession?: LiveSession;
   grading?: GradingSummary;
   scoringVersion?: string;
@@ -185,6 +187,7 @@ export function Join({ actions }: { actions: AppActions }) {
   });
   const [, setLocation] = useLocation();
   const [pseudonym, setPseudonym] = useState("");
+  const [joiningSession, setJoiningSession] = useState(false);
   const [error, setError] = useState("");
   const joinKeys = useRef<Record<string, string>>({});
   const invitationToken =
@@ -208,6 +211,20 @@ export function Join({ actions }: { actions: AppActions }) {
       code,
       joinKey: joinKeys.current[code],
     };
+    if (info.data?.teachingSessionId) {
+      setJoiningSession(true);
+      api(
+        `/api/teaching-sessions/${info.data.teachingSessionId}/join`,
+        "POST",
+        data,
+      )
+        .then(() => window.location.assign("/participant"))
+        .catch((error) => {
+          setError(getError(error));
+          setJoiningSession(false);
+        });
+      return;
+    }
     actions.join.mutate(
       { launchId: info.data!.launchId, data },
       {
@@ -241,7 +258,9 @@ export function Join({ actions }: { actions: AppActions }) {
       sessionStorage.getItem(`prc-join-${code.toUpperCase()}`) ?? "";
   } catch {}
   const canResume =
-    !!savedJoinKey || (info.data.role === "panel" && !!invitationToken);
+    !!savedJoinKey ||
+    info.data.canResume ||
+    (info.data.role === "panel" && !!invitationToken);
   return (
     <div className="participant-layout">
       <ParticipantTop label="Activité privée" />
@@ -252,7 +271,22 @@ export function Join({ actions }: { actions: AppActions }) {
             : "ACTIVITÉ ÉTUDIANTE"}
         </div>
         <h1>{info.data.name}</h1>
+        {info.data.teachingSessionId &&
+          info.data.deliveryMode === "asynchronous" && (
+            <p>
+              Parcours à votre rythme : répondez à chaque cas, consultez votre
+              corrigé et passez au suivant sans attendre le groupe. Votre bilan
+              personnel sera disponible à la fin.
+            </p>
+          )}
         <TrialNotice trial={info.data.isTrial} />
+        {info.data.teachingSessionId && info.data.canResume && (
+          <p>
+            <a href="/participant" className="btn btn-primary">
+              Reprendre mon parcours
+            </a>
+          </p>
+        )}
         {closed && !canResume ? (
           <p className="participant-notice" role="status">
             La collecte est fermée. Une participation existante reste accessible
@@ -298,9 +332,9 @@ export function Join({ actions }: { actions: AppActions }) {
               <Btn
                 type="submit"
                 className="full"
-                disabled={actions.join.isPending}
+                disabled={actions.join.isPending || joiningSession}
               >
-                {actions.join.isPending
+                {actions.join.isPending || joiningSession
                   ? "Ouverture…"
                   : closed
                     ? "Reprendre ma copie"
@@ -369,18 +403,29 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     acknowledgedVersion = useRef(0),
     revision = useRef(0);
   const inFlight = useRef<Promise<boolean> | null>(null);
+  const copyLaunchId = useRef("");
   const context = useRef({
     online,
     submitted,
     status: "open",
     conflict,
     canAnswer: true,
+    launchId: "",
   });
   const joinInfo = stateQuery.data?.joinInfo ?? responseQuery.data?.joinInfo;
   const status = stateQuery.data?.status ?? joinInfo?.status ?? "open";
   const liveSession = stateQuery.data?.liveSession ?? joinInfo?.liveSession;
-  const canAnswer = !liveSession || liveSession.phase === "answering";
-  context.current = { online, submitted, status, conflict, canAnswer };
+  const canAnswer =
+    (!liveSession || liveSession.phase === "answering") &&
+    (!copyLaunchId.current || joinInfo?.launchId === copyLaunchId.current);
+  context.current = {
+    online,
+    submitted,
+    status,
+    conflict,
+    canAnswer,
+    launchId: copyLaunchId.current,
+  };
   const applyServerCopy = useCallback((response: SavedResponse) => {
     const copy = {
       mainDiagnosticId: response.mainDiagnosticId,
@@ -402,10 +447,19 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
   }, []);
   useEffect(() => {
     if (responseQuery.data && !loaded) {
+      copyLaunchId.current = responseQuery.data.joinInfo.launchId;
       applyServerCopy(responseQuery.data.response);
       setLoaded(true);
     }
   }, [responseQuery.data, loaded, applyServerCopy]);
+  useEffect(() => {
+    if (
+      copyLaunchId.current &&
+      stateQuery.data?.joinInfo?.launchId &&
+      stateQuery.data.joinInfo.launchId !== copyLaunchId.current
+    )
+      window.location.replace("/participant");
+  }, [stateQuery.data?.joinInfo?.launchId]);
   useEffect(() => {
     if (stateQuery.data?.responseState === "submitted") setSubmitted(true);
   }, [stateQuery.data?.responseState]);
@@ -459,7 +513,11 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         const data = await api<ResponseEnvelope>(
           "/api/participant/response",
           "PUT",
-          { ...snapshot, revision: revision.current },
+          {
+            ...snapshot,
+            revision: revision.current,
+            launchId: context.current.launchId,
+          },
         );
         revision.current = data.response.revision;
         acknowledgedVersion.current = version;
@@ -659,7 +717,10 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       const result = await api<SavedResponse>(
         "/api/participant/submit",
         "POST",
-        { expectedRevision: revision.current },
+        {
+          expectedRevision: revision.current,
+          launchId: context.current.launchId,
+        },
       );
       setSubmitted(result.state === "submitted");
       setDirty(false);

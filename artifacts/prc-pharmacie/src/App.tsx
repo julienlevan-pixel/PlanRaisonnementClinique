@@ -8,6 +8,12 @@ import { PrcEditor } from "./features/Editor";
 import { ProtectedActivity, ProjectionPage } from "./features/Activity";
 import { Join, Participant, ParticipantResults } from "./features/Participant";
 import { Admin } from "./features/Admin";
+import {
+  TeachingSessions,
+  TeachingSessionPage,
+  TeachingProjection,
+  TeachingParticipantBoundary,
+} from "./features/TeachingSessions";
 import NotFound from "@/pages/not-found";
 import "./index.css";
 import "./participant-matrix.css";
@@ -20,6 +26,16 @@ function Router() {
       </Route>
       <Route path="/login">
         <Login actions={actions} />
+      </Route>
+      <Route
+        path="/seances/:sessionId/projection"
+        component={TeachingProjection}
+      />
+      <Route path="/seances/:sessionId">
+        <TeachingSessionPage actions={actions} />
+      </Route>
+      <Route path="/seances">
+        <TeachingSessions actions={actions} />
       </Route>
       <Route path="/prcs">
         <Home actions={actions} view="library" />
@@ -37,9 +53,15 @@ function Router() {
         <Join actions={actions} />
       </Route>
       <Route path="/participant">
-        <Participant actions={actions} />
+        <TeachingParticipantBoundary>
+          <Participant actions={actions} />
+        </TeachingParticipantBoundary>
       </Route>
-      <Route path="/participant/results" component={ParticipantResults} />
+      <Route path="/participant/results">
+        <TeachingParticipantBoundary>
+          <ParticipantResults />
+        </TeachingParticipantBoundary>
+      </Route>
       <Route path="/admin">
         <Admin actions={actions} />
       </Route>

@@ -136,6 +136,15 @@ export interface Observation {
   position: number;
 }
 
+export interface TeachingCaseContext {
+  /** Code commun de la séance. */
+  code?: string;
+  id: string;
+  name: string;
+  position: number;
+  total: number;
+}
+
 export type LaunchRole = typeof LaunchRole[keyof typeof LaunchRole];
 
 
@@ -178,6 +187,7 @@ export interface LiveSession {
 }
 
 export interface Launch {
+  teachingSession?: TeachingCaseContext;
   id: string;
   prcId: string;
   role: LaunchRole;
@@ -229,6 +239,204 @@ export interface PrcInput {
   /** @items.maxLength 240 */
   diagnostics: string[];
   observations: ObservationInput[];
+}
+
+/**
+ * Choix du professeur. Le mode peut être changé avant le début et avant toute inscription.
+ */
+export type TeachingSessionInputDeliveryMode = typeof TeachingSessionInputDeliveryMode[keyof typeof TeachingSessionInputDeliveryMode];
+
+
+export const TeachingSessionInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export type TeachingSessionInputRole = typeof TeachingSessionInputRole[keyof typeof TeachingSessionInputRole];
+
+
+export const TeachingSessionInputRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export interface TeachingSessionInput {
+  /** Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. */
+  deliveryMode?: TeachingSessionInputDeliveryMode;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  name: string;
+  role: TeachingSessionInputRole;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     */
+  prcIds: string[];
+}
+
+export interface TeachingSessionJoinInput {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  pseudonym: string;
+  code: string;
+  /** Clé de reprise aléatoire ; le nom seul ne permet pas de retrouver une copie. */
+  joinKey: string;
+}
+
+export type TeachingModeInputDeliveryMode = typeof TeachingModeInputDeliveryMode[keyof typeof TeachingModeInputDeliveryMode];
+
+
+export const TeachingModeInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export interface TeachingModeInput {
+  deliveryMode: TeachingModeInputDeliveryMode;
+}
+
+export interface TeachingMemberAdvanceInput {
+  launchId: string;
+  /** @minimum 0 */
+  expectedPosition: number;
+}
+
+export interface TeachingArchiveInput {
+  archived?: boolean;
+}
+
+export interface TeachingAdvanceInput {
+  /** Exclut explicitement un cas fermé sans soumission de la note globale et de son maximum. */
+  skipUnanswered?: boolean;
+  /** @minimum 0 */
+  expectedPosition: number;
+}
+
+export interface TeachingSessionCreated {
+  id: string;
+  code: string;
+}
+
+export interface TeachingCaseOption {
+  id: string;
+  name: string;
+  version: number;
+  ready: boolean;
+  corrected: boolean;
+}
+
+export type TeachingSessionSummaryDeliveryMode = typeof TeachingSessionSummaryDeliveryMode[keyof typeof TeachingSessionSummaryDeliveryMode];
+
+
+export const TeachingSessionSummaryDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export type TeachingSessionSummaryRole = typeof TeachingSessionSummaryRole[keyof typeof TeachingSessionSummaryRole];
+
+
+export const TeachingSessionSummaryRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export type TeachingSessionSummaryStatus = typeof TeachingSessionSummaryStatus[keyof typeof TeachingSessionSummaryStatus];
+
+
+export const TeachingSessionSummaryStatus = {
+  open: 'open',
+  finished: 'finished',
+} as const;
+
+export interface TeachingSessionSummary {
+  deliveryMode?: TeachingSessionSummaryDeliveryMode;
+  /** @nullable */
+  archivedAt?: string | null;
+  id: string;
+  name: string;
+  code: string;
+  role: TeachingSessionSummaryRole;
+  status: TeachingSessionSummaryStatus;
+  currentPosition?: number;
+  caseCount?: number;
+  memberCount?: number;
+}
+
+export interface TeachingCase {
+  skipped?: boolean;
+  id: string;
+  name: string;
+  position: number;
+  status: string;
+  maximum: number;
+}
+
+/**
+ * Le suivi nominatif est réservé au professeur ; la projection ne contient ni membres ni notes individuelles.
+ */
+export type TeachingSessionDetailReport = { [key: string]: unknown };
+
+export type TeachingSessionDetail = TeachingSessionSummary & {
+  cases: TeachingCase[];
+  /** Le suivi nominatif est réservé au professeur ; la projection ne contient ni membres ni notes individuelles. */
+  report: TeachingSessionDetailReport;
+};
+
+export type TeachingMemberContextSessionStatus = typeof TeachingMemberContextSessionStatus[keyof typeof TeachingMemberContextSessionStatus];
+
+
+export const TeachingMemberContextSessionStatus = {
+  open: 'open',
+  finished: 'finished',
+} as const;
+
+export type TeachingMemberContextSessionRole = typeof TeachingMemberContextSessionRole[keyof typeof TeachingMemberContextSessionRole];
+
+
+export const TeachingMemberContextSessionRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export type TeachingMemberContextSessionDeliveryMode = typeof TeachingMemberContextSessionDeliveryMode[keyof typeof TeachingMemberContextSessionDeliveryMode];
+
+
+export const TeachingMemberContextSessionDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+/**
+ * @nullable
+ */
+export type TeachingMemberContextSession = {
+  id?: string;
+  name?: string;
+  status?: TeachingMemberContextSessionStatus;
+  role?: TeachingMemberContextSessionRole;
+  position?: number;
+  total?: number;
+  currentLaunchId?: string;
+  deliveryMode?: TeachingMemberContextSessionDeliveryMode;
+  currentSubmitted?: boolean;
+  groupFinished?: boolean;
+} | null;
+
+/**
+ * Seulement son bilan personnel et les statistiques anonymes
+ */
+export type TeachingMemberContextReport = { [key: string]: unknown };
+
+export interface TeachingMemberContext {
+  /** @nullable */
+  session: TeachingMemberContextSession;
+  /** Seulement son bilan personnel et les statistiques anonymes */
+  report?: TeachingMemberContextReport;
 }
 
 export type SessionActionInputAction = typeof SessionActionInputAction[keyof typeof SessionActionInputAction];
@@ -395,6 +603,11 @@ export interface Reference {
 }
 
 export interface CaseSnapshot {
+  teachingSession?: TeachingCaseContext;
+  /** Présent lors de la résolution du code commun de séance. */
+  teachingSessionId?: string;
+  /** Le cookie courant permet de reprendre une participation existante à la séance. */
+  canResume?: boolean;
   name: string;
   scenario: string;
   instructions: string;
@@ -563,6 +776,8 @@ export interface ParticipantState {
 }
 
 export interface ParticipantResponseInput {
+  /** Requis pour une séance à plusieurs cas ; refuse les sauvegardes provenant d’un ancien cas. */
+  launchId?: string;
   /** @nullable */
   mainDiagnosticId: string | null;
   /** @nullable */
@@ -1043,6 +1258,8 @@ export type ParticipantResultsComponents = VisibleScoreComponents;
 export type ParticipantResultsPanel = VisibleAggregate;
 
 export interface SubmissionInput {
+  /** Requis dans une séance à plusieurs cas. */
+  launchId?: string;
   /**
      * Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.
      * @minimum 0
@@ -1110,5 +1327,18 @@ q?: string;
  * false pour la bibliothèque active, true pour les archives.
  */
 archived?: boolean;
+};
+
+export type ListTeachingSessionsParams = {
+archived?: boolean;
+};
+
+export type JoinTeachingSession200 = {
+  csrfToken?: string;
+};
+
+export type AdvanceTeachingSession200 = {
+  advanced?: boolean;
+  finished?: boolean;
 };
 

@@ -1,5 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/participant/teaching-session', route => route.fulfill({json:{session:null}}));
+});
+
 const diagnostics = ["A", "B", "C", "D", "E"].map((label, index) => ({
   id: `d${index}`,
   label: `Hypothèse ${label}`,

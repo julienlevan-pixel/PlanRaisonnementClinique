@@ -1,0 +1,184 @@
+.teaching-session-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 20px;
+  margin-top: 28px;
+}
+.session-builder {
+  margin: 24px 0;
+}
+.session-builder .field {
+  margin: 18px 0;
+}
+.session-options {
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 18px;
+}
+.session-options > label {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid hsl(var(--border));
+  line-height: 1.6;
+}
+.session-options input {
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+.session-options small {
+  display: block;
+  color: hsl(var(--muted-foreground));
+}
+.session-order {
+  padding-left: 24px;
+}
+.session-order li {
+  padding: 12px 0;
+  line-height: 1.6;
+}
+.session-order li > div {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.session-order button {
+  padding: 6px 12px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+}
+.teaching-case-progress {
+  display: flex;
+  overflow-x: auto;
+  gap: 12px;
+  padding: 0 0 10px;
+  list-style: none;
+  margin: 24px 0;
+}
+.teaching-case-progress li {
+  flex: 0 0 180px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 14px;
+}
+.teaching-case-progress [aria-current] {
+  border-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.06);
+}
+.teaching-case-progress span,
+.teaching-case-progress strong,
+.teaching-case-progress small {
+  display: block;
+}
+.teaching-case-progress span,
+.teaching-case-progress small {
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+}
+.session-shared-code strong {
+  font-size: 24px;
+  letter-spacing: 0.08em;
+  color: hsl(var(--primary));
+}
+.session-attendance li {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.session-attendance ul {
+  list-style: none;
+  padding: 0;
+}
+.session-attendance small {
+  color: hsl(var(--muted-foreground));
+}
+.session-next {
+  margin-top: 28px;
+}
+.session-final {
+  line-height: 1.7;
+}
+.session-total {
+  font-size: 32px;
+  color: hsl(var(--primary));
+  font-weight: 700;
+}
+.session-table-scroll {
+  overflow: auto;
+  max-width: 100%;
+}
+.teaching-participant-progress {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 16px max(20px, calc((100vw - 1050px) / 2));
+  background: #223242;
+  color: #fff;
+}
+.teaching-projection-heading {
+  padding: 24px clamp(20px, 4vw, 60px);
+  background: #223242;
+  color: #fff;
+}
+.teaching-projection-heading h1 {
+  font-size: 28px;
+}
+.session-final .grade-distribution {
+  margin-top: 24px;
+}
+@media (max-width: 600px) {
+  .session-attendance li {
+    flex-direction: column;
+    gap: 4px;
+  }
+  .session-builder {
+    padding: 18px;
+  }
+  .session-options {
+    padding: 12px;
+  }
+}
+
+.teaching-session-list h2,
+.session-order li,
+.teaching-case-progress strong {
+  overflow-wrap: anywhere;
+}
+
+.teaching-participant-progress + .participant-result-content {
+  padding: 0 20px;
+}
+.session-final > h2 {
+  font-size: clamp(26px, 4vw, 36px);
+  line-height: 1.25;
+  margin-bottom: 18px;
+}
+
+@media (max-width: 650px) {
+  .session-final .distribution-chart {
+    min-width: 0;
+    gap: 3px;
+  }
+  .session-final .distribution-column {
+    padding-inline: 0;
+  }
+  .session-final .distribution-axis-label {
+    font-size: 9px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+}
+
+.session-archive-filter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}

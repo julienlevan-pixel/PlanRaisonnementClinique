@@ -1,5 +1,9 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/participant/teaching-session', route => route.fulfill({json:{session:null}}));
+});
+
 const caseData = {
   launchId: "launch-student",
   name: "Cas technique participant",

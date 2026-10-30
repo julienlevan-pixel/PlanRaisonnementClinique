@@ -7,8 +7,14 @@
  */
 import type { Diagnostic } from './diagnostic';
 import type { Observation } from './observation';
+import type { TeachingCaseContext } from './teachingCaseContext';
 
 export interface CaseSnapshot {
+  teachingSession?: TeachingCaseContext;
+  /** Présent lors de la résolution du code commun de séance. */
+  teachingSessionId?: string;
+  /** Le cookie courant permet de reprendre une participation existante à la séance. */
+  canResume?: boolean;
   name: string;
   scenario: string;
   instructions: string;

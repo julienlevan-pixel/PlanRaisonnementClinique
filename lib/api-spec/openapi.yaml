@@ -354,6 +354,173 @@ paths:
           description: PRC introuvable ou gestion des séances non autorisée
         "409":
           description: PRC archivé, hors démonstration ou corrigé non validé pour cette version
+  /teaching-sessions:
+    get:
+      operationId: listTeachingSessions
+      tags: [activities]
+      parameters:
+        - { in: query, name: archived, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: Séances gérées par le professeur
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TeachingSessionSummary" } }
+    post:
+      operationId: createTeachingSession
+      tags: [activities]
+      description: Crée atomiquement les activités des cas dans l’ordre choisi, avec des versions et barèmes figés. Un seul code et une identité par participant pour toute la séance synchrone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingSessionInput" }
+      responses:
+        "201":
+          description: Séance créée
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingSessionCreated" }
+  /teaching-sessions/options:
+    get:
+      operationId: listTeachingSessionOptions
+      tags: [activities]
+      responses:
+        "200":
+          description: Cas accessibles et disponibilité de leur corrigé
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/TeachingCaseOption" } }
+  /teaching-sessions/{sessionId}:
+    get:
+      operationId: getTeachingSession
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Pilotage de séance et suivi nominatif privé
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingSessionDetail" }
+  /teaching-sessions/{sessionId}/join:
+    post:
+      operationId: joinTeachingSession
+      tags: [participants]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingSessionJoinInput" }
+      responses:
+        "200":
+          description: Cookie de participation valable pour tous les cas
+          content:
+            application/json:
+              schema: { type: object, properties: { csrfToken: { type: string } } }
+  /teaching-sessions/{sessionId}/next:
+    post:
+      operationId: advanceTeachingSession
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingAdvanceInput" }
+      responses:
+        "200":
+          description: Cas suivant ou bilan final activé
+          content:
+            application/json:
+              schema: { type: object, properties: { advanced: { type: boolean }, finished: { type: boolean } } }
+        "409":
+          $ref: "#/components/responses/Error"
+  /teaching-sessions/{sessionId}/projection:
+    get:
+      operationId: getTeachingProjection
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Vue collective sans identité ni résultats individuels
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingSessionDetail" }
+  /teaching-sessions/{sessionId}/archive:
+    post:
+      operationId: archiveTeachingSession
+      tags: [activities]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingArchiveInput" }
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Séance terminée archivée, bilans conservés
+  /teaching-sessions/{sessionId}/asynchronous:
+    post:
+      operationId: reuseTeachingSessionAsynchronously
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "201":
+          description: Nouvelle participation asynchrone aux mêmes cas et barèmes figés sans duplication des PRC ni des réponses
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingSessionCreated" }
+  /teaching-sessions/{sessionId}/mode:
+    post:
+      operationId: setTeachingSessionMode
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingModeInput" }
+      responses:
+        "200": { description: Mode mis à jour avant le début de la séance }
+        "409": { $ref: "#/components/responses/Error" }
+  /teaching-sessions/{sessionId}/finish:
+    post:
+      operationId: finishAsyncTeachingSession
+      tags: [activities]
+      parameters:
+        - { in: path, name: sessionId, required: true, schema: { type: string } }
+      responses:
+        "200": { description: Réponses fermées et distribution anonyme publiée }
+  /participant/teaching-session/next:
+    post:
+      operationId: advanceOwnTeachingSession
+      tags: [participants]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingMemberAdvanceInput" }
+      responses:
+        "200": { description: "Après soumission, seul ce participant passe au cas suivant ou à son bilan" }
+        "409": { $ref: "#/components/responses/Error" }
+  /participant/teaching-session:
+    get:
+      operationId: getParticipantTeachingSession
+      tags: [participants]
+      responses:
+        "200":
+          description: Progression de sa séance et bilan personnel en fin de séance, sans copies d’autrui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingMemberContext" }
   /prcs/{prcId}/launches:
     post:
       operationId: createLaunch
@@ -975,6 +1142,116 @@ components:
         category: { type: string }
         position: { type: integer }
       required: [id, text, category, position]
+    TeachingSessionInput:
+      type: object
+      properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous], default: synchronous, description: Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        role: { type: string, enum: [panel, students] }
+        prcIds: { type: array, minItems: 1, maxItems: 20, uniqueItems: true, items: { type: string } }
+      required: [name, role, prcIds]
+    TeachingSessionJoinInput:
+      type: object
+      properties:
+        pseudonym: { type: string, minLength: 1, maxLength: 100 }
+        code: { type: string }
+        joinKey: { type: string, format: uuid, description: Clé de reprise aléatoire ; le nom seul ne permet pas de retrouver une copie. }
+      required: [pseudonym, code, joinKey]
+    TeachingModeInput:
+      type: object
+      properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+      required: [deliveryMode]
+    TeachingMemberAdvanceInput:
+      type: object
+      properties:
+        launchId: { type: string }
+        expectedPosition: { type: integer, minimum: 0 }
+      required: [launchId, expectedPosition]
+    TeachingArchiveInput:
+      type: object
+      properties:
+        archived: { type: boolean, default: true }
+    TeachingAdvanceInput:
+      type: object
+      properties:
+        skipUnanswered: { type: boolean, description: Exclut explicitement un cas fermé sans soumission de la note globale et de son maximum. }
+        expectedPosition: { type: integer, minimum: 0 }
+      required: [expectedPosition]
+    TeachingSessionCreated:
+      type: object
+      properties:
+        id: { type: string }
+        code: { type: string }
+      required: [id, code]
+    TeachingCaseOption:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        version: { type: integer }
+        ready: { type: boolean }
+        corrected: { type: boolean }
+      required: [id, name, version, ready, corrected]
+    TeachingSessionSummary:
+      type: object
+      properties:
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+        archivedAt: { type: [string, "null"], format: date-time }
+        id: { type: string }
+        name: { type: string }
+        code: { type: string }
+        role: { type: string, enum: [panel, students] }
+        status: { type: string, enum: [open, finished] }
+        currentPosition: { type: integer }
+        caseCount: { type: integer }
+        memberCount: { type: integer }
+      required: [id, name, code, role, status]
+    TeachingCase:
+      type: object
+      properties:
+        skipped: { type: boolean }
+        id: { type: string }
+        name: { type: string }
+        position: { type: integer }
+        status: { type: string }
+        maximum: { type: number }
+      required: [id, name, position, status, maximum]
+    TeachingSessionDetail:
+      allOf:
+        - $ref: "#/components/schemas/TeachingSessionSummary"
+        - type: object
+          properties:
+            cases: { type: array, items: { $ref: "#/components/schemas/TeachingCase" } }
+            report: { type: object, additionalProperties: true, description: Le suivi nominatif est réservé au professeur ; la projection ne contient ni membres ni notes individuelles. }
+          required: [cases, report]
+    TeachingMemberContext:
+      type: object
+      properties:
+        session:
+          type: [object, "null"]
+          properties:
+            id: { type: string }
+            name: { type: string }
+            status: { type: string, enum: [open, finished] }
+            role: { type: string, enum: [panel, students] }
+            position: { type: integer }
+            total: { type: integer }
+            currentLaunchId: { type: string }
+            deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+            currentSubmitted: { type: boolean }
+            groupFinished: { type: boolean }
+        report: { type: object, additionalProperties: true, description: Seulement son bilan personnel et les statistiques anonymes, disponible à la fin. Les participations incomplètes ne reçoivent pas de note globale. }
+      required: [session]
+    TeachingCaseContext:
+      type: object
+      properties:
+        code: { type: string, description: Code commun de la séance. }
+        id: { type: string }
+        name: { type: string }
+        position: { type: integer }
+        total: { type: integer }
+      required: [id, name, position, total]
     SessionActionInput:
       type: object
       properties:
@@ -991,6 +1268,7 @@ components:
     Launch:
       type: object
       properties:
+        teachingSession: { $ref: "#/components/schemas/TeachingCaseContext" }
         id: { type: string }
         prcId: { type: string }
         role: { type: string, enum: [panel, students] }
@@ -1101,6 +1379,7 @@ components:
     ParticipantResponseInput:
       type: object
       properties:
+        launchId: { type: string, description: Requis pour une séance à plusieurs cas ; refuse les sauvegardes provenant d’un ancien cas. }
         mainDiagnosticId: { type: ["string", "null"] }
         alternativeDiagnosticId: { type: ["string", "null"] }
         mainChoices: { type: array, maxItems: 5, items: { $ref: "#/components/schemas/Choice" } }
@@ -1239,6 +1518,9 @@ components:
     CaseSnapshot:
       type: object
       properties:
+        teachingSession: { $ref: "#/components/schemas/TeachingCaseContext" }
+        teachingSessionId: { type: string, description: Présent lors de la résolution du code commun de séance. }
+        canResume: { type: boolean, description: Le cookie courant permet de reprendre une participation existante à la séance. }
         name: { type: string }
         scenario: { type: string }
         instructions: { type: string }
@@ -1502,6 +1784,7 @@ components:
     SubmissionInput:
       type: object
       properties:
+        launchId: { type: string, description: Requis dans une séance à plusieurs cas. }
         expectedRevision:
           type: integer
           minimum: 0

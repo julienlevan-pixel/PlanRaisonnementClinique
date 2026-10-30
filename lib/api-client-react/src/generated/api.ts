@@ -25,6 +25,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AdvanceTeachingSession200,
   ArchiveInput,
   ArchiveResult,
   CollaborationRemoved,
@@ -43,11 +44,13 @@ import type {
   InvitationInput,
   JoinInfo,
   JoinInput,
+  JoinTeachingSession200,
   Launch,
   LaunchDetail,
   LaunchInput,
   LaunchResults,
   ListPrcsParams,
+  ListTeachingSessionsParams,
   LoginInput,
   Ok,
   PanelResults,
@@ -74,6 +77,17 @@ import type {
   Teacher,
   TeacherInput,
   TeacherUpdate,
+  TeachingAdvanceInput,
+  TeachingArchiveInput,
+  TeachingCaseOption,
+  TeachingMemberAdvanceInput,
+  TeachingMemberContext,
+  TeachingModeInput,
+  TeachingSessionCreated,
+  TeachingSessionDetail,
+  TeachingSessionInput,
+  TeachingSessionJoinInput,
+  TeachingSessionSummary,
   TrialResult,
   WorkspaceSummary
 } from './api.schemas';
@@ -1765,6 +1779,1123 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getOpenDemoStudentSessionMutationOptions(options), queryClient);
     }
+
+export const getListTeachingSessionsUrl = (params?: ListTeachingSessionsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/teaching-sessions?${stringifiedParams}` : `/api/teaching-sessions`
+}
+
+export const listTeachingSessions = async (params?: ListTeachingSessionsParams, options?: Parameters<typeof customFetch>[1]): Promise<TeachingSessionSummary[]> => {
+
+  return customFetch<TeachingSessionSummary[]>(getListTeachingSessionsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTeachingSessionsQueryKey = (params?: ListTeachingSessionsParams,) => {
+    return [
+    `/api/teaching-sessions`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getListTeachingSessionsQueryOptions = <TData = Awaited<ReturnType<typeof listTeachingSessions>>, TError = ErrorType<unknown>>(params?: ListTeachingSessionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTeachingSessionsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeachingSessions>>> = ({ signal }) => listTeachingSessions(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTeachingSessionsQueryResult = NonNullable<Awaited<ReturnType<typeof listTeachingSessions>>>
+export type ListTeachingSessionsQueryError = ErrorType<unknown>
+
+
+export function useListTeachingSessions<TData = Awaited<ReturnType<typeof listTeachingSessions>>, TError = ErrorType<unknown>>(
+ params: undefined |  ListTeachingSessionsParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTeachingSessions>>,
+          TError,
+          Awaited<ReturnType<typeof listTeachingSessions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTeachingSessions<TData = Awaited<ReturnType<typeof listTeachingSessions>>, TError = ErrorType<unknown>>(
+ params?: ListTeachingSessionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTeachingSessions>>,
+          TError,
+          Awaited<ReturnType<typeof listTeachingSessions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTeachingSessions<TData = Awaited<ReturnType<typeof listTeachingSessions>>, TError = ErrorType<unknown>>(
+ params?: ListTeachingSessionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListTeachingSessions<TData = Awaited<ReturnType<typeof listTeachingSessions>>, TError = ErrorType<unknown>>(
+ params?: ListTeachingSessionsParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTeachingSessionsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateTeachingSessionUrl = () => {
+
+
+
+
+  return `/api/teaching-sessions`
+}
+
+/**
+ * Crée atomiquement les activités des cas dans l’ordre choisi, avec des versions et barèmes figés. Un seul code et une identité par participant pour toute la séance synchrone.
+ */
+export const createTeachingSession = async (teachingSessionInput: TeachingSessionInput, options?: Parameters<typeof customFetch>[1]): Promise<TeachingSessionCreated> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TeachingSessionCreated>(getCreateTeachingSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingSessionInput)
+  }
+);}
+
+
+
+
+
+export const getCreateTeachingSessionMutationKey = () => ['createTeachingSession'] as const;
+
+export const getCreateTeachingSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTeachingSession>>, TError,CreateTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createTeachingSession>>, TError,CreateTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getCreateTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createTeachingSession>>, CreateTeachingSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createTeachingSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof createTeachingSession>>>
+    export type CreateTeachingSessionMutationBody = BodyType<TeachingSessionInput>
+    export type CreateTeachingSessionMutationError = ErrorType<unknown>
+    export type CreateTeachingSessionMutationVariables = {data: BodyType<TeachingSessionInput>}
+
+    export const useCreateTeachingSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createTeachingSession>>, TError,CreateTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createTeachingSession>>,
+        TError,
+        CreateTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getListTeachingSessionOptionsUrl = () => {
+
+
+
+
+  return `/api/teaching-sessions/options`
+}
+
+export const listTeachingSessionOptions = async ( options?: Parameters<typeof customFetch>[1]): Promise<TeachingCaseOption[]> => {
+
+  return customFetch<TeachingCaseOption[]>(getListTeachingSessionOptionsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListTeachingSessionOptionsQueryKey = () => {
+    return [
+    `/api/teaching-sessions/options`
+    ] as const;
+    }
+
+
+export const getListTeachingSessionOptionsQueryOptions = <TData = Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListTeachingSessionOptionsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listTeachingSessionOptions>>> = ({ signal }) => listTeachingSessionOptions({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListTeachingSessionOptionsQueryResult = NonNullable<Awaited<ReturnType<typeof listTeachingSessionOptions>>>
+export type ListTeachingSessionOptionsQueryError = ErrorType<unknown>
+
+
+export function useListTeachingSessionOptions<TData = Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTeachingSessionOptions>>,
+          TError,
+          Awaited<ReturnType<typeof listTeachingSessionOptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTeachingSessionOptions<TData = Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listTeachingSessionOptions>>,
+          TError,
+          Awaited<ReturnType<typeof listTeachingSessionOptions>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListTeachingSessionOptions<TData = Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useListTeachingSessionOptions<TData = Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listTeachingSessionOptions>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListTeachingSessionOptionsQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetTeachingSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}`
+}
+
+export const getTeachingSession = async (sessionId: string, options?: Parameters<typeof customFetch>[1]): Promise<TeachingSessionDetail> => {
+
+  return customFetch<TeachingSessionDetail>(getGetTeachingSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTeachingSessionQueryKey = (sessionId: string,) => {
+    return [
+    `/api/teaching-sessions/${sessionId}`
+    ] as const;
+    }
+
+
+export const getGetTeachingSessionQueryOptions = <TData = Awaited<ReturnType<typeof getTeachingSession>>, TError = ErrorType<unknown>>(sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingSession>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTeachingSessionQueryKey(sessionId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeachingSession>>> = ({ signal }) => getTeachingSession(sessionId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: sessionId !== null && sessionId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeachingSession>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTeachingSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getTeachingSession>>>
+export type GetTeachingSessionQueryError = ErrorType<unknown>
+
+
+export function useGetTeachingSession<TData = Awaited<ReturnType<typeof getTeachingSession>>, TError = ErrorType<unknown>>(
+ sessionId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingSession>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeachingSession>>,
+          TError,
+          Awaited<ReturnType<typeof getTeachingSession>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeachingSession<TData = Awaited<ReturnType<typeof getTeachingSession>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingSession>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeachingSession>>,
+          TError,
+          Awaited<ReturnType<typeof getTeachingSession>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeachingSession<TData = Awaited<ReturnType<typeof getTeachingSession>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingSession>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetTeachingSession<TData = Awaited<ReturnType<typeof getTeachingSession>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingSession>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTeachingSessionQueryOptions(sessionId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getJoinTeachingSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/join`
+}
+
+export const joinTeachingSession = async (sessionId: string,
+    teachingSessionJoinInput: TeachingSessionJoinInput, options?: Parameters<typeof customFetch>[1]): Promise<JoinTeachingSession200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<JoinTeachingSession200>(getJoinTeachingSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingSessionJoinInput)
+  }
+);}
+
+
+
+
+
+export const getJoinTeachingSessionMutationKey = () => ['joinTeachingSession'] as const;
+
+export const getJoinTeachingSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinTeachingSession>>, TError,JoinTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof joinTeachingSession>>, TError,JoinTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getJoinTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof joinTeachingSession>>, JoinTeachingSessionMutationVariables> = (props) => {
+          const {sessionId,data} = props ?? {};
+
+          return  joinTeachingSession(sessionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type JoinTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof joinTeachingSession>>>
+    export type JoinTeachingSessionMutationBody = BodyType<TeachingSessionJoinInput>
+    export type JoinTeachingSessionMutationError = ErrorType<unknown>
+    export type JoinTeachingSessionMutationVariables = {sessionId: string;data: BodyType<TeachingSessionJoinInput>}
+
+    export const useJoinTeachingSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof joinTeachingSession>>, TError,JoinTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof joinTeachingSession>>,
+        TError,
+        JoinTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getJoinTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getAdvanceTeachingSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/next`
+}
+
+export const advanceTeachingSession = async (sessionId: string,
+    teachingAdvanceInput: TeachingAdvanceInput, options?: Parameters<typeof customFetch>[1]): Promise<AdvanceTeachingSession200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AdvanceTeachingSession200>(getAdvanceTeachingSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingAdvanceInput)
+  }
+);}
+
+
+
+
+
+export const getAdvanceTeachingSessionMutationKey = () => ['advanceTeachingSession'] as const;
+
+export const getAdvanceTeachingSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceTeachingSession>>, TError,AdvanceTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceTeachingSession>>, TError,AdvanceTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getAdvanceTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceTeachingSession>>, AdvanceTeachingSessionMutationVariables> = (props) => {
+          const {sessionId,data} = props ?? {};
+
+          return  advanceTeachingSession(sessionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof advanceTeachingSession>>>
+    export type AdvanceTeachingSessionMutationBody = BodyType<TeachingAdvanceInput>
+    export type AdvanceTeachingSessionMutationError = ErrorType<ErrorResponse>
+    export type AdvanceTeachingSessionMutationVariables = {sessionId: string;data: BodyType<TeachingAdvanceInput>}
+
+    export const useAdvanceTeachingSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceTeachingSession>>, TError,AdvanceTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof advanceTeachingSession>>,
+        TError,
+        AdvanceTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAdvanceTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getGetTeachingProjectionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/projection`
+}
+
+export const getTeachingProjection = async (sessionId: string, options?: Parameters<typeof customFetch>[1]): Promise<TeachingSessionDetail> => {
+
+  return customFetch<TeachingSessionDetail>(getGetTeachingProjectionUrl(sessionId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetTeachingProjectionQueryKey = (sessionId: string,) => {
+    return [
+    `/api/teaching-sessions/${sessionId}/projection`
+    ] as const;
+    }
+
+
+export const getGetTeachingProjectionQueryOptions = <TData = Awaited<ReturnType<typeof getTeachingProjection>>, TError = ErrorType<unknown>>(sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingProjection>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetTeachingProjectionQueryKey(sessionId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getTeachingProjection>>> = ({ signal }) => getTeachingProjection(sessionId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: sessionId !== null && sessionId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getTeachingProjection>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetTeachingProjectionQueryResult = NonNullable<Awaited<ReturnType<typeof getTeachingProjection>>>
+export type GetTeachingProjectionQueryError = ErrorType<unknown>
+
+
+export function useGetTeachingProjection<TData = Awaited<ReturnType<typeof getTeachingProjection>>, TError = ErrorType<unknown>>(
+ sessionId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingProjection>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeachingProjection>>,
+          TError,
+          Awaited<ReturnType<typeof getTeachingProjection>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeachingProjection<TData = Awaited<ReturnType<typeof getTeachingProjection>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingProjection>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getTeachingProjection>>,
+          TError,
+          Awaited<ReturnType<typeof getTeachingProjection>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetTeachingProjection<TData = Awaited<ReturnType<typeof getTeachingProjection>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingProjection>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetTeachingProjection<TData = Awaited<ReturnType<typeof getTeachingProjection>>, TError = ErrorType<unknown>>(
+ sessionId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getTeachingProjection>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetTeachingProjectionQueryOptions(sessionId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getArchiveTeachingSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/archive`
+}
+
+export const archiveTeachingSession = async (sessionId: string,
+    teachingArchiveInput?: TeachingArchiveInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getArchiveTeachingSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingArchiveInput)
+  }
+);}
+
+
+
+
+
+export const getArchiveTeachingSessionMutationKey = () => ['archiveTeachingSession'] as const;
+
+export const getArchiveTeachingSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveTeachingSession>>, TError,ArchiveTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof archiveTeachingSession>>, TError,ArchiveTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getArchiveTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof archiveTeachingSession>>, ArchiveTeachingSessionMutationVariables> = (props) => {
+          const {sessionId,data} = props ?? {};
+
+          return  archiveTeachingSession(sessionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ArchiveTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof archiveTeachingSession>>>
+    export type ArchiveTeachingSessionMutationBody = BodyType<TeachingArchiveInput> | undefined
+    export type ArchiveTeachingSessionMutationError = ErrorType<unknown>
+    export type ArchiveTeachingSessionMutationVariables = {sessionId: string;data?: BodyType<TeachingArchiveInput>}
+
+    export const useArchiveTeachingSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof archiveTeachingSession>>, TError,ArchiveTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof archiveTeachingSession>>,
+        TError,
+        ArchiveTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getArchiveTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getReuseTeachingSessionAsynchronouslyUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/asynchronous`
+}
+
+export const reuseTeachingSessionAsynchronously = async (sessionId: string, options?: Parameters<typeof customFetch>[1]): Promise<TeachingSessionCreated> => {
+
+  return customFetch<TeachingSessionCreated>(getReuseTeachingSessionAsynchronouslyUrl(sessionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getReuseTeachingSessionAsynchronouslyMutationKey = () => ['reuseTeachingSessionAsynchronously'] as const;
+
+export const getReuseTeachingSessionAsynchronouslyMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reuseTeachingSessionAsynchronously>>, TError,ReuseTeachingSessionAsynchronouslyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reuseTeachingSessionAsynchronously>>, TError,ReuseTeachingSessionAsynchronouslyMutationVariables, TContext> => {
+
+const mutationKey = getReuseTeachingSessionAsynchronouslyMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reuseTeachingSessionAsynchronously>>, ReuseTeachingSessionAsynchronouslyMutationVariables> = (props) => {
+          const {sessionId} = props ?? {};
+
+          return  reuseTeachingSessionAsynchronously(sessionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReuseTeachingSessionAsynchronouslyMutationResult = NonNullable<Awaited<ReturnType<typeof reuseTeachingSessionAsynchronously>>>
+
+    export type ReuseTeachingSessionAsynchronouslyMutationError = ErrorType<unknown>
+    export type ReuseTeachingSessionAsynchronouslyMutationVariables = {sessionId: string}
+
+    export const useReuseTeachingSessionAsynchronously = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reuseTeachingSessionAsynchronously>>, TError,ReuseTeachingSessionAsynchronouslyMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reuseTeachingSessionAsynchronously>>,
+        TError,
+        ReuseTeachingSessionAsynchronouslyMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReuseTeachingSessionAsynchronouslyMutationOptions(options), queryClient);
+    }
+
+export const getSetTeachingSessionModeUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/mode`
+}
+
+export const setTeachingSessionMode = async (sessionId: string,
+    teachingModeInput: TeachingModeInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getSetTeachingSessionModeUrl(sessionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingModeInput)
+  }
+);}
+
+
+
+
+
+export const getSetTeachingSessionModeMutationKey = () => ['setTeachingSessionMode'] as const;
+
+export const getSetTeachingSessionModeMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeachingSessionMode>>, TError,SetTeachingSessionModeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setTeachingSessionMode>>, TError,SetTeachingSessionModeMutationVariables, TContext> => {
+
+const mutationKey = getSetTeachingSessionModeMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setTeachingSessionMode>>, SetTeachingSessionModeMutationVariables> = (props) => {
+          const {sessionId,data} = props ?? {};
+
+          return  setTeachingSessionMode(sessionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetTeachingSessionModeMutationResult = NonNullable<Awaited<ReturnType<typeof setTeachingSessionMode>>>
+    export type SetTeachingSessionModeMutationBody = BodyType<TeachingModeInput>
+    export type SetTeachingSessionModeMutationError = ErrorType<ErrorResponse>
+    export type SetTeachingSessionModeMutationVariables = {sessionId: string;data: BodyType<TeachingModeInput>}
+
+    export const useSetTeachingSessionMode = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setTeachingSessionMode>>, TError,SetTeachingSessionModeMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof setTeachingSessionMode>>,
+        TError,
+        SetTeachingSessionModeMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSetTeachingSessionModeMutationOptions(options), queryClient);
+    }
+
+export const getFinishAsyncTeachingSessionUrl = (sessionId: string,) => {
+
+
+
+
+  return `/api/teaching-sessions/${sessionId}/finish`
+}
+
+export const finishAsyncTeachingSession = async (sessionId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getFinishAsyncTeachingSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getFinishAsyncTeachingSessionMutationKey = () => ['finishAsyncTeachingSession'] as const;
+
+export const getFinishAsyncTeachingSessionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finishAsyncTeachingSession>>, TError,FinishAsyncTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof finishAsyncTeachingSession>>, TError,FinishAsyncTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getFinishAsyncTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof finishAsyncTeachingSession>>, FinishAsyncTeachingSessionMutationVariables> = (props) => {
+          const {sessionId} = props ?? {};
+
+          return  finishAsyncTeachingSession(sessionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type FinishAsyncTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof finishAsyncTeachingSession>>>
+
+    export type FinishAsyncTeachingSessionMutationError = ErrorType<unknown>
+    export type FinishAsyncTeachingSessionMutationVariables = {sessionId: string}
+
+    export const useFinishAsyncTeachingSession = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof finishAsyncTeachingSession>>, TError,FinishAsyncTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof finishAsyncTeachingSession>>,
+        TError,
+        FinishAsyncTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getFinishAsyncTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getAdvanceOwnTeachingSessionUrl = () => {
+
+
+
+
+  return `/api/participant/teaching-session/next`
+}
+
+export const advanceOwnTeachingSession = async (teachingMemberAdvanceInput: TeachingMemberAdvanceInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<void>(getAdvanceOwnTeachingSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingMemberAdvanceInput)
+  }
+);}
+
+
+
+
+
+export const getAdvanceOwnTeachingSessionMutationKey = () => ['advanceOwnTeachingSession'] as const;
+
+export const getAdvanceOwnTeachingSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceOwnTeachingSession>>, TError,AdvanceOwnTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof advanceOwnTeachingSession>>, TError,AdvanceOwnTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getAdvanceOwnTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof advanceOwnTeachingSession>>, AdvanceOwnTeachingSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  advanceOwnTeachingSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AdvanceOwnTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof advanceOwnTeachingSession>>>
+    export type AdvanceOwnTeachingSessionMutationBody = BodyType<TeachingMemberAdvanceInput>
+    export type AdvanceOwnTeachingSessionMutationError = ErrorType<ErrorResponse>
+    export type AdvanceOwnTeachingSessionMutationVariables = {data: BodyType<TeachingMemberAdvanceInput>}
+
+    export const useAdvanceOwnTeachingSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof advanceOwnTeachingSession>>, TError,AdvanceOwnTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof advanceOwnTeachingSession>>,
+        TError,
+        AdvanceOwnTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAdvanceOwnTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getGetParticipantTeachingSessionUrl = () => {
+
+
+
+
+  return `/api/participant/teaching-session`
+}
+
+export const getParticipantTeachingSession = async ( options?: Parameters<typeof customFetch>[1]): Promise<TeachingMemberContext> => {
+
+  return customFetch<TeachingMemberContext>(getGetParticipantTeachingSessionUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetParticipantTeachingSessionQueryKey = () => {
+    return [
+    `/api/participant/teaching-session`
+    ] as const;
+    }
+
+
+export const getGetParticipantTeachingSessionQueryOptions = <TData = Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetParticipantTeachingSessionQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getParticipantTeachingSession>>> = ({ signal }) => getParticipantTeachingSession({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetParticipantTeachingSessionQueryResult = NonNullable<Awaited<ReturnType<typeof getParticipantTeachingSession>>>
+export type GetParticipantTeachingSessionQueryError = ErrorType<unknown>
+
+
+export function useGetParticipantTeachingSession<TData = Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getParticipantTeachingSession>>,
+          TError,
+          Awaited<ReturnType<typeof getParticipantTeachingSession>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetParticipantTeachingSession<TData = Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getParticipantTeachingSession>>,
+          TError,
+          Awaited<ReturnType<typeof getParticipantTeachingSession>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetParticipantTeachingSession<TData = Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetParticipantTeachingSession<TData = Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantTeachingSession>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetParticipantTeachingSessionQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getCreateLaunchUrl = (prcId: string,) => {
 

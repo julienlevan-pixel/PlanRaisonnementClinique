@@ -1,5 +1,7 @@
 # Animer une séance synchrone
 
+Pour réunir plusieurs PRC sous un seul code, utiliser **Mes séances** : [organisation et bilan multi-cas](SEANCES_MULTICAS.md). Les commandes ci-dessous restent celles de chaque cas.
+
 Le panel expert et le groupe étudiant sont deux activités distinctes, avec des codes différents. Le corrigé du panel doit être généré et validé avant de créer le groupe étudiant. Son barème reste personnalisable pour les prochains groupes.
 
 1. Dans le PRC, choisissez **Synchrone** pour le panel ou le groupe étudiant, puis lancez l’activité. Les nouveaux participants arrivent dans une salle d’attente après avoir indiqué leur nom ou pseudonyme. Aucun compte participant n’est nécessaire.

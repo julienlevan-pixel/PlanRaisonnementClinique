@@ -187,6 +187,9 @@ export function Shell({
             <ClipboardList size={17} />
             Vue d’ensemble
           </Link>
+          <Link href="/seances" className={active("/seances") ? "nav-item selected" : "nav-item"} aria-current={active("/seances") ? "page" : undefined} onClick={() => setMobileOpen(false)}>
+            <ClipboardList size={17} /> Mes séances
+          </Link>
           <Link
             href="/prcs"
             aria-current={active('/prcs') || active('/prc/') ? 'page' : undefined}

@@ -138,6 +138,13 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "participantCount": zod.number().int(),
   "submissionCount": zod.number().int(),
   "activeLaunches": zod.array(zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -169,6 +176,13 @@ export const GetWorkspaceSummaryResponse = zod.object({
   "serverNow": zod.coerce.date().optional()
 })).optional(),
   "recentLaunches": zod.array(zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -338,6 +352,13 @@ export const GetPrcResponse = zod.object({
   "position": zod.number().int()
 })),
   "launches": zod.array(zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -439,6 +460,13 @@ export const UpdatePrcResponse = zod.object({
   "position": zod.number().int()
 })),
   "launches": zod.array(zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -579,6 +607,13 @@ export const OpenDemoStudentSessionBody = zod.object({
 })
 
 export const OpenDemoStudentSessionResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -611,6 +646,224 @@ export const OpenDemoStudentSessionResponse = zod.object({
 })
 
 
+export const listTeachingSessionsQueryArchivedDefault = false;
+
+export const ListTeachingSessionsQueryParams = zod.object({
+  "archived": zod.coerce.boolean().default(listTeachingSessionsQueryArchivedDefault)
+})
+
+export const ListTeachingSessionsResponseItem = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "id": zod.string(),
+  "name": zod.string(),
+  "code": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "status": zod.enum(['open', 'finished']),
+  "currentPosition": zod.number().int().optional(),
+  "caseCount": zod.number().int().optional(),
+  "memberCount": zod.number().int().optional()
+})
+export const ListTeachingSessionsResponse = zod.array(ListTeachingSessionsResponseItem)
+
+
+/**
+ * Crée atomiquement les activités des cas dans l’ordre choisi, avec des versions et barèmes figés. Un seul code et une identité par participant pour toute la séance synchrone.
+ */
+export const createTeachingSessionBodyDeliveryModeDefault = `synchronous`;
+export const createTeachingSessionBodyNameMax = 160;
+
+export const createTeachingSessionBodyPrcIdsMax = 20;
+
+
+
+export const CreateTeachingSessionBody = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).default(createTeachingSessionBodyDeliveryModeDefault).describe('Choix du professeur. Le mode peut être changé avant le début et avant toute inscription.'),
+  "name": zod.string().min(1).max(createTeachingSessionBodyNameMax),
+  "role": zod.enum(['panel', 'students']),
+  "prcIds": zod.array(zod.string()).min(1).max(createTeachingSessionBodyPrcIdsMax)
+})
+
+export const CreateTeachingSessionResponse = zod.object({
+  "id": zod.string(),
+  "code": zod.string()
+})
+
+
+export const ListTeachingSessionOptionsResponseItem = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "version": zod.number().int(),
+  "ready": zod.boolean(),
+  "corrected": zod.boolean()
+})
+export const ListTeachingSessionOptionsResponse = zod.array(ListTeachingSessionOptionsResponseItem)
+
+
+export const GetTeachingSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const GetTeachingSessionResponse = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "id": zod.string(),
+  "name": zod.string(),
+  "code": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "status": zod.enum(['open', 'finished']),
+  "currentPosition": zod.number().int().optional(),
+  "caseCount": zod.number().int().optional(),
+  "memberCount": zod.number().int().optional()
+}).and(zod.object({
+  "cases": zod.array(zod.object({
+  "skipped": zod.boolean().optional(),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "status": zod.string(),
+  "maximum": zod.number()
+})),
+  "report": zod.record(zod.string(), zod.unknown()).describe('Le suivi nominatif est réservé au professeur ; la projection ne contient ni membres ni notes individuelles.')
+}))
+
+
+export const JoinTeachingSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const joinTeachingSessionBodyPseudonymMax = 100;
+
+
+
+export const JoinTeachingSessionBody = zod.object({
+  "pseudonym": zod.string().min(1).max(joinTeachingSessionBodyPseudonymMax),
+  "code": zod.string(),
+  "joinKey": zod.string().uuid().describe('Clé de reprise aléatoire ; le nom seul ne permet pas de retrouver une copie.')
+})
+
+export const JoinTeachingSessionResponse = zod.object({
+  "csrfToken": zod.string().optional()
+})
+
+
+export const AdvanceTeachingSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const advanceTeachingSessionBodyExpectedPositionMin = 0;
+
+
+
+export const AdvanceTeachingSessionBody = zod.object({
+  "skipUnanswered": zod.boolean().optional().describe('Exclut explicitement un cas fermé sans soumission de la note globale et de son maximum.'),
+  "expectedPosition": zod.number().int().min(advanceTeachingSessionBodyExpectedPositionMin)
+})
+
+export const AdvanceTeachingSessionResponse = zod.object({
+  "advanced": zod.boolean().optional(),
+  "finished": zod.boolean().optional()
+})
+
+
+export const GetTeachingProjectionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const GetTeachingProjectionResponse = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "archivedAt": zod.coerce.date().nullish(),
+  "id": zod.string(),
+  "name": zod.string(),
+  "code": zod.string(),
+  "role": zod.enum(['panel', 'students']),
+  "status": zod.enum(['open', 'finished']),
+  "currentPosition": zod.number().int().optional(),
+  "caseCount": zod.number().int().optional(),
+  "memberCount": zod.number().int().optional()
+}).and(zod.object({
+  "cases": zod.array(zod.object({
+  "skipped": zod.boolean().optional(),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "status": zod.string(),
+  "maximum": zod.number()
+})),
+  "report": zod.record(zod.string(), zod.unknown()).describe('Le suivi nominatif est réservé au professeur ; la projection ne contient ni membres ni notes individuelles.')
+}))
+
+
+export const ArchiveTeachingSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const archiveTeachingSessionBodyArchivedDefault = true;
+
+export const ArchiveTeachingSessionBody = zod.object({
+  "archived": zod.boolean().default(archiveTeachingSessionBodyArchivedDefault)
+})
+
+export const ArchiveTeachingSessionResponse = zod.unknown()
+
+
+export const ReuseTeachingSessionAsynchronouslyParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const ReuseTeachingSessionAsynchronouslyResponse = zod.object({
+  "id": zod.string(),
+  "code": zod.string()
+})
+
+
+export const SetTeachingSessionModeParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const SetTeachingSessionModeBody = zod.object({
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous'])
+})
+
+export const SetTeachingSessionModeResponse = zod.unknown()
+
+
+export const FinishAsyncTeachingSessionParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const FinishAsyncTeachingSessionResponse = zod.unknown()
+
+
+export const advanceOwnTeachingSessionBodyExpectedPositionMin = 0;
+
+
+
+export const AdvanceOwnTeachingSessionBody = zod.object({
+  "launchId": zod.string(),
+  "expectedPosition": zod.number().int().min(advanceOwnTeachingSessionBodyExpectedPositionMin)
+})
+
+export const AdvanceOwnTeachingSessionResponse = zod.unknown()
+
+
+export const GetParticipantTeachingSessionResponse = zod.object({
+  "session": zod.object({
+  "id": zod.string().optional(),
+  "name": zod.string().optional(),
+  "status": zod.enum(['open', 'finished']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "position": zod.number().int().optional(),
+  "total": zod.number().int().optional(),
+  "currentLaunchId": zod.string().optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "currentSubmitted": zod.boolean().optional(),
+  "groupFinished": zod.boolean().optional()
+}).nullable(),
+  "report": zod.record(zod.string(), zod.unknown()).optional().describe('Seulement son bilan personnel et les statistiques anonymes')
+})
+
+
 export const CreateLaunchParams = zod.object({
   "prcId": zod.coerce.string()
 })
@@ -628,6 +881,13 @@ export const CreateLaunchBody = zod.object({
 })
 
 export const CreateLaunchResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -723,6 +983,13 @@ export const getLaunchResponseTwoReferenceOneDistributionsItemCeilingMin = 0;
 
 
 export const GetLaunchResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -843,6 +1110,15 @@ export const GetLaunchResponse = zod.object({
 }))
 }),zod.null()]).optional(),
   "case": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -877,6 +1153,13 @@ export const AdvanceLiveSessionBody = zod.object({
 })
 
 export const AdvanceLiveSessionResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -922,6 +1205,13 @@ export const AdvanceDiscussionBody = zod.object({
 })
 
 export const AdvanceDiscussionResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -983,6 +1273,15 @@ export const getJoinInfoResponseTwoRequiredChoicesMax = 5;
 
 
 export const GetJoinInfoResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -1072,6 +1371,15 @@ export const JoinLaunchResponse = zod.object({
   "revision": zod.number().int().min(joinLaunchResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
   "joinInfo": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -1140,6 +1448,15 @@ export const GetParticipantResponseResponse = zod.object({
   "revision": zod.number().int().min(getParticipantResponseResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
   "joinInfo": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -1198,6 +1515,7 @@ export const saveParticipantResponseBodyExpectedRevisionMin = 0;
 
 
 export const SaveParticipantResponseBody = zod.object({
+  "launchId": zod.string().optional().describe('Requis pour une séance à plusieurs cas ; refuse les sauvegardes provenant d’un ancien cas.'),
   "mainDiagnosticId": zod.string().nullable(),
   "alternativeDiagnosticId": zod.string().nullable(),
   "mainChoices": zod.array(zod.object({
@@ -1243,6 +1561,15 @@ export const SaveParticipantResponseResponse = zod.object({
   "revision": zod.number().int().min(saveParticipantResponseResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
 }),
   "joinInfo": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -1291,6 +1618,7 @@ export const submitParticipantResponseBodyExpectedRevisionMin = 0;
 
 
 export const SubmitParticipantResponseBody = zod.object({
+  "launchId": zod.string().optional().describe('Requis dans une séance à plusieurs cas.'),
   "expectedRevision": zod.number().int().min(submitParticipantResponseBodyExpectedRevisionMin).optional().describe('Révision de la copie relue avant confirmation ; un conflit renvoie HTTP 409 sans soumettre.')
 })
 
@@ -1328,6 +1656,13 @@ export const CloseLaunchParams = zod.object({
 })
 
 export const CloseLaunchResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -1374,6 +1709,13 @@ export const RevealLaunchBody = zod.object({
 })
 
 export const RevealLaunchResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -1939,6 +2281,13 @@ export const PublishResultsParams = zod.object({
 })
 
 export const PublishResultsResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -2027,6 +2376,13 @@ export const getLaunchResultsResponsePanelDistributionsItemCeilingMin = 0;
 
 export const GetLaunchResultsResponse = zod.object({
   "launch": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -2090,6 +2446,15 @@ export const GetLaunchResultsResponse = zod.object({
   "submittedCount": zod.number().int(),
   "participantCount": zod.number().int(),
   "case": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -2459,6 +2824,15 @@ export const GetParticipantResultsResponse = zod.object({
 }))
 }).optional().describe('Bilan anonyme du groupe uniquement après publication finale par le professeur.'),
   "case": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -2710,6 +3084,15 @@ export const getDemoCaseResponseTwoObservationsMax = 20;
 
 
 export const GetDemoCaseResponse = zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -2777,6 +3160,13 @@ export const CreateTrialParams = zod.object({
 
 export const CreateTrialResponse = zod.object({
   "launch": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -2828,6 +3218,15 @@ export const GetParticipantActivityStateResponse = zod.object({
   "endsAt": zod.coerce.date().nullish()
 }).optional(),
   "joinInfo": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),
@@ -2952,6 +3351,13 @@ export const getLaunchProjectionResponseClassDistributionsItemCeilingMin = 0;
 
 export const GetLaunchProjectionResponse = zod.object({
   "launch": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
   "id": zod.string(),
   "prcId": zod.string(),
   "role": zod.enum(['panel', 'students']),
@@ -3000,6 +3406,15 @@ export const GetLaunchProjectionResponse = zod.object({
 }).optional()
 })),
   "case": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
   "name": zod.string(),
   "scenario": zod.string(),
   "instructions": zod.string(),

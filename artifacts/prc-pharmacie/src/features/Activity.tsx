@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -8,7 +8,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { Link, useLocation, useParams } from "wouter";
+import { Link, Redirect, useLocation, useParams } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import {
   getGetCurrentUserQueryKey,
@@ -319,8 +319,34 @@ function DirectionBar({
   );
 }
 
-export function ActivityPage({ actions }: { actions: AppActions }) {
-  const { launchId = "" } = useParams<{ launchId: string }>();
+function ActivityFrame({
+  actions,
+  embedded,
+  children,
+}: {
+  actions: AppActions;
+  embedded: boolean;
+  children: ReactNode;
+}) {
+  return embedded ? (
+    <>{children}</>
+  ) : (
+    <AuthenticatedPage actions={actions}>{children}</AuthenticatedPage>
+  );
+}
+export function ActivityPage({
+  actions,
+  activityId,
+  embedded = false,
+  sessionAccess,
+}: {
+  actions: AppActions;
+  activityId?: string;
+  embedded?: boolean;
+  sessionAccess?: { code: string };
+}) {
+  const { launchId: paramId = "" } = useParams<{ launchId: string }>();
+  const launchId = activityId ?? paramId;
   const visible = useVisible();
   const qc = useQueryClient();
   const launch = useQuery({
@@ -365,6 +391,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
       api<any>(`/api/launches/${launchId}/${suffix}`, "POST", data ?? {}),
     onSuccess: async () => {
       setError("");
+      await qc.invalidateQueries({ queryKey: ["teaching-session"] });
       await Promise.all(
         ["activity", "activity-panel", "activity-results"].map((key) =>
           qc.invalidateQueries({ queryKey: [key, launchId] }),
@@ -385,25 +412,28 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
   };
   if (launch.isPending)
     return (
-      <AuthenticatedPage actions={actions}>
+      <ActivityFrame actions={actions} embedded={embedded}>
         <Loading label="Ouverture de l’activité…" />
-      </AuthenticatedPage>
+      </ActivityFrame>
     );
   if (!l || launch.isError)
     return (
-      <AuthenticatedPage actions={actions}>
+      <ActivityFrame actions={actions} embedded={embedded}>
         <ErrorBox
           message={getError(launch.error)}
           retry={() => launch.refetch()}
         />
-      </AuthenticatedPage>
+      </ActivityFrame>
     );
+  if (!embedded && l.teachingSession && l.status === "open")
+    return <Redirect to={`/seances/${l.teachingSession.id}`} />;
   const name = l.case?.name || l.prcName || l.name;
   const submitted = Number(l.submissionCount ?? 0),
     participants = Number(l.participantCount ?? 0),
     unsent = Math.max(0, participants - submitted);
+  const displayCode = sessionAccess?.code ?? l.teachingSession?.code ?? l.code;
   const accessUrl = new URL(
-    `/join/${encodeURIComponent(l.code)}`,
+    `/join/${encodeURIComponent(displayCode)}`,
     window.location.origin,
   ).toString();
   const validated =
@@ -437,22 +467,24 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
       },
     );
   return (
-    <AuthenticatedPage actions={actions}>
-      <div className="back-heading">
-        <Link href={`/prc/${l.prcId}`} className="back-link">
-          <ArrowLeft size={15} /> Revenir au PRC
-        </Link>
-        {!asynchronous && (
-          <a
-            className="btn btn-outline projection-link"
-            href={`/projection/${launchId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink size={16} /> Ouvrir la projection
-          </a>
-        )}
-      </div>
+    <ActivityFrame actions={actions} embedded={embedded}>
+      {!embedded && (
+        <div className="back-heading">
+          <Link href={`/prc/${l.prcId}`} className="back-link">
+            <ArrowLeft size={15} /> Revenir au PRC
+          </Link>
+          {!asynchronous && (
+            <a
+              className="btn btn-outline projection-link"
+              href={`/projection/${launchId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ExternalLink size={16} /> Ouvrir la projection
+            </a>
+          )}
+        </div>
+      )}
       <SectionTitle
         eyebrow={
           l.isTrial
@@ -478,7 +510,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
       <div className="activity-info">
         <div>
           <span>CODE D’ACCÈS</span>
-          <b className="mono">{l.code}</b>
+          <b className="mono">{displayCode}</b>
         </div>
         <div>
           <span>PARTICIPANTS AYANT REJOINT</span>
@@ -493,6 +525,12 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           <b>{unsent}</b>
         </div>
       </div>
+      {closed && l.case && (
+        <details className="panel-card">
+          <summary>Revoir le cas clinique</summary>
+          <CasePresentation data={l.case} />
+        </details>
+      )}
       {l.role === "students" && (
         <MaximumScoreGuide
           scoringVersion={l.scoringVersion}
@@ -574,7 +612,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
                 ? "ACCÈS AU PANEL · SANS COMPTE"
                 : "ACCÈS ÉTUDIANT"}
             </div>
-            <b>{l.code}</b>
+            <b>{displayCode}</b>
             <p>
               <a href={accessUrl}>{accessUrl}</a>
             </p>
@@ -591,7 +629,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           </div>
         </section>
       )}
-      {l.role === "panel" && !closed && (
+      {l.role === "panel" && !closed && !l.teachingSession && !embedded && (
         <section className="panel-card">
           <h2>Invitation individuelle (facultative)</h2>
           <p>
@@ -904,7 +942,7 @@ export function ActivityPage({ actions }: { actions: AppActions }) {
           </Btn>
         </section>
       )}
-    </AuthenticatedPage>
+    </ActivityFrame>
   );
 }
 
@@ -1025,8 +1063,12 @@ function TeacherCopies({
   );
 }
 
-export function ProjectionPage() {
-  const { launchId = "" } = useParams<{ launchId: string }>();
+export function ProjectionPage({
+  activityId,
+  sessionCode,
+}: { activityId?: string; sessionCode?: string } = {}) {
+  const { launchId: paramId = "" } = useParams<{ launchId: string }>();
+  const launchId = activityId ?? paramId;
   const visible = useVisible();
   const projection = useQuery({
     queryKey: ["projection", launchId],
@@ -1061,7 +1103,12 @@ export function ProjectionPage() {
         </div>
         <div>
           <span>Code d’activité</span>
-          <b>{p.launch?.code || p.code}</b>
+          <b>
+            {sessionCode ||
+              p.launch?.teachingSession?.code ||
+              p.launch?.code ||
+              p.code}
+          </b>
           <Status value={p.status || p.launch?.status} />
         </div>
       </header>
@@ -1082,7 +1129,7 @@ export function ProjectionPage() {
             <div className="projection-session-access">
               <QRCodeSVG
                 value={new URL(
-                  `/join/${encodeURIComponent(p.launch?.code || p.code)}`,
+                  `/join/${encodeURIComponent(sessionCode || p.launch?.teachingSession?.code || p.launch?.code || p.code)}`,
                   window.location.origin,
                 ).toString()}
                 size={150}
@@ -1093,7 +1140,12 @@ export function ProjectionPage() {
                   Scannez le QR code ou saisissez le code sur la page d’accueil
                 </span>
                 <p>
-                  <strong>{p.launch?.code || p.code}</strong>
+                  <strong>
+                    {sessionCode ||
+                      p.launch?.teachingSession?.code ||
+                      p.launch?.code ||
+                      p.code}
+                  </strong>
                 </p>
               </div>
             </div>
@@ -1168,6 +1220,12 @@ export function ProjectionPage() {
             </section>
           )}
         </section>
+      )}
+      {(p.status || p.launch?.status) !== "open" && p.case && (
+        <details className="panel-card">
+          <summary>Revoir le cas clinique</summary>
+          <CasePresentation data={p.case} />
+        </details>
       )}
       {p.gradeDistribution && <GradeDistribution data={p.gradeDistribution} />}
       <footer>

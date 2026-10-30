@@ -8,6 +8,8 @@
 import type { Choice } from './choice';
 
 export interface ParticipantResponseInput {
+  /** Requis pour une séance à plusieurs cas ; refuse les sauvegardes provenant d’un ancien cas. */
+  launchId?: string;
   /** @nullable */
   mainDiagnosticId: string | null;
   /** @nullable */
