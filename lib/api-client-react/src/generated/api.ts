@@ -2720,6 +2720,101 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getFinishAsyncTeachingSessionMutationOptions(options), queryClient);
     }
 
+export const getGetOwnTeachingCaseReviewUrl = (position: number,) => {
+
+
+
+
+  return `/api/participant/teaching-session/cases/${position}/results`
+}
+
+export const getOwnTeachingCaseReview = async (position: number, options?: Parameters<typeof customFetch>[1]): Promise<ParticipantResults> => {
+
+  return customFetch<ParticipantResults>(getGetOwnTeachingCaseReviewUrl(position),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOwnTeachingCaseReviewQueryKey = (position: number,) => {
+    return [
+    `/api/participant/teaching-session/cases/${position}/results`
+    ] as const;
+    }
+
+
+export const getGetOwnTeachingCaseReviewQueryOptions = <TData = Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError = ErrorType<ErrorResponse>>(position: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOwnTeachingCaseReviewQueryKey(position);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>> = ({ signal }) => getOwnTeachingCaseReview(position, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: position !== null && position !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOwnTeachingCaseReviewQueryResult = NonNullable<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>>
+export type GetOwnTeachingCaseReviewQueryError = ErrorType<ErrorResponse>
+
+
+export function useGetOwnTeachingCaseReview<TData = Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError = ErrorType<ErrorResponse>>(
+ position: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOwnTeachingCaseReview>>,
+          TError,
+          Awaited<ReturnType<typeof getOwnTeachingCaseReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOwnTeachingCaseReview<TData = Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError = ErrorType<ErrorResponse>>(
+ position: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOwnTeachingCaseReview>>,
+          TError,
+          Awaited<ReturnType<typeof getOwnTeachingCaseReview>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOwnTeachingCaseReview<TData = Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError = ErrorType<ErrorResponse>>(
+ position: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetOwnTeachingCaseReview<TData = Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError = ErrorType<ErrorResponse>>(
+ position: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnTeachingCaseReview>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOwnTeachingCaseReviewQueryOptions(position,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getAdvanceOwnTeachingSessionUrl = () => {
 
 

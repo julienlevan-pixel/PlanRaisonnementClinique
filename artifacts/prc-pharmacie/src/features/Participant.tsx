@@ -1278,15 +1278,35 @@ export function ObservationMatrix({
   );
 }
 
-export function ParticipantResults() {
+export function ParticipantCaseReview() {
+  const { position = "" } = useParams<{ position: string }>();
+  if (!/^\d+$/.test(position) || !Number.isSafeInteger(Number(position)))
+    return (
+      <div className="participant-layout">
+        <ErrorBox message="Ce cas n’est pas accessible." />
+        <Link href="/participant/results">Retour au bilan de la séance</Link>
+      </div>
+    );
+  return (
+    <ParticipantResults key={position} reviewPosition={Number(position)} />
+  );
+}
+export function ParticipantResults({
+  reviewPosition,
+}: { reviewPosition?: number } = {}) {
+  const reviewing = reviewPosition !== undefined;
+  const endpoint = reviewing
+    ? `/api/participant/teaching-session/cases/${reviewPosition}/results`
+    : "/api/participant/results";
   const { online, visible } = useAvailability();
   const results = useQuery({
-    queryKey: ["/api/participant/results"],
-    queryFn: () => api<ParticipantResult>("/api/participant/results"),
+    queryKey: [endpoint],
+    queryFn: () => api<ParticipantResult>(endpoint),
     retry: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchInterval: (query) =>
+      !reviewing &&
       online &&
       visible &&
       query.state.data?.role === "panel" &&
@@ -1304,6 +1324,7 @@ export function ParticipantResults() {
     queryKey: ["/api/participant/state"],
     queryFn: () => api<ActivityState>("/api/participant/state"),
     enabled:
+      !reviewing &&
       !!results.data &&
       (results.data.role !== "panel" ||
         results.data.response.state !== "submitted" ||
@@ -1320,13 +1341,14 @@ export function ParticipantResults() {
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: false,
   });
-  const signature = state.data
-    ? JSON.stringify([
-        state.data.status,
-        state.data.reveals,
-        state.data.published,
-      ])
-    : "";
+  const signature =
+    !reviewing && state.data
+      ? JSON.stringify([
+          state.data.status,
+          state.data.reveals,
+          state.data.published,
+        ])
+      : "";
   const previousSignature = useRef("");
   useEffect(() => {
     if (!signature || !results.data) return;
@@ -1350,9 +1372,15 @@ export function ParticipantResults() {
     return (
       <div className="participant-layout">
         <ErrorBox
-          message="Votre restitution n’est pas accessible dans cette session."
+          message={
+            getError(results.error) ||
+            "Votre restitution n’est pas accessible dans cette session."
+          }
           retry={() => results.refetch()}
         />
+        {reviewing && (
+          <Link href="/participant/results">Retour au bilan de la séance</Link>
+        )}
       </div>
     );
   const data = results.data,
@@ -1375,7 +1403,24 @@ export function ParticipantResults() {
         <div className="eyebrow">
           {role === "panel" ? "CONTRIBUTION EXPERTE" : "VOTRE COPIE"}
         </div>
+        {reviewing && (
+          <>
+            <Link className="back-link" href="/participant/results">
+              ← Retour au bilan de la séance
+            </Link>
+            <p className="participant-notice">
+              Révision du cas {reviewPosition + 1} · Lecture seule. Vos
+              réponses, votre note et votre progression restent conservées.
+            </p>
+          </>
+        )}
         <h1>{data.case.name}</h1>
+        {reviewing && (
+          <details className="participant-notice">
+            <summary>Revoir le scénario et les données cliniques</summary>
+            <CasePresentation data={data.case} />
+          </details>
+        )}
         <TrialNotice trial={data.case.isTrial} />
         {!submitted ? (
           <section className="participant-notice">
@@ -1384,14 +1429,14 @@ export function ParticipantResults() {
               Votre brouillon n’est pas une copie définitive : il est exclu des
               statistiques et ne reçoit aucune note.
             </p>
-            {data.status === "open" && (
+            {!reviewing && data.status === "open" && (
               <Link href="/participant">Reprendre mon brouillon</Link>
             )}
           </section>
         ) : (
           <p className="participant-notice">
             Votre soumission définitive est enregistrée et verrouillée.{" "}
-            <Link href="/participant">Revoir ma copie</Link>
+            {!reviewing && <Link href="/participant">Revoir ma copie</Link>}
           </p>
         )}
         {published ? (

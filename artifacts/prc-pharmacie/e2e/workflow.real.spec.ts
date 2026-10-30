@@ -393,6 +393,14 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       const own=await(await autonomous.request.get('/api/participant/teaching-session')).json();
       expect(own.report.maximum).toBe(31);expect(own.report.own.submittedCount).toBe(2);expect(own.report.distribution).toBeUndefined();
       expect((await(await slower.request.get('/api/participant/teaching-session')).json()).session.position).toBe(0);
+      await autonomous.getByRole('link',{name:/^Revoir le cas 1 :/}).click();
+      await expect(autonomous).toHaveURL(/\/participant\/review\/0$/);
+      await expect(autonomous.getByText('Révision du cas 1 · Lecture seule.',{exact:false})).toBeVisible();
+      await expect(autonomous.getByRole('heading',{name:'Votre résultat',exact:true})).toBeVisible();
+      expect((await(await autonomous.request.get('/api/participant/teaching-session')).json()).session.position).toBe(1);
+      await autonomous.getByRole('link',{name:'← Retour au bilan de la séance',exact:true}).click();
+      await expect(autonomous.locator('.session-total')).toBeVisible();
+
       await autonomous.setViewportSize({width:390,height:844});
       expect(await autonomous.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
       await autonomous.screenshot({path:'/workspace/attachments/prc-asynchrone-bilan-mobile.png',fullPage:true});

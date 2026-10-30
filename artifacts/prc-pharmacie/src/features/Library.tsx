@@ -37,6 +37,7 @@ import {
 } from "../app/ui";
 import { dateLabel, getError } from "../app/utils";
 import { PasswordNotice } from "./Auth";
+import { ProfessorOverview } from "./ProfessorJourney";
 import { CasePreview } from "./CasePreview";
 import {
   workflowLabel,
@@ -272,8 +273,8 @@ export function Home({
               <p className="public-prc-description">
                 Une application pour enseigner le raisonnement clinique en
                 pharmacie. Créez des cas, recueillez l’avis d’experts et aidez
-                les étudiants à justifier leurs impressions cliniques grâce aux données
-                cliniques.
+                les étudiants à justifier leurs impressions cliniques grâce aux
+                données cliniques.
               </p>
               <form className="public-join" onSubmit={join}>
                 <label htmlFor="public-code">Rejoindre une activité</label>
@@ -370,7 +371,7 @@ export function Home({
           </Btn>
         }
       />
-      {view === "dashboard" && <p><Link className="btn btn-primary" href="/seances?new=1">Organiser une séance avec plusieurs cas</Link></p>}
+      {canWork && view === "dashboard" && <ProfessorOverview />}
       <p className="intro-copy">
         {view === "library"
           ? "Vos cas et ceux partagés avec vous. Préparez le contenu, collaborez et retrouvez les versions conservées."

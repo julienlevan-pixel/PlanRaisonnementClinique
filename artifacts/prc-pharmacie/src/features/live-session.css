@@ -116,3 +116,99 @@
     gap: 4px;
   }
 }
+.synchronous-cockpit {
+  border-color: #bfd6cb;
+  background: #f7faf8;
+  line-height: 1.6;
+}
+.cockpit-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+  margin: 14px 0 22px;
+  font-size: 13px;
+}
+.cockpit-stages li {
+  padding: 5px 10px;
+  border: 1px solid #d9e3de;
+  border-radius: 20px;
+  color: #60716a;
+}
+.cockpit-stages [aria-current] {
+  background: #285c4b;
+  color: #fff;
+  border-color: #285c4b;
+  font-weight: 700;
+}
+.cockpit-stages .completed {
+  color: #285c4b;
+  background: #e6f0ea;
+}
+.cockpit-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 18px;
+}
+.cockpit-summary span {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: #52655e;
+}
+.cockpit-summary strong {
+  display: block;
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.synchronous-cockpit progress {
+  width: 100%;
+  height: 10px;
+  accent-color: #3d7563;
+  margin: 16px 0;
+}
+.cockpit-next {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.synchronous-cockpit .live-session-controls {
+  padding: 0;
+  margin: 20px 0;
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+}
+@media (max-width: 650px) {
+  .cockpit-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+  .cockpit-summary strong {
+    font-size: 22px;
+  }
+  .synchronous-cockpit {
+    padding: 18px;
+  }
+}
+.synchronous-cockpit progress {
+  appearance: none;
+  border: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #dfe7e3;
+}
+.synchronous-cockpit progress::-webkit-progress-bar {
+  background: #dfe7e3;
+  border-radius: 6px;
+}
+.synchronous-cockpit progress::-webkit-progress-value {
+  background: #3d7563;
+  border-radius: 6px;
+}
+.synchronous-cockpit progress::-moz-progress-bar {
+  background: #3d7563;
+  border-radius: 6px;
+}

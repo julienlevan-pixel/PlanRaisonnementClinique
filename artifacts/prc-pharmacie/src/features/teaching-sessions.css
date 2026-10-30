@@ -182,3 +182,13 @@
   gap: 10px;
   margin: 20px 0;
 }
+.session-review-link {
+  display: block;
+  margin-top: 6px;
+  color: #285c4b;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

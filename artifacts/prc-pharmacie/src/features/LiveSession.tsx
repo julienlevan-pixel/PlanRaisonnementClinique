@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Btn } from "../app/ui";
 import "./live-session.css";
 
@@ -86,7 +86,9 @@ export function LiveSessionControls({
   busy,
   serverNow,
   onAction,
+  showSteps = true,
 }: {
+  showSteps?: boolean;
   session: LiveSession;
   busy: boolean;
   serverNow?: string;
@@ -106,22 +108,24 @@ export function LiveSessionControls({
       className="panel-card live-session-controls"
       aria-label="Piloter la séance synchrone"
     >
-      <ol className="session-steps" aria-label="Étapes de la séance">
-        {(
-          [
-            ["lobby", "Accueil"],
-            ["case", "Présentation du cas"],
-            ["answering", "Réponses ouvertes"],
-          ] as const
-        ).map(([phase, label]) => (
-          <li
-            key={phase}
-            aria-current={session.phase === phase ? "step" : undefined}
-          >
-            {label}
-          </li>
-        ))}
-      </ol>
+      {showSteps && (
+        <ol className="session-steps" aria-label="Étapes de la séance">
+          {(
+            [
+              ["lobby", "Accueil"],
+              ["case", "Présentation du cas"],
+              ["answering", "Réponses ouvertes"],
+            ] as const
+          ).map(([phase, label]) => (
+            <li
+              key={phase}
+              aria-current={session.phase === phase ? "step" : undefined}
+            >
+              {label}
+            </li>
+          ))}
+        </ol>
+      )}
       {session.phase === "lobby" ? (
         <>
           <h2>Accueillir les participants</h2>
@@ -183,6 +187,166 @@ export function LiveSessionControls({
           </p>
           <SessionCountdown session={session} serverNow={serverNow} />
         </>
+      )}
+    </section>
+  );
+}
+
+export function SynchronousCockpit({
+  phase,
+  status,
+  role,
+  validated,
+  comparisonVisible,
+  corrected = 0,
+  diagnosticCount = 0,
+  code,
+  participants,
+  submitted,
+  children,
+  onClose,
+  busy,
+}: {
+  phase: LiveSession["phase"];
+  status: string;
+  role: string;
+  validated: boolean;
+  comparisonVisible: boolean;
+  corrected?: number;
+  diagnosticCount?: number;
+  code: string;
+  participants: number;
+  submitted: number;
+  children?: ReactNode;
+  onClose: () => void;
+  busy: boolean;
+}) {
+  const closed = status !== "open",
+    students = role === "students";
+  const stages = students
+    ? [
+        "Accueil",
+        "Présentation",
+        "Réponses",
+        "Comparaison",
+        "Corrigés",
+        "Bilan",
+      ]
+    : [
+        "Accueil",
+        "Présentation",
+        "Réponses",
+        "Analyse du panel",
+        "Corrigé validé",
+      ];
+  const current = closed
+    ? students
+      ? status === "published"
+        ? 5
+        : comparisonVisible
+          ? 4
+          : 3
+      : validated
+        ? 4
+        : 3
+    : phase === "lobby"
+      ? 0
+      : phase === "case"
+        ? 1
+        : 2;
+  const next =
+    status === "published"
+      ? "Le bilan est publié ; vous pouvez poursuivre ou terminer la séance."
+      : !closed
+        ? phase === "lobby"
+          ? "Présentez le cas quand les participants sont prêts."
+          : phase === "case"
+            ? "Ouvrez les réponses après votre présentation."
+            : "Annoncez la fin, puis fermez les réponses pour commencer la discussion."
+        : students
+          ? !comparisonVisible
+            ? "Affichez d’abord la comparaison des impressions cliniques."
+            : corrected >= diagnosticCount && diagnosticCount > 0
+              ? "Les corrigés ont été montrés. Vous pouvez publier les résultats."
+              : "Affichez les corrigés un à un ; chaque étudiant voit ses propres points."
+          : validated
+            ? "Le corrigé est prêt pour une séance étudiante."
+            : "Examinez le panel, générez le corrigé puis validez le barème.";
+  const target = students
+    ? status === "published" ||
+      (comparisonVisible && corrected >= diagnosticCount && diagnosticCount > 0)
+      ? "#activity-publication"
+      : "#activity-review-controls"
+    : "#activity-reference-controls";
+  return (
+    <section
+      className="panel-card synchronous-cockpit"
+      aria-label="Suivi de la séance synchrone"
+    >
+      <div className="eyebrow">
+        ÉTAPE {current + 1} / {stages.length} ·{" "}
+        {stages[current].toLocaleUpperCase("fr")}
+      </div>
+      <ol
+        className="cockpit-stages"
+        aria-label="Déroulement de la séance synchrone"
+      >
+        {stages.map((stage, i) => (
+          <li
+            key={stage}
+            aria-current={current === i ? "step" : undefined}
+            className={i < current ? "completed" : undefined}
+          >
+            {i < current ? "✓ " : `${i + 1}. `}
+            {stage}
+          </li>
+        ))}
+      </ol>
+      <div className="cockpit-summary">
+        <div>
+          <span>CODE D’ACCÈS</span>
+          <strong>{code}</strong>
+        </div>
+        <div>
+          <span>PARTICIPANTS AYANT REJOINT</span>
+          <strong>{participants}</strong>
+        </div>
+        <div>
+          <span>SOUMISSIONS REÇUES</span>
+          <strong>
+            {submitted} / {participants}
+          </strong>
+        </div>
+        <div>
+          <span>NON SOUMISES</span>
+          <strong>{Math.max(0, participants - submitted)}</strong>
+        </div>
+      </div>
+      <progress
+        value={Math.min(submitted, participants)}
+        max={Math.max(1, participants)}
+        aria-label="Copies soumises parmi les participants ayant rejoint"
+      />
+      <p className="cockpit-next">
+        <strong>Prochaine action</strong>
+        <span>{next}</span>
+      </p>
+      {children}
+      {!closed && phase === "answering" && (
+        <Btn kind="danger" disabled={busy} onClick={onClose}>
+          {students ? "Terminer le temps de réponse" : "Fermer la collecte"}
+        </Btn>
+      )}
+      {closed && (
+        <a className="btn btn-outline" href={target}>
+          {students
+            ? status === "published"
+              ? "Voir le bilan publié"
+              : "Aller aux commandes de correction"
+            : validated
+              ? "Revoir le corrigé et le barème"
+              : "Établir le corrigé"}
+        </a>
       )}
     </section>
   );

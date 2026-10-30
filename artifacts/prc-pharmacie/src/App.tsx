@@ -6,7 +6,12 @@ import { Home } from "./features/Library";
 import { Login } from "./features/Auth";
 import { PrcEditor } from "./features/Editor";
 import { ProtectedActivity, ProjectionPage } from "./features/Activity";
-import { Join, Participant, ParticipantResults } from "./features/Participant";
+import {
+  Join,
+  Participant,
+  ParticipantResults,
+  ParticipantCaseReview,
+} from "./features/Participant";
 import { Admin } from "./features/Admin";
 import {
   TeachingSessions,
@@ -52,6 +57,10 @@ function Router() {
       <Route path="/join/:code">
         <Join actions={actions} />
       </Route>
+      <Route
+        path="/participant/review/:position"
+        component={ParticipantCaseReview}
+      />
       <Route path="/participant">
         <TeachingParticipantBoundary>
           <Participant actions={actions} />

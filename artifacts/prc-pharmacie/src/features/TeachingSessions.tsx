@@ -49,6 +49,7 @@ type Member = {
     position: number;
     submitted: boolean;
     skipped?: boolean;
+    reviewAvailable?: boolean;
     maximum: number;
     score: number | null;
   }[];
@@ -85,7 +86,10 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
   );
   const [name, setName] = useState(""),
     [role, setRole] = useState<"students" | "panel">("students"),
-    [ids, setIds] = useState<string[]>([]);
+    [ids, setIds] = useState<string[]>(() => {
+      const id = new URLSearchParams(window.location.search).get("prcId");
+      return id ? [id] : [];
+    });
   const [deliveryMode, setDeliveryMode] = useState<
     "synchronous" | "asynchronous"
   >("synchronous");
@@ -459,6 +463,15 @@ function CumulativeReport({
                   <tr key={c.position}>
                     <th scope="row">
                       {c.position + 1}. {c.name}
+                      {c.reviewAvailable && (
+                        <Link
+                          className="session-review-link"
+                          href={`/participant/review/${c.position}`}
+                          aria-label={`Revoir le cas ${c.position + 1} : ${c.name}`}
+                        >
+                          Revoir mes réponses et le corrigé →
+                        </Link>
+                      )}
                     </th>
                     <td>
                       {c.skipped

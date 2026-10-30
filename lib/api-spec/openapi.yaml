@@ -499,6 +499,21 @@ paths:
         - { in: path, name: sessionId, required: true, schema: { type: string } }
       responses:
         "200": { description: Réponses fermées et distribution anonyme publiée }
+  /participant/teaching-session/cases/{position}/results:
+    get:
+      operationId: getOwnTeachingCaseReview
+      tags: [participants]
+      parameters:
+        - { in: path, name: position, required: true, schema: { type: integer, minimum: 0 } }
+      responses:
+        "200":
+          description: Sa copie et le corrigé disponible de ce cas figé, en lecture seule et sans changer sa progression
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParticipantResults" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /participant/teaching-session/next:
     post:
       operationId: advanceOwnTeachingSession
