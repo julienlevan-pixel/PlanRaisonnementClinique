@@ -924,6 +924,12 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const expiry=(await pool.query("SELECT extract(epoch FROM expires_at-now()) AS remaining FROM prc_private.sessions WHERE teaching_member_id=(SELECT id FROM prc_private.teaching_members WHERE session_id=$1 AND join_key_hash=$2)",[created.id,(await import('./security.js')).hashToken(key)])).rows[0];
     assert.ok(Number(expiry.remaining)>29*86400);
     const cases=before.cases;
+    const review='/participant/teaching-session/cases';
+    await anonymous.call(`${review}/0/results`,'GET',undefined,401);
+    await first.call(`${review}/0/results`,'GET',undefined,409);
+    await first.call(`${review}/1/results`,'GET',undefined,409);
+    await first.call(`${review}/99/results`,'GET',undefined,404);
+
     const next={launchId:cases[0].id,expectedPosition:0};
     await first.call(`${endpoint}/mode`,'POST',{deliveryMode:'synchronous'},401);
     await host.session.call(`${endpoint}/mode`,'POST',{deliveryMode:'synchronous'},409);
@@ -949,6 +955,17 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(concurrent.filter(r=>r.advanced).length,1);
     assert.equal((await first.call('/participant/teaching-session')).session.position,1);
     assert.equal((await second.call('/participant/teaching-session')).session.position,0);
+    const past=await first.call(`${review}/0/results`);
+    assert.equal(past.case.launchId,cases[0].id);assert.equal(past.score,15);
+    assert.deepEqual(past.response,corrected.response);
+    assert.deepEqual(past.studentReview,corrected.studentReview);
+    assert.equal(past.gradeDistribution,undefined);
+    assert.equal((await first.call('/participant/teaching-session')).session.position,1);
+    assert.equal((await first.call('/participant/response')).response.state,'draft');
+    await first.call(`${review}/1/results`,'GET',undefined,409);
+    await second.call(`${review}/0/results`,'GET',undefined,409);
+    await first.call(`${review}/0/results`,'PUT',{score:100},404);
+
     assert.equal((await host.session.call(endpoint)).currentPosition,0);
     await first.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:cases[0].id},409);
     await first.call('/participant/submit','POST',{launchId:cases[0].id},409);
@@ -962,6 +979,10 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(own.session.status,'finished');assert.equal(own.session.groupFinished,false);
     assert.equal(own.report.own.score,30); assert.equal(own.report.own.complete,true);
     assert.equal(own.report.members,undefined);assert.equal(own.report.distribution,undefined);
+    assert.equal(own.report.own.cases[0].reviewAvailable,true);
+    assert.equal((await resume.call(`${review}/0/results`)).score,15);
+    assert.equal((await resume.call('/participant/teaching-session')).session.status,'finished');
+
     assert.equal(JSON.stringify(own).includes('Autre étudiant secret'),false);
     await resume.call('/participant/teaching-session/next','POST',{launchId:cases[1].id,expectedPosition:1},409);
     // Applying the complete SQL installer again preserves progress and corrected copies.
@@ -978,6 +999,11 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(final.report.own.score,30);
     const partial=await second.call('/participant/teaching-session');
     assert.equal(partial.report.own.score,null);assert.equal(partial.report.own.complete,false);
+    const nonSubmitted=await second.call(`${review}/0/results`);
+    assert.equal(nonSubmitted.response.state,'draft');assert.equal(nonSubmitted.score,null);
+    assert.equal(nonSubmitted.response.mainDiagnosticId,null);
+    assert.equal(JSON.stringify(nonSubmitted).includes('Premier'),false);
+
     await second.call('/participant/response','PUT',{...answer(items[0]),revision:0,launchId:cases[0].id},409);
     await second.call('/participant/submit','POST',{launchId:cases[0].id},409);
     const projection=await host.session.call(`${endpoint}/projection`);
@@ -1055,6 +1081,8 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await learner.call('/participant/response','PUT',{...answer(a),revision:0},409);
     await submitCase(learner,a,first.id);
     assert.equal((await learner.call('/participant/results')).score,null);
+    await learner.call('/participant/teaching-session/cases/0/results','GET',undefined,409);
+
     await host.session.call(`/launches/${first.id}/close`,'POST',{});
     await host.session.call(`/teaching-sessions/${created.id}/next`,'POST',{expectedPosition:0},409);
     await host.session.call(`/launches/${first.id}/discussion`,'POST',{action:'comparison'});
@@ -1077,6 +1105,10 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(full.session.status,'finished'); assert.equal(full.report.own.score,30.3); assert.equal(full.report.maximum,30.3);
     assert.equal(full.report.distribution.gradedCount,1);assert.equal(full.report.distribution.excludedCount,1);
     assert.equal(full.report.members,undefined); assert.equal(JSON.stringify(full).includes(members[1].id),false);
+    const historical=await learner.call('/participant/teaching-session/cases/0/results');
+    assert.equal(historical.case.launchId,first.id);assert.equal(historical.score,15.1);
+    assert.equal((await learner.call('/participant/teaching-session')).session.position,1);
+
     const incomplete=await partial.call('/participant/teaching-session');
     assert.equal(incomplete.report.own.score,null);assert.equal(incomplete.report.own.subtotal,15.2);assert.equal(incomplete.report.own.gradedMaximum,15.2);
     assert.equal(incomplete.report.own.cases[0].score,null);
@@ -1156,6 +1188,8 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const final=await learner.call('/participant/teaching-session');
     assert.equal(final.report.maximum,15);assert.equal(final.report.gradedCaseCount,1);assert.equal(final.report.own.score,15);assert.equal(final.report.own.complete,true);
     assert.equal(final.report.own.cases[0].score,null);assert.equal(final.report.own.cases[0].skipped,true);assert.equal(final.report.distribution.gradedCount,1);
+    assert.equal(final.report.own.cases[0].reviewAvailable,false);
+    await learner.call('/participant/teaching-session/cases/0/results','GET',undefined,409);
     assert.equal((await learner.call(`/join/${created.code}`)).canResume,true);
     assert.equal((await anonymous.call(`/join/${created.code}`)).canResume,false);
     const empty=await host.session.call('/teaching-sessions','POST',{name:'Séance sans évaluation',role:'students',prcIds:[items[0].id]},201);

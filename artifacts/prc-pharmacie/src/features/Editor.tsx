@@ -30,6 +30,7 @@ import {
 } from "../app/ui";
 import { dateLabel, getError } from "../app/utils";
 import { CasePreview } from "./CasePreview";
+import { ProfessorJourney } from "./ProfessorJourney";
 import { Sharing } from "./Sharing";
 import { DemoStudentSessions } from "./DemoStudentSessions";
 import { ObservationMatrix } from "./Participant";
@@ -452,6 +453,32 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
           ) : undefined
         }
       />
+      {!query.data?.archived && (
+        <ProfessorJourney
+          step={step}
+          note={
+            !canManageSessions
+              ? "Vous pouvez modifier le cas ; le responsable gère le panel et la séance."
+              : dirty
+                ? "Enregistrez vos modifications avant de poursuivre ; les anciennes copies restent conservées."
+                : undefined
+          }
+        >
+          {canManageSessions &&
+            (step === "students" ? (
+              <Link
+                className="btn btn-primary"
+                href={`/seances?new=1&prcId=${encodeURIComponent(prcId)}`}
+              >
+                Préparer une séance avec ce PRC
+              </Link>
+            ) : (
+              <a className="btn btn-primary" href="#prc-next-step">
+                Continuer la préparation
+              </a>
+            ))}
+        </ProfessorJourney>
+      )}
       <div className="editor-progress">
         <span className="save-status" role="status">
           {saving
@@ -866,7 +893,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
           </div>
         </fieldset>
         <aside className="editor-rail">
-          <div className="rail-card">
+          <div className="rail-card" id="prc-next-step" tabIndex={-1}>
             <div className="eyebrow">PROCHAINE ÉTAPE</div>
             <h3>
               {query.data?.archived ? "PRC archivé" : workflowLabel(step)}

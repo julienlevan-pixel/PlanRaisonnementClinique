@@ -28,11 +28,13 @@ import {
 } from "../app/ui";
 import { dateLabel, getError } from "../app/utils";
 import "./activity.css";
+import { ProfessorJourney } from "./ProfessorJourney";
 import { GradeDistribution } from "./GradeDistribution";
 import { RubricEditor } from "./RubricEditor";
 import {
   CasePresentation,
   LiveSessionControls,
+  SynchronousCockpit,
   SessionCountdown,
 } from "./LiveSession";
 import {
@@ -496,6 +498,29 @@ export function ActivityPage({
         title={name}
         aside={<Status value={l.status} />}
       />
+      {l.role === "panel" && !l.isTrial && !embedded && (
+        <ProfessorJourney
+          compact
+          step={validated ? "students" : closed ? "reference" : "panel"}
+        >
+          {validated && (
+            <Link
+              className="btn btn-primary"
+              href={`/seances?new=1&prcId=${encodeURIComponent(l.prcId)}`}
+              onClick={(event) => {
+                if (rubricDirty) {
+                  event.preventDefault();
+                  setError(
+                    "Enregistrez le barème modifié avant de préparer la séance.",
+                  );
+                }
+              }}
+            >
+              Préparer une séance avec ce PRC
+            </Link>
+          )}
+        </ProfessorJourney>
+      )}
       <p className="activity-context">
         {l.role === "panel" ? "Panel d’experts" : "Groupe étudiant"} ·{" "}
         {dateLabel(l.createdAt)}
@@ -507,24 +532,26 @@ export function ActivityPage({
           {error}
         </p>
       )}
-      <div className="activity-info">
-        <div>
-          <span>CODE D’ACCÈS</span>
-          <b className="mono">{displayCode}</b>
+      {!liveSession && (
+        <div className="activity-info">
+          <div>
+            <span>CODE D’ACCÈS</span>
+            <b className="mono">{displayCode}</b>
+          </div>
+          <div>
+            <span>PARTICIPANTS AYANT REJOINT</span>
+            <b>{participants}</b>
+          </div>
+          <div>
+            <span>SOUMISSIONS</span>
+            <b>{submitted}</b>
+          </div>
+          <div>
+            <span>NON SOUMISES</span>
+            <b>{unsent}</b>
+          </div>
         </div>
-        <div>
-          <span>PARTICIPANTS AYANT REJOINT</span>
-          <b>{participants}</b>
-        </div>
-        <div>
-          <span>SOUMISSIONS</span>
-          <b>{submitted}</b>
-        </div>
-        <div>
-          <span>NON SOUMISES</span>
-          <b>{unsent}</b>
-        </div>
-      </div>
+      )}
       {closed && l.case && (
         <details className="panel-card">
           <summary>Revoir le cas clinique</summary>
@@ -537,15 +564,33 @@ export function ActivityPage({
           grading={l.grading}
         />
       )}
-      {liveSession && !closed && (
-        <LiveSessionControls
-          session={liveSession}
+      {liveSession && (
+        <SynchronousCockpit
+          phase={liveSession.phase}
+          status={l.status}
+          role={l.role}
+          validated={validated}
+          comparisonVisible={!!l.reveals?.diagnosticComparison}
+          corrected={l.reveals?.correctedDiagnosticIds?.length ?? 0}
+          diagnosticCount={l.case?.diagnostics?.length ?? 0}
+          code={displayCode}
+          participants={participants}
+          submitted={submitted}
+          onClose={close}
           busy={busy}
-          serverNow={l.serverNow}
-          onAction={(data) => run("session", data)}
-        />
+        >
+          {!closed && (
+            <LiveSessionControls
+              session={liveSession}
+              showSteps={false}
+              busy={busy}
+              serverNow={l.serverNow}
+              onAction={(data) => run("session", data)}
+            />
+          )}
+        </SynchronousCockpit>
       )}
-      {(!liveSession || liveSession.phase === "answering" || closed) && (
+      {(!liveSession || (closed && l.role === "panel" && validated)) && (
         <section className="next-command panel-card">
           <div>
             <div className="eyebrow">PROCHAINE ÉTAPE</div>
@@ -745,12 +790,14 @@ export function ActivityPage({
             retry={() => results.refetch()}
           />
         ) : (
-          <DiscussionControls
-            discussion={results.data?.discussion}
-            reveals={l.reveals ?? {}}
-            busy={busy}
-            onAction={(data) => run("discussion", data)}
-          />
+          <div id="activity-review-controls" tabIndex={-1}>
+            <DiscussionControls
+              discussion={results.data?.discussion}
+              reveals={l.reveals ?? {}}
+              busy={busy}
+              onAction={(data) => run("discussion", data)}
+            />
+          </div>
         ))}
       {guided && closed && asynchronous && (
         <section className="panel-card">
@@ -810,7 +857,11 @@ export function ActivityPage({
         </section>
       )}
       {l.role === "panel" && closed && !l.isTrial && (
-        <section className="panel-card reference-card">
+        <section
+          className="panel-card reference-card"
+          id="activity-reference-controls"
+          tabIndex={-1}
+        >
           <div className="panel-heading">
             <h2>Établir le corrigé</h2>
             <Status
@@ -914,7 +965,11 @@ export function ActivityPage({
         />
       )}
       {l.role === "students" && (
-        <section className="publish-row">
+        <section
+          className="publish-row"
+          id="activity-publication"
+          tabIndex={-1}
+        >
           <div>
             <b>Terminer la révision et partager le bilan</b>
             <p>

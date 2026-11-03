@@ -1287,6 +1287,12 @@ async function teachingReport(session: TeachingSessionRow, memberId?: string) {
         name: c.case_snapshot.name,
         submitted,
         skipped: !!c.reveals.sessionSkipped,
+        reviewAvailable:
+          !c.reveals.sessionSkipped &&
+          (session.role === "panel"
+            ? submitted
+            : c.status === "published" ||
+              (session.delivery_mode === "asynchronous" && submitted)),
         maximum: launchGrading(c).maximum,
         score: visible ? Number(response.score) : null,
       };
@@ -1344,6 +1350,49 @@ async function teachingReport(session: TeachingSessionRow, memberId?: string) {
       : { members: records }),
   };
 }
+
+async function participantResultsData(
+  launch: LaunchRow,
+  responseRow: JsonRecord | undefined,
+) {
+  const submitted = responseRow?.state === "submitted";
+  const workflow = launch.case_snapshot.studentWorkflow;
+  const published =
+    launch.role === "students" &&
+    (launch.status === "published" ||
+      (workflow?.deliveryMode === "asynchronous" && submitted));
+  const score =
+    published && submitted && responseRow.score !== null
+      ? Number(responseRow.score)
+      : null;
+  return {
+    published,
+    case: caseForJoin(launch),
+    response: mapResponse(responseRow),
+    score,
+    percentage:
+      score === null ? null : (score / launchGrading(launch).maximum) * 100,
+    components:
+      published && submitted ? (responseRow.score_components ?? {}) : {},
+    role: launch.role,
+    status: launch.status,
+    reveals: launch.reveals,
+    ...(workflow
+      ? { panel: {}, class: {}, reference: null }
+      : await visibleAggregates(launch, published)),
+    guidedReview: !!workflow,
+    deliveryMode: workflow?.deliveryMode ?? "synchronous",
+    gradeDistribution: await launchGradeDistribution(launch),
+    studentReview: await studentDiscussion(
+      launch,
+      responseRow ? mapResponse(responseRow) : undefined,
+    ),
+    ...(launch.role === "panel" && submitted
+      ? { expertPanel: await getPanelSnapshot(launch, 1) }
+      : {}),
+  };
+}
+
 async function handleTeaching(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url),
     path = url.pathname.replace(/\/+$/, ""),
@@ -1632,6 +1681,41 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
           }
         : {}),
     });
+  }
+  const reviewMatch = path.match(
+    /^\/api\/participant\/teaching-session\/cases\/(\d+)\/results$/,
+  );
+  if (reviewMatch && method === "GET") {
+    const participant = await requireParticipant(request);
+    if (!participant.teachingMemberId || !participant.teachingSessionId)
+      fail(404, "Ce bilan de séance n’est pas accessible.");
+    const position = Number(reviewMatch[1]);
+    if (!Number.isSafeInteger(position)) fail(404, "Cas introuvable.");
+    // Resolve this member's own copy, never the globally active case or another member ID.
+    const found = await pool.query<LaunchRow & { response: JsonRecord }>(
+      `SELECT l.*,to_jsonb(r) AS response FROM prc_private.teaching_session_cases c
+       JOIN prc_private.launches l ON l.id=c.launch_id
+       JOIN prc_private.participants p ON p.launch_id=l.id AND p.teaching_member_id=$2
+       JOIN prc_private.responses r ON r.participant_id=p.id
+       WHERE c.session_id=$1 AND c.position=$3`,
+      [participant.teachingSessionId, participant.teachingMemberId, position],
+    );
+    const launch = found.rows[0];
+    if (!launch) fail(404, "Cas introuvable dans votre séance.");
+    const available =
+      !launch.reveals.sessionSkipped &&
+      (launch.role === "panel"
+        ? launch.response.state === "submitted"
+        : launch.status === "published" ||
+          (launch.case_snapshot.studentWorkflow?.deliveryMode ===
+            "asynchronous" &&
+            launch.response.state === "submitted"));
+    if (!available)
+      fail(
+        409,
+        "Le corrigé de ce cas n’est pas encore disponible dans votre parcours.",
+      );
+    return send(await participantResultsData(launch, launch.response));
   }
   if (path === "/api/participant/teaching-session/next" && method === "POST") {
     const participant = await requireParticipant(request);
@@ -3800,42 +3884,7 @@ async function handle(request: Request): Promise<Response> {
       [participant.id],
     );
     const responseRow = result.rows[0];
-    const submitted = responseRow?.state === "submitted";
-    const workflow = launch.case_snapshot.studentWorkflow;
-    const published =
-      launch.role === "students" &&
-      (launch.status === "published" ||
-        (workflow?.deliveryMode === "asynchronous" && submitted));
-    const score =
-      published && submitted && responseRow.score !== null
-        ? Number(responseRow.score)
-        : null;
-    return send({
-      published,
-      case: caseForJoin(launch),
-      response: mapResponse(responseRow),
-      score,
-      percentage:
-        score === null ? null : (score / launchGrading(launch).maximum) * 100,
-      components:
-        published && submitted ? (responseRow.score_components ?? {}) : {},
-      role: launch.role,
-      status: launch.status,
-      reveals: launch.reveals,
-      ...(workflow
-        ? { panel: {}, class: {}, reference: null }
-        : await visibleAggregates(launch, published)),
-      guidedReview: !!workflow,
-      deliveryMode: workflow?.deliveryMode ?? "synchronous",
-      gradeDistribution: await launchGradeDistribution(launch),
-      studentReview: await studentDiscussion(
-        launch,
-        responseRow ? mapResponse(responseRow) : undefined,
-      ),
-      ...(launch.role === "panel" && submitted
-        ? { expertPanel: await getPanelSnapshot(launch, 1) }
-        : {}),
-    });
+    return send(await participantResultsData(launch, result.rows[0]));
   }
 
   fail(404, "Cette route n’existe pas.");

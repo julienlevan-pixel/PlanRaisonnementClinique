@@ -835,6 +835,434 @@ export const FinishAsyncTeachingSessionParams = zod.object({
 export const FinishAsyncTeachingSessionResponse = zod.unknown()
 
 
+export const getOwnTeachingCaseReviewPathPositionMin = 0;
+
+
+
+export const GetOwnTeachingCaseReviewParams = zod.object({
+  "position": zod.coerce.number().int().min(getOwnTeachingCaseReviewPathPositionMin)
+})
+
+export const getOwnTeachingCaseReviewResponseCaseTwoRequiredChoicesMax = 5;
+
+export const getOwnTeachingCaseReviewResponseResponseMainChoicesItemPointsMax = 3;
+
+export const getOwnTeachingCaseReviewResponseResponseAlternativeChoicesItemPointsMax = 3;
+
+export const getOwnTeachingCaseReviewResponseResponseRevisionMin = 0;
+
+export const getOwnTeachingCaseReviewResponseScoreMin = 0;
+export const getOwnTeachingCaseReviewResponseScoreMax = 100;
+
+export const getOwnTeachingCaseReviewResponsePercentageMin = 0;
+export const getOwnTeachingCaseReviewResponsePercentageMax = 100;
+
+export const getOwnTeachingCaseReviewResponsePanelDiagnosticsItemMainCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDiagnosticsItemMainPercentMin = 0;
+export const getOwnTeachingCaseReviewResponsePanelDiagnosticsItemMainPercentMax = 100;
+
+export const getOwnTeachingCaseReviewResponsePanelDiagnosticsItemAlternativeCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDiagnosticsItemAlternativePercentMin = 0;
+export const getOwnTeachingCaseReviewResponsePanelDiagnosticsItemAlternativePercentMax = 100;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemExpertCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemNegativePointsMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getOwnTeachingCaseReviewResponsePanelDistributionsItemCeilingMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemMainCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemMainPercentMin = 0;
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemMainPercentMax = 100;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemAlternativeCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemAlternativePercentMin = 0;
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemAlternativePercentMax = 100;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemExpertCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemNegativePointsMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemCeilingMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDiagnosticsItemMainCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDiagnosticsItemMainPercentMin = 0;
+export const getOwnTeachingCaseReviewResponseClassDiagnosticsItemMainPercentMax = 100;
+
+export const getOwnTeachingCaseReviewResponseClassDiagnosticsItemAlternativeCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDiagnosticsItemAlternativePercentMin = 0;
+export const getOwnTeachingCaseReviewResponseClassDiagnosticsItemAlternativePercentMax = 100;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemExpertCountMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemPositiveMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemNegativeMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemPositivePointsMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemNegativePointsMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemNotSelectedMin = 0;
+
+export const getOwnTeachingCaseReviewResponseClassDistributionsItemCeilingMin = 0;
+
+
+
+export const GetOwnTeachingCaseReviewResponse = zod.object({
+  "published": zod.boolean(),
+  "guidedReview": zod.boolean().optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "studentReview": zod.object({
+  "scoringVersion": zod.string().optional(),
+  "maximum": zod.number().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
+  "comparisonVisible": zod.boolean(),
+  "comparison": zod.array(zod.object({
+  "diagnosticId": zod.string().optional(),
+  "label": zod.string().optional(),
+  "panelCount": zod.number().int().optional(),
+  "panelTotal": zod.number().int().optional(),
+  "panelPercent": zod.number().optional(),
+  "studentCount": zod.number().int().optional(),
+  "studentTotal": zod.number().int().optional(),
+  "studentPercent": zod.number().optional()
+})),
+  "corrections": zod.array(zod.object({
+  "diagnosticId": zod.string().optional(),
+  "label": zod.string().optional(),
+  "panelCount": zod.number().int().optional(),
+  "represented": zod.boolean().optional(),
+  "topDiagnosis": zod.boolean().optional(),
+  "selectedRole": zod.union([zod.literal('main'),zod.literal('alternative'),zod.literal(null)]).nullish(),
+  "score": zod.number().nullish(),
+  "diagnosisScore": zod.number().nullish(),
+  "justificationScore": zod.number().nullish(),
+  "raw": zod.number().nullish(),
+  "maximum": zod.number().optional(),
+  "diagnosisMaximum": zod.number().optional(),
+  "clinicalMaximum": zod.number().optional(),
+  "zeroByRubric": zod.boolean().optional(),
+  "ceiling": zod.number().optional(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string().optional(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().optional(),
+  "negative": zod.number().int().optional(),
+  "positivePoints": zod.number().int().optional(),
+  "negativePoints": zod.number().int().optional(),
+  "positiveScorePoints": zod.number().optional(),
+  "negativeScorePoints": zod.number().optional(),
+  "studentSign": zod.union([zod.literal('+'),zod.literal('-'),zod.literal(null)]).nullish(),
+  "earnedPoints": zod.number().optional(),
+  "earnedScorePoints": zod.number().optional(),
+  "referenceScorePoints": zod.number().optional(),
+  "topClinical": zod.boolean().optional(),
+  "bestSigns": zod.array(zod.enum(['+', '-'])).optional()
+})).optional()
+})),
+  "activeDiagnosticId": zod.string().nullish(),
+  "explanation": zod.string().optional()
+}).optional().describe('Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.'),
+  "gradeDistribution": zod.object({
+  "maximum": zod.number(),
+  "gradedCount": zod.number().int(),
+  "excludedCount": zod.number().int(),
+  "average": zod.number().nullable(),
+  "median": zod.number().nullable(),
+  "lowest": zod.number().nullable(),
+  "highest": zod.number().nullable(),
+  "bins": zod.array(zod.object({
+  "lower": zod.number(),
+  "upper": zod.number(),
+  "upperInclusive": zod.boolean(),
+  "count": zod.number().int(),
+  "percentage": zod.number()
+}))
+}).optional().describe('Bilan anonyme du groupe uniquement après publication finale par le professeur.'),
+  "case": zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).and(zod.object({
+  "launchId": zod.string(),
+  "role": zod.string(),
+  "status": zod.string(),
+  "isTrial": zod.boolean().optional(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "guidedReview": zod.boolean().optional(),
+  "scoringVersion": zod.string().optional(),
+  "grading": zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}).optional(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "requiredChoices": zod.number().int().min(1).max(getOwnTeachingCaseReviewResponseCaseTwoRequiredChoicesMax).nullish()
+})),
+  "response": zod.object({
+  "state": zod.string(),
+  "mainDiagnosticId": zod.string().nullable(),
+  "alternativeDiagnosticId": zod.string().nullable(),
+  "mainChoices": zod.array(zod.object({
+  "observationId": zod.string(),
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(getOwnTeachingCaseReviewResponseResponseMainChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
+})),
+  "alternativeChoices": zod.array(zod.object({
+  "observationId": zod.string(),
+  "sign": zod.enum(['+', '-']),
+  "points": zod.number().int().min(1).max(getOwnTeachingCaseReviewResponseResponseAlternativeChoicesItemPointsMax).optional().describe('Pouvoir discriminant attribué par l’expert ; requis à la soumission experte et absent des choix étudiants.')
+})),
+  "updatedAt": zod.coerce.date().nullable(),
+  "revision": zod.number().int().min(getOwnTeachingCaseReviewResponseResponseRevisionMin).optional().describe('Version persistée de la copie à renvoyer lors de la sauvegarde suivante.')
+}),
+  "score": zod.number().min(getOwnTeachingCaseReviewResponseScoreMin).max(getOwnTeachingCaseReviewResponseScoreMax).nullable().describe('Note selon le barème figé de la séance'),
+  "percentage": zod.number().min(getOwnTeachingCaseReviewResponsePercentageMin).max(getOwnTeachingCaseReviewResponsePercentageMax).nullish(),
+  "components": zod.object({
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional().describe('Note sur 20.'),
+  "percentage": zod.number().optional().describe('Pourcentage sur 100.'),
+  "main": zod.object({
+  "diagnosis": zod.number(),
+  "justification": zod.number(),
+  "represented": zod.boolean(),
+  "raw": zod.number(),
+  "ceiling": zod.number()
+}).optional(),
+  "alternative": zod.object({
+  "diagnosis": zod.number(),
+  "justification": zod.number(),
+  "represented": zod.boolean(),
+  "raw": zod.number(),
+  "ceiling": zod.number()
+}).optional()
+}).describe('Vide tant que la note privée n’est pas publiée ou si la copie est non soumise.'),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "status": zod.string().optional(),
+  "reveals": zod.object({
+  "mainDiagnostic": zod.boolean(),
+  "liveSession": zod.object({
+  "phase": zod.enum(['lobby', 'case', 'answering']),
+  "openedAt": zod.coerce.date().optional(),
+  "endsAt": zod.coerce.date().nullish()
+}).optional(),
+  "mainArguments": zod.boolean(),
+  "alternativeDiagnostic": zod.boolean(),
+  "alternativeArguments": zod.boolean(),
+  "reference": zod.boolean(),
+  "diagnosticComparison": zod.boolean().optional(),
+  "correctedDiagnosticIds": zod.array(zod.string()).optional(),
+  "activeDiagnosticId": zod.string().optional(),
+  "mainDiagnosticTopOnly": zod.boolean().optional().describe('Affiche uniquement les principales les plus fréquentes en conservant les égalités.')
+}).optional(),
+  "panel": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getOwnTeachingCaseReviewResponsePanelDiagnosticsItemMainPercentMin).max(getOwnTeachingCaseReviewResponsePanelDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getOwnTeachingCaseReviewResponsePanelDiagnosticsItemAlternativePercentMin).max(getOwnTeachingCaseReviewResponsePanelDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
+  "notSelected": zod.number().int().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getOwnTeachingCaseReviewResponsePanelDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
+  "expertPanel": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemMainPercentMin).max(getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemAlternativePercentMin).max(getOwnTeachingCaseReviewResponseExpertPanelOneDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
+  "notSelected": zod.number().int().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getOwnTeachingCaseReviewResponseExpertPanelOneDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.').optional().describe('Agrégats anonymes des réponses définitives du panel, vous compris ; accessibles uniquement à un expert ayant soumis sa copie, même pendant la collecte.'),
+  "class": zod.object({
+  "totalSubmissions": zod.number().int().optional(),
+  "minimumPanelSize": zod.number().int().optional(),
+  "diagnostics": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "mainCount": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDiagnosticsItemMainCountMin).optional(),
+  "mainPercent": zod.number().min(getOwnTeachingCaseReviewResponseClassDiagnosticsItemMainPercentMin).max(getOwnTeachingCaseReviewResponseClassDiagnosticsItemMainPercentMax).optional(),
+  "alternativeCount": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDiagnosticsItemAlternativeCountMin).optional(),
+  "alternativePercent": zod.number().min(getOwnTeachingCaseReviewResponseClassDiagnosticsItemAlternativePercentMin).max(getOwnTeachingCaseReviewResponseClassDiagnosticsItemAlternativePercentMax).optional()
+})).optional(),
+  "distributions": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "role": zod.enum(['main', 'alternative']),
+  "expertCount": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDistributionsItemExpertCountMin).describe('Dénominateur propre au diagnostic et au rôle ; effectif de classe dans un agrégat classe.'),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string().optional(),
+  "category": zod.string().optional(),
+  "positive": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemPositiveMin),
+  "negative": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemNegativeMin),
+  "positivePoints": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemPositivePointsMin).optional().describe('Somme des points experts pour le signe positif.'),
+  "negativePoints": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemNegativePointsMin).optional().describe('Somme des points experts pour le signe négatif.'),
+  "notSelected": zod.number().int().min(getOwnTeachingCaseReviewResponseClassDistributionsItemObservationsItemNotSelectedMin),
+  "positivePercent": zod.number().optional(),
+  "negativePercent": zod.number().optional(),
+  "notSelectedPercent": zod.number().optional()
+})),
+  "ceiling": zod.number().min(getOwnTeachingCaseReviewResponseClassDistributionsItemCeilingMin)
+})).optional(),
+  "referenceVisible": zod.boolean().optional(),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+}).optional().describe('Agrégat anonyme. Pour la projection et les étudiants, les champs non révélés sont absents et l’objet est vide pendant la collecte. expertPanel est accessible après soumission experte.'),
+  "reference": zod.union([zod.object({
+  "explanation": zod.string(),
+  "scoring": zod.object({
+  "version": zod.string().optional(),
+  "mainDiagnosis": zod.number().optional(),
+  "mainJustification": zod.number().optional(),
+  "alternativeDiagnosis": zod.number().optional(),
+  "alternativeJustification": zod.number().optional(),
+  "total": zod.number().optional(),
+  "description": zod.string().optional()
+})
+}),zod.null()]).optional()
+})
+
+
 export const advanceOwnTeachingSessionBodyExpectedPositionMin = 0;
 
 
