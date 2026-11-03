@@ -9,6 +9,11 @@ import type { TeachingSessionInputDeliveryMode } from './teachingSessionInputDel
 import type { TeachingSessionInputRole } from './teachingSessionInputRole';
 
 export interface TeachingSessionInput {
+  /**
+     * Empreinte du récapitulatif confirmé ; refuse une création si le contenu ou le barème a changé. Facultatif pour les anciens clients.
+     * @pattern ^[a-f0-9]{64}$
+     */
+  preparationToken?: string;
   /** Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. */
   deliveryMode?: TeachingSessionInputDeliveryMode;
   /**

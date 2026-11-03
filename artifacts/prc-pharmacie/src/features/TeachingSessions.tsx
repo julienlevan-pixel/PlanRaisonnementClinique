@@ -13,6 +13,10 @@ import {
   Loading,
   SectionTitle,
 } from "../app/ui";
+import {
+  SessionPreparationReview,
+  type TeachingPreparation,
+} from "./SessionPreparation";
 import { ActivityPage, ProjectionPage } from "./Activity";
 import {
   GradeDistribution,
@@ -94,6 +98,9 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
     "synchronous" | "asynchronous"
   >("synchronous");
   const [archived, setArchived] = useState(false);
+  const [preparation, setPreparation] = useState<TeachingPreparation | null>(
+    null,
+  );
   const list = useQuery({
     queryKey: ["teaching-sessions", archived],
     queryFn: () =>
@@ -111,10 +118,25 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
         role,
         prcIds: ids,
         deliveryMode: role === "students" ? deliveryMode : "synchronous",
+        ...(preparation
+          ? { preparationToken: preparation.preparationToken }
+          : {}),
       }),
     onSuccess: async (data) => {
       await cache.invalidateQueries({ queryKey: ["teaching-sessions"] });
       navigate(`/seances/${data.id}`);
+    },
+  });
+  const preview = useMutation({
+    mutationFn: () =>
+      api<TeachingPreparation>("/api/teaching-sessions/preview", "POST", {
+        role,
+        prcIds: ids,
+        deliveryMode: role === "students" ? deliveryMode : "synchronous",
+      }),
+    onSuccess: (data) => {
+      setPreparation(data);
+      create.reset();
     },
   });
   const invalid = ids.some((id) => {
@@ -158,174 +180,214 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
           aria-label="Créer une séance"
           onSubmit={(event) => {
             event.preventDefault();
-            if (name.trim() && ids.length && !invalid) create.mutate();
+            if (name.trim() && ids.length && !invalid) {
+              if (preparation) create.mutate();
+              else preview.mutate();
+            }
           }}
         >
-          <h2>Préparer une séance</h2>
-          <Input
-            label="Nom de la séance"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={160}
-            required
-          />
-          <label className="field">
-            <span>Participants de la séance</span>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as typeof role)}
-              disabled={create.isPending}
-            >
-              <option value="students">
-                Étudiants · correction guidée et bilan des notes
-              </option>
-              <option value="panel">
-                Cliniciens experts · constitution des corrigés
-              </option>
-            </select>
-          </label>
-          {role === "students" && (
-            <label className="field">
-              <span>Déroulement de la séance</span>
-              <select
-                value={deliveryMode}
-                onChange={(e) =>
-                  setDeliveryMode(e.target.value as typeof deliveryMode)
-                }
-                disabled={create.isPending}
-              >
-                <option value="synchronous">
-                  Synchrone · je guide le groupe
-                </option>
-                <option value="asynchronous">
-                  Asynchrone · chacun avance à son rythme
-                </option>
-              </select>
-              <small>
-                En asynchrone : réponse, corrigé personnel, cas suivant et
-                bilan, sans attendre le groupe. Ce choix est réservé au
-                professeur.
-              </small>
-            </label>
-          )}
-          <p>
-            Choisissez jusqu’à 20 PRC. Pour les étudiants, chaque cas doit
-            disposer d’un corrigé validé. Les versions des cas et des barèmes
-            seront fixées à la création de la séance.
-          </p>
-          {options.isPending ? (
-            <Loading />
-          ) : options.isError ? (
-            <ErrorBox
-              message={getError(options.error)}
-              retry={() => options.refetch()}
+          {preparation ? (
+            <SessionPreparationReview
+              name={name}
+              data={preparation}
+              busy={create.isPending}
+              refreshing={preview.isPending}
+              onEdit={() => {
+                setPreparation(null);
+                create.reset();
+                preview.reset();
+                options.refetch();
+              }}
+              onRefresh={() => preview.mutate()}
             />
           ) : (
-            <fieldset className="session-options">
-              <legend>Cas disponibles</legend>
-              {options.data?.length ? (
-                options.data.map((c) => (
-                  <label key={c.id}>
-                    <input
-                      type="checkbox"
-                      checked={ids.includes(c.id)}
-                      disabled={
-                        create.isPending ||
-                        (!ids.includes(c.id) &&
-                          (!c.ready ||
-                            (role === "students" && !c.corrected) ||
-                            ids.length >= 20))
-                      }
-                      onChange={(e) =>
-                        setIds(
-                          e.target.checked
-                            ? [...ids, c.id]
-                            : ids.filter((id) => id !== c.id),
-                        )
-                      }
-                    />
-                    <span>
-                      {c.name || "PRC sans nom"}{" "}
-                      <small>
-                        Version {c.version} ·{" "}
-                        {!c.ready
-                          ? "À compléter"
-                          : c.corrected
-                            ? "Corrigé validé"
-                            : "Panel à recueillir"}
-                      </small>
-                    </span>
-                  </label>
-                ))
+            <fieldset
+              className="session-draft-fields"
+              disabled={create.isPending || preview.isPending}
+            >
+              <h2>Préparer une séance</h2>
+              <Input
+                label="Nom de la séance"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                maxLength={160}
+                required
+              />
+              <label className="field">
+                <span>Participants de la séance</span>
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as typeof role)}
+                  disabled={create.isPending}
+                >
+                  <option value="students">
+                    Étudiants · correction guidée et bilan des notes
+                  </option>
+                  <option value="panel">
+                    Cliniciens experts · constitution des corrigés
+                  </option>
+                </select>
+              </label>
+              {role === "students" && (
+                <label className="field">
+                  <span>Déroulement de la séance</span>
+                  <select
+                    value={deliveryMode}
+                    onChange={(e) =>
+                      setDeliveryMode(e.target.value as typeof deliveryMode)
+                    }
+                    disabled={create.isPending}
+                  >
+                    <option value="synchronous">
+                      Synchrone · je guide le groupe
+                    </option>
+                    <option value="asynchronous">
+                      Asynchrone · chacun avance à son rythme
+                    </option>
+                  </select>
+                  <small>
+                    En asynchrone : réponse, corrigé personnel, cas suivant et
+                    bilan, sans attendre le groupe. Ce choix est réservé au
+                    professeur.
+                  </small>
+                </label>
+              )}
+              <p>
+                Choisissez jusqu’à 20 PRC. Pour les étudiants, chaque cas doit
+                disposer d’un corrigé validé. Les versions des cas et des
+                barèmes seront fixées à la création de la séance.
+              </p>
+              {options.isPending ? (
+                <Loading />
+              ) : options.isError ? (
+                <ErrorBox
+                  message={getError(options.error)}
+                  retry={() => options.refetch()}
+                />
               ) : (
-                <p>
-                  Préparez d’abord vos cas dans{" "}
-                  <Link href="/prcs">Mes PRC</Link>.
+                <fieldset className="session-options">
+                  <legend>Cas disponibles</legend>
+                  {options.data?.length ? (
+                    options.data.map((c) => (
+                      <label key={c.id}>
+                        <input
+                          type="checkbox"
+                          checked={ids.includes(c.id)}
+                          disabled={
+                            create.isPending ||
+                            (!ids.includes(c.id) &&
+                              (!c.ready ||
+                                (role === "students" && !c.corrected) ||
+                                ids.length >= 20))
+                          }
+                          onChange={(e) =>
+                            setIds(
+                              e.target.checked
+                                ? [...ids, c.id]
+                                : ids.filter((id) => id !== c.id),
+                            )
+                          }
+                        />
+                        <span>
+                          {c.name || "PRC sans nom"}{" "}
+                          <small>
+                            Version {c.version} ·{" "}
+                            {!c.ready
+                              ? "À compléter"
+                              : c.corrected
+                                ? "Corrigé validé"
+                                : "Panel à recueillir"}
+                          </small>
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <p>
+                      Préparez d’abord vos cas dans{" "}
+                      <Link href="/prcs">Mes PRC</Link>.
+                    </p>
+                  )}
+                </fieldset>
+              )}
+              {!!ids.length && (
+                <section aria-label="Ordre des cas">
+                  <h3>Ordre de présentation</h3>
+                  <ol className="session-order">
+                    {ids.map((id, index) => (
+                      <li key={id}>
+                        <span>
+                          {options.data?.find((c) => c.id === id)?.name}
+                        </span>
+                        <div>
+                          <button
+                            type="button"
+                            aria-label={`Monter le cas ${index + 1}`}
+                            disabled={!index || create.isPending}
+                            onClick={() => move(index, -1)}
+                          >
+                            ↑
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`Descendre le cas ${index + 1}`}
+                            disabled={
+                              index === ids.length - 1 || create.isPending
+                            }
+                            onClick={() => move(index, 1)}
+                          >
+                            ↓
+                          </button>
+                          <button
+                            type="button"
+                            disabled={create.isPending}
+                            aria-label={`Retirer le cas ${index + 1}`}
+                            onClick={() =>
+                              setIds(ids.filter((value) => value !== id))
+                            }
+                          >
+                            Retirer
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </section>
+              )}
+              {invalid && (
+                <p className="form-error">
+                  Un cas sélectionné n’est pas prêt pour ce public. Retirez-le
+                  ou complétez son corrigé.
                 </p>
               )}
+              {preview.isError && (
+                <p className="form-error" role="alert">
+                  {getError(preview.error)}
+                </p>
+              )}
+              <Btn
+                type="submit"
+                disabled={
+                  preview.isPending ||
+                  create.isPending ||
+                  !name.trim() ||
+                  !ids.length ||
+                  invalid
+                }
+              >
+                {preview.isPending ? "Vérification…" : "Vérifier la séance"}
+              </Btn>
             </fieldset>
           )}
-          {!!ids.length && (
-            <section aria-label="Ordre des cas">
-              <h3>Ordre de présentation</h3>
-              <ol className="session-order">
-                {ids.map((id, index) => (
-                  <li key={id}>
-                    <span>{options.data?.find((c) => c.id === id)?.name}</span>
-                    <div>
-                      <button
-                        type="button"
-                        aria-label={`Monter le cas ${index + 1}`}
-                        disabled={!index || create.isPending}
-                        onClick={() => move(index, -1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Descendre le cas ${index + 1}`}
-                        disabled={index === ids.length - 1 || create.isPending}
-                        onClick={() => move(index, 1)}
-                      >
-                        ↓
-                      </button>
-                      <button
-                        type="button"
-                        disabled={create.isPending}
-                        aria-label={`Retirer le cas ${index + 1}`}
-                        onClick={() =>
-                          setIds(ids.filter((value) => value !== id))
-                        }
-                      >
-                        Retirer
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-            </section>
-          )}
-          {invalid && (
-            <p className="form-error">
-              Un cas sélectionné n’est pas prêt pour ce public. Retirez-le ou
-              complétez son corrigé.
+          {preparation && preview.isError && (
+            <p className="form-error" role="alert">
+              {getError(preview.error)}
             </p>
           )}
           {create.isError && (
-            <p role="alert" className="form-error">
+            <p className="form-error" role="alert">
               {getError(create.error)}
             </p>
           )}
-          <Btn
-            type="submit"
-            disabled={
-              create.isPending || !name.trim() || !ids.length || invalid
-            }
-          >
-            {create.isPending
-              ? "Création…"
-              : `Créer la séance (${ids.length} cas)`}
-          </Btn>
         </form>
       )}
       {list.isPending ? (
@@ -610,6 +672,71 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
     current.status !== "published" &&
     Array.isArray(s.report.members) &&
     s.report.members.every((m) => !m.currentSubmitted);
+  const continuation =
+    s && (canAdvance || canSkip) ? (
+      <section className="panel-card session-next">
+        <h2>
+          {s.currentPosition === s.cases.length - 1
+            ? "Terminer la séance"
+            : "Continuer la séance"}
+        </h2>
+        <p>
+          {s.role === "students"
+            ? canSkip
+              ? "Aucune copie n’a été soumise : ce cas peut être exclu de la note globale et de son maximum."
+              : "Les résultats de ce cas sont publiés. Continuez avec le cas suivant ou affichez le bilan final."
+            : "Fermez la collecte et discutez des choix du panel avant de poursuivre. Vous pourrez établir les corrigés de chaque cas depuis Mes PRC."}
+        </p>
+        {advance.isError && (
+          <p className="form-error" role="alert">
+            {getError(advance.error)}
+          </p>
+        )}
+        <Btn
+          disabled={(!canAdvance && !canSkip) || advance.isPending}
+          onClick={() => {
+            if (
+              window.confirm(
+                canSkip
+                  ? "Aucune réponse n’a été soumise pour ce cas. L’exclure de la note globale et de son maximum, puis continuer ?"
+                  : s.currentPosition === s.cases.length - 1
+                    ? "Terminer la séance et afficher le bilan commun ?"
+                    : "Passer au cas suivant pour tous les participants ? Les réponses du cas actuel restent verrouillées.",
+              )
+            )
+              advance.mutate(canSkip);
+          }}
+        >
+          {canSkip
+            ? s.currentPosition === s.cases.length - 1
+              ? "Terminer sans noter ce cas"
+              : "Passer sans noter ce cas"
+            : s.currentPosition === s.cases.length - 1
+              ? "Terminer et afficher le bilan"
+              : "Passer au cas suivant"}
+        </Btn>
+      </section>
+    ) : null;
+  const attendance = s ? (
+    <section className="session-attendance" aria-label="Suivi des participants">
+      <details>
+        <summary>Qui a soumis ? · Suivi réservé au professeur</summary>
+        <ul>
+          {s.report.members?.map((m) => (
+            <li key={m.id}>
+              <span>{m.pseudonym}</span>
+              <strong>
+                {m.currentSubmitted ? "Réponse soumise" : "Non soumise"}
+              </strong>
+              <small>
+                {m.submittedCount}/{s.cases.length} cas soumis
+              </small>
+            </li>
+          ))}
+        </ul>
+      </details>
+    </section>
+  ) : null;
   return (
     <AuthenticatedPage actions={actions}>
       <Link href="/seances" className="back-link">
@@ -812,88 +939,20 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
             </>
           ) : (
             <>
-              <section
-                className="panel-card session-attendance"
-                aria-label="Suivi des participants"
-              >
-                <h2>
-                  Cas {s.currentPosition + 1} sur {s.cases.length} ·{" "}
-                  {current?.name}
-                </h2>
-                <p>
-                  {s.report.memberCount} personne(s) ont rejoint. Ce code reste
-                  le même pendant toute la séance.
-                </p>
-                <details>
-                  <summary>
-                    Qui a soumis ? · Suivi réservé au professeur
-                  </summary>
-                  <ul>
-                    {s.report.members?.map((m) => (
-                      <li key={m.id}>
-                        <span>{m.pseudonym}</span>
-                        <strong>
-                          {m.currentSubmitted
-                            ? "Réponse soumise"
-                            : "Non soumise"}
-                        </strong>
-                        <small>
-                          {m.submittedCount}/{s.cases.length} cas soumis
-                        </small>
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              </section>
               {current && (
                 <ActivityPage
                   key={current.id}
                   actions={actions}
                   activityId={current.id}
                   embedded
-                  sessionAccess={{ code: s.code }}
+                  sessionAccess={{
+                    code: s.code,
+                    caseLabel: `Cas ${s.currentPosition + 1} sur ${s.cases.length} · ${current.name}`,
+                    attendance,
+                    continuation,
+                  }}
                 />
               )}
-              <section className="panel-card session-next">
-                <h2>
-                  {s.currentPosition === s.cases.length - 1
-                    ? "Terminer la séance"
-                    : "Continuer la séance"}
-                </h2>
-                <p>
-                  {s.role === "students"
-                    ? "Fermez les réponses, discutez du corrigé et publiez les résultats de ce cas avant de poursuivre."
-                    : "Fermez la collecte et discutez des choix du panel avant de poursuivre. Vous pourrez établir les corrigés de chaque cas depuis Mes PRC."}
-                </p>
-                {advance.isError && (
-                  <p className="form-error" role="alert">
-                    {getError(advance.error)}
-                  </p>
-                )}
-                <Btn
-                  disabled={(!canAdvance && !canSkip) || advance.isPending}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        canSkip
-                          ? "Aucune réponse n’a été soumise pour ce cas. L’exclure de la note globale et de son maximum, puis continuer ?"
-                          : s.currentPosition === s.cases.length - 1
-                            ? "Terminer la séance et afficher le bilan commun ?"
-                            : "Passer au cas suivant pour tous les participants ? Les réponses du cas actuel restent verrouillées.",
-                      )
-                    )
-                      advance.mutate(canSkip);
-                  }}
-                >
-                  {canSkip
-                    ? s.currentPosition === s.cases.length - 1
-                      ? "Terminer sans noter ce cas"
-                      : "Passer sans noter ce cas"
-                    : s.currentPosition === s.cases.length - 1
-                      ? "Terminer et afficher le bilan"
-                      : "Passer au cas suivant"}
-                </Btn>
-              </section>
             </>
           )}
         </>

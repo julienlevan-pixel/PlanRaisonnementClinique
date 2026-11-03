@@ -1,4 +1,35 @@
 import { expect, test } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/teaching-sessions/preview", (r) => {
+    const input = r.request().postDataJSON();
+    const cases = input.prcIds.map((id: string) => ({
+      ...caseData(id),
+      id,
+      version: 1,
+      name: id === "a" ? "Toux" : "Dyspnée",
+      corrected: true,
+      grading:
+        input.role === "students"
+          ? {
+              maximum: 15,
+              attainableMaximum: 15,
+              mainDiagnosisMaximum: 3,
+              alternativeDiagnosisMaximum: 2,
+              clinicalMaximum: 5,
+            }
+          : null,
+    }));
+    return r.fulfill({
+      json: {
+        ...input,
+        cases,
+        preparationToken: "a".repeat(64),
+        maximum: input.role === "students" ? 15 * cases.length : null,
+        attainableMaximum: input.role === "students" ? 15 * cases.length : null,
+      },
+    });
+  });
+});
 const user = {
   id: "teacher",
   username: "Professeur",
@@ -135,6 +166,9 @@ test("professor organizes corrected cases in order and creates one session", asy
     fullPage: true,
   });
   await form
+    .getByRole("button", { name: "Vérifier la séance", exact: true })
+    .click();
+  await form
     .getByRole("button", { name: "Créer la séance (2 cas)", exact: true })
     .click();
   await expect(page).toHaveURL("/seances/lesson");
@@ -143,6 +177,7 @@ test("professor organizes corrected cases in order and creates one session", asy
     role: "students",
     prcIds: ["b", "a"],
     deliveryMode: "synchronous",
+    preparationToken: "a".repeat(64),
   });
 });
 
@@ -211,7 +246,7 @@ test("teacher sees a private roster and advances cases with the shared code and 
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "Passer au cas suivant", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
   await page
     .getByText("Qui a soumis ? · Suivi réservé au professeur", { exact: true })
     .click();
@@ -221,6 +256,22 @@ test("teacher sees a private roster and advances cases with the shared code and 
   await expect(page.locator(".sidebar")).toHaveCount(1);
   s.cases[0].status = "published";
   await page.reload();
+  await expect(
+    page
+      .getByRole("region", {
+        name: "Suivi de la séance synchrone",
+        exact: true,
+      })
+      .getByRole("button", { name: "Passer au cas suivant", exact: true }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .getByRole("region", { name: "Suivi de la séance synchrone", exact: true })
+    .screenshot({
+      path: "/workspace/attachments/prc-pilotage-synchrone-complet-mobile.png",
+      animations: "disabled",
+    });
+  await page.setViewportSize({ width: 1280, height: 720 });
   await page.screenshot({
     path: testInfo.outputPath("session-teacher-desktop.png"),
     fullPage: true,
@@ -480,6 +531,9 @@ test("teacher chooses asynchronous delivery without changing the selected clinic
     .getByRole("combobox", { name: /Déroulement de la séance/ })
     .selectOption("asynchronous");
   await page
+    .getByRole("button", { name: "Vérifier la séance", exact: true })
+    .click();
+  await page
     .getByRole("button", { name: "Créer la séance (1 cas)", exact: true })
     .click();
   await expect(page).toHaveURL("/seances/async");
@@ -488,6 +542,7 @@ test("teacher chooses asynchronous delivery without changing the selected clinic
     role: "students",
     prcIds: ["a"],
     deliveryMode: "asynchronous",
+    preparationToken: "a".repeat(64),
   });
   await expect(
     page.getByRole("heading", {

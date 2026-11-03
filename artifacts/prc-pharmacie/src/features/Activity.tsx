@@ -345,7 +345,12 @@ export function ActivityPage({
   actions: AppActions;
   activityId?: string;
   embedded?: boolean;
-  sessionAccess?: { code: string };
+  sessionAccess?: {
+    code: string;
+    caseLabel?: string;
+    attendance?: ReactNode;
+    continuation?: ReactNode;
+  };
 }) {
   const { launchId: paramId = "" } = useParams<{ launchId: string }>();
   const launchId = activityId ?? paramId;
@@ -468,6 +473,55 @@ export function ActivityPage({
         },
       },
     );
+  const publication =
+    l.role === "students" ? (
+      <section className="publish-row" id="activity-publication" tabIndex={-1}>
+        <div>
+          <b>Terminer la révision et partager le bilan</b>
+          <p>
+            Chaque étudiant voit sa note sur {l.grading?.maximum ?? 20} et la
+            distribution anonyme du groupe.
+            {asynchronous &&
+              " Le corrigé individuel reste disponible dès la soumission ; le bilan collectif attend votre publication."}
+            Les {unsent} copies non soumises restent sans note.
+          </p>
+        </div>
+        <Btn
+          disabled={
+            busy ||
+            !closed ||
+            !validated ||
+            submitted === 0 ||
+            l.status === "published"
+          }
+          onClick={() => run("publish")}
+        >
+          <ShieldCheck size={15} />{" "}
+          {l.status === "published"
+            ? "Résultats publiés"
+            : "Publier les résultats"}
+        </Btn>
+      </section>
+    ) : null;
+  const discussionControls = (compact = false) =>
+    results.isPending ? (
+      <Loading />
+    ) : results.isError ? (
+      <ErrorBox
+        message="La discussion n’a pas pu être chargée."
+        retry={() => results.refetch()}
+      />
+    ) : (
+      <div id="activity-review-controls" tabIndex={-1}>
+        <DiscussionControls
+          compact={compact}
+          discussion={results.data?.discussion}
+          reveals={l.reveals ?? {}}
+          busy={busy || l.status === "published"}
+          onAction={(data) => run("discussion", data)}
+        />
+      </div>
+    );
   return (
     <ActivityFrame actions={actions} embedded={embedded}>
       {!embedded && (
@@ -566,6 +620,10 @@ export function ActivityPage({
       )}
       {liveSession && (
         <SynchronousCockpit
+          caseLabel={sessionAccess?.caseLabel}
+          attendance={sessionAccess?.attendance}
+          continuation={closed ? sessionAccess?.continuation : null}
+          inlineClosedControls={guided && closed && !asynchronous}
           phase={liveSession.phase}
           status={l.status}
           role={l.role}
@@ -588,6 +646,12 @@ export function ActivityPage({
               onAction={(data) => run("session", data)}
             />
           )}
+          {guided &&
+            closed &&
+            !asynchronous &&
+            l.status !== "published" &&
+            discussionControls(true)}
+          {closed && publication}
         </SynchronousCockpit>
       )}
       {(!liveSession || (closed && l.role === "panel" && validated)) && (
@@ -782,22 +846,21 @@ export function ActivityPage({
       {guided &&
         closed &&
         !asynchronous &&
-        (results.isPending ? (
-          <Loading />
-        ) : results.isError ? (
-          <ErrorBox
-            message="La discussion n’a pas pu être chargée."
-            retry={() => results.refetch()}
-          />
-        ) : (
-          <div id="activity-review-controls" tabIndex={-1}>
-            <DiscussionControls
-              discussion={results.data?.discussion}
-              reveals={l.reveals ?? {}}
-              busy={busy}
-              onAction={(data) => run("discussion", data)}
+        (liveSession ? (
+          results.isPending ? (
+            <Loading />
+          ) : results.isError ? (
+            <ErrorBox
+              message="Les résultats n’ont pas pu être chargés."
+              retry={() => results.refetch()}
             />
-          </div>
+          ) : (
+            <HypothesisComparison
+              rows={results.data?.discussion?.comparison ?? []}
+            />
+          )
+        ) : (
+          discussionControls()
         ))}
       {guided && closed && asynchronous && (
         <section className="panel-card">
@@ -809,7 +872,11 @@ export function ActivityPage({
         </section>
       )}
       {closed && !guided && (
-        <section className="panel-card">
+        <section
+          className="panel-card"
+          id="activity-review-controls"
+          tabIndex={-1}
+        >
           <h2>Révélation progressive</h2>
           <p>
             Ces étapes sont enregistrées sur le serveur et conservées après
@@ -964,39 +1031,8 @@ export function ActivityPage({
           preview={l.status !== "published"}
         />
       )}
-      {l.role === "students" && (
-        <section
-          className="publish-row"
-          id="activity-publication"
-          tabIndex={-1}
-        >
-          <div>
-            <b>Terminer la révision et partager le bilan</b>
-            <p>
-              Chaque étudiant voit sa note sur {l.grading?.maximum ?? 20} et la
-              distribution anonyme du groupe.
-              {asynchronous &&
-                " Le corrigé individuel reste disponible dès la soumission ; le bilan collectif attend votre publication."}
-              Les {unsent} copies non soumises restent sans note.
-            </p>
-          </div>
-          <Btn
-            disabled={
-              busy ||
-              !closed ||
-              !validated ||
-              submitted === 0 ||
-              l.status === "published"
-            }
-            onClick={() => run("publish")}
-          >
-            <ShieldCheck size={15} />{" "}
-            {l.status === "published"
-              ? "Résultats publiés"
-              : "Publier les résultats"}
-          </Btn>
-        </section>
-      )}
+      {!liveSession && publication}
+      {!liveSession && sessionAccess?.continuation}
     </ActivityFrame>
   );
 }

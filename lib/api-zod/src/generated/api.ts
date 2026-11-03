@@ -670,6 +670,7 @@ export const ListTeachingSessionsResponse = zod.array(ListTeachingSessionsRespon
 /**
  * Crée atomiquement les activités des cas dans l’ordre choisi, avec des versions et barèmes figés. Un seul code et une identité par participant pour toute la séance synchrone.
  */
+export const createTeachingSessionBodyPreparationTokenRegExp = new RegExp('^[a-f0-9]{64}$');
 export const createTeachingSessionBodyDeliveryModeDefault = `synchronous`;
 export const createTeachingSessionBodyNameMax = 160;
 
@@ -678,6 +679,7 @@ export const createTeachingSessionBodyPrcIdsMax = 20;
 
 
 export const CreateTeachingSessionBody = zod.object({
+  "preparationToken": zod.string().regex(createTeachingSessionBodyPreparationTokenRegExp).optional().describe('Empreinte du récapitulatif confirmé ; refuse une création si le contenu ou le barème a changé. Facultatif pour les anciens clients.'),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']).default(createTeachingSessionBodyDeliveryModeDefault).describe('Choix du professeur. Le mode peut être changé avant le début et avant toute inscription.'),
   "name": zod.string().min(1).max(createTeachingSessionBodyNameMax),
   "role": zod.enum(['panel', 'students']),
@@ -687,6 +689,65 @@ export const CreateTeachingSessionBody = zod.object({
 export const CreateTeachingSessionResponse = zod.object({
   "id": zod.string(),
   "code": zod.string()
+})
+
+
+export const previewTeachingSessionBodyDeliveryModeDefault = `synchronous`;
+export const previewTeachingSessionBodyPrcIdsMax = 20;
+
+
+
+export const PreviewTeachingSessionBody = zod.object({
+  "role": zod.enum(['panel', 'students']),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).default(previewTeachingSessionBodyDeliveryModeDefault),
+  "prcIds": zod.array(zod.string()).min(1).max(previewTeachingSessionBodyPrcIdsMax)
+})
+
+export const previewTeachingSessionResponsePreparationTokenRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const PreviewTeachingSessionResponse = zod.object({
+  "role": zod.enum(['panel', 'students']),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
+  "maximum": zod.number().nullable(),
+  "attainableMaximum": zod.number().nullable(),
+  "preparationToken": zod.string().regex(previewTeachingSessionResponsePreparationTokenRegExp),
+  "cases": zod.array(zod.object({
+  "teachingSession": zod.object({
+  "code": zod.string().optional().describe('Code commun de la séance.'),
+  "id": zod.string(),
+  "name": zod.string(),
+  "position": zod.number().int(),
+  "total": zod.number().int()
+}).optional(),
+  "teachingSessionId": zod.string().optional().describe('Présent lors de la résolution du code commun de séance.'),
+  "canResume": zod.boolean().optional().describe('Le cookie courant permet de reprendre une participation existante à la séance.'),
+  "name": zod.string(),
+  "scenario": zod.string(),
+  "instructions": zod.string(),
+  "diagnostics": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string()
+})),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "text": zod.string(),
+  "category": zod.string(),
+  "position": zod.number().int()
+}))
+}).and(zod.object({
+  "id": zod.string(),
+  "version": zod.number().int(),
+  "corrected": zod.boolean(),
+  "grading": zod.union([zod.object({
+  "maximum": zod.number(),
+  "attainableMaximum": zod.number(),
+  "mainDiagnosisMaximum": zod.number(),
+  "alternativeDiagnosisMaximum": zod.number(),
+  "clinicalMaximum": zod.number(),
+  "rubricRevision": zod.number().int().optional()
+}),zod.null()])
+})))
 })
 
 

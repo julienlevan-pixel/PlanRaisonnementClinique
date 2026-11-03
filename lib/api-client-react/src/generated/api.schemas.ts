@@ -261,6 +261,11 @@ export const TeachingSessionInputRole = {
 } as const;
 
 export interface TeachingSessionInput {
+  /**
+     * Empreinte du récapitulatif confirmé ; refuse une création si le contenu ou le barème a changé. Facultatif pour les anciens clients.
+     * @pattern ^[a-f0-9]{64}$
+     */
+  preparationToken?: string;
   /** Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. */
   deliveryMode?: TeachingSessionInputDeliveryMode;
   /**
@@ -319,6 +324,80 @@ export interface TeachingAdvanceInput {
 export interface TeachingSessionCreated {
   id: string;
   code: string;
+}
+
+export type TeachingPreparationInputRole = typeof TeachingPreparationInputRole[keyof typeof TeachingPreparationInputRole];
+
+
+export const TeachingPreparationInputRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export type TeachingPreparationInputDeliveryMode = typeof TeachingPreparationInputDeliveryMode[keyof typeof TeachingPreparationInputDeliveryMode];
+
+
+export const TeachingPreparationInputDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export interface TeachingPreparationInput {
+  role: TeachingPreparationInputRole;
+  deliveryMode?: TeachingPreparationInputDeliveryMode;
+  /**
+     * @minItems 1
+     * @maxItems 20
+     */
+  prcIds: string[];
+}
+
+export interface CaseSnapshot {
+  teachingSession?: TeachingCaseContext;
+  /** Présent lors de la résolution du code commun de séance. */
+  teachingSessionId?: string;
+  /** Le cookie courant permet de reprendre une participation existante à la séance. */
+  canResume?: boolean;
+  name: string;
+  scenario: string;
+  instructions: string;
+  diagnostics: Diagnostic[];
+  observations: Observation[];
+}
+
+export type TeachingPreparedCase = CaseSnapshot & ({
+  id: string;
+  version: number;
+  corrected: boolean;
+  grading: GradingSummary | null;
+});
+
+export type TeachingPreparationRole = typeof TeachingPreparationRole[keyof typeof TeachingPreparationRole];
+
+
+export const TeachingPreparationRole = {
+  panel: 'panel',
+  students: 'students',
+} as const;
+
+export type TeachingPreparationDeliveryMode = typeof TeachingPreparationDeliveryMode[keyof typeof TeachingPreparationDeliveryMode];
+
+
+export const TeachingPreparationDeliveryMode = {
+  synchronous: 'synchronous',
+  asynchronous: 'asynchronous',
+} as const;
+
+export interface TeachingPreparation {
+  role: TeachingPreparationRole;
+  deliveryMode: TeachingPreparationDeliveryMode;
+  /** @nullable */
+  maximum: number | null;
+  /** @nullable */
+  attainableMaximum: number | null;
+  /** @pattern ^[a-f0-9]{64}$ */
+  preparationToken: string;
+  cases: TeachingPreparedCase[];
 }
 
 export interface TeachingCaseOption {
@@ -600,19 +679,6 @@ export interface Reference {
   suggestedRubric?: ProfessorRubric;
   diagnostics: DiagnosticCount[];
   distributions: DiagnosticDistribution[];
-}
-
-export interface CaseSnapshot {
-  teachingSession?: TeachingCaseContext;
-  /** Présent lors de la résolution du code commun de séance. */
-  teachingSessionId?: string;
-  /** Le cookie courant permet de reprendre une participation existante à la séance. */
-  canResume?: boolean;
-  name: string;
-  scenario: string;
-  instructions: string;
-  diagnostics: Diagnostic[];
-  observations: Observation[];
 }
 
 export type LaunchDetail = Launch & ({

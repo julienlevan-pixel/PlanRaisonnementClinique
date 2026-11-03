@@ -343,9 +343,12 @@ test("the synchronous cockpit groups the current stage, submissions and closing 
     "Comparaison",
   );
   await expect(
-    cockpit.getByRole("link", {
-      name: "Aller aux commandes de correction",
+    cockpit.getByRole("button", {
+      name: "Afficher la comparaison des impressions cliniques",
       exact: true,
     }),
-  ).toHaveAttribute("href", "#activity-review-controls");
+  ).toBeVisible();
+  await expect(
+    cockpit.getByRole("button", { name: "Publier les résultats", exact: true }),
+  ).toBeVisible();
 });

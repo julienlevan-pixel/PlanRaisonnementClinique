@@ -897,6 +897,68 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.notEqual(recreated.prcId, first.prcId);
     assert.equal((await independentOwner.session.call(`/prcs/${independent.prcId}`)).id, independent.prcId);
   });
+  await t.test('preflight is private and read-only, preserves chosen order and verifies frozen versions and customized maxima at creation', async () => {
+    const host=await newUser(), outsider=await newUser();
+    const items=[],panels=[];
+    for(let i=0;i<2;i++){
+      const item=await host.session.call('/prcs','POST',{...completeCase(),name:`Récapitulatif ${i+1}`},201);items.push(item);
+      const panel=await createReference(host.session,item,1);panels.push(panel);
+      const ref=(await host.session.call(`/launches/${panel.id}`)).reference, rubric=structuredClone(ref.rubric);
+      rubric.diagnostics.forEach((d:any)=>d.mainPoints=3.1+i/10);
+      await host.session.call(`/launches/${panel.id}/reference/rubric`,'PUT',{revision:ref.rubric.revision,rubric});
+    }
+    const counts=async()=>(await pool.query(`SELECT (SELECT count(*)::int FROM prc_private.teaching_sessions) AS sessions,(SELECT count(*)::int FROM prc_private.launches) AS launches,(SELECT count(*)::int FROM prc_private.participants) AS participants,(SELECT count(*)::int FROM prc_private.responses) AS responses`)).rows[0];
+    const input={role:'students',deliveryMode:'asynchronous',prcIds:[items[1].id,items[0].id]};
+    const before=await counts();
+    await anonymous.call('/teaching-sessions/preview','POST',input,401);
+    await outsider.session.call('/teaching-sessions/preview','POST',input,404);
+    const preview=await host.session.call('/teaching-sessions/preview','POST',input);
+    assert.deepEqual(await counts(),before);assert.equal(preview.maximum,30.3);assert.equal(preview.attainableMaximum,30.3);
+    assert.equal(preview.deliveryMode,'asynchronous');assert.match(preview.preparationToken,/^[a-f0-9]{64}$/);
+    assert.deepEqual(preview.cases.map((c:any)=>c.id),input.prcIds);
+    assert.equal(preview.cases[0].grading.maximum,15.2);assert.equal(preview.cases[1].grading.maximum,15.1);
+    assert.deepEqual(preview.cases[1].observations,items[0].observations);assert.deepEqual(preview.cases[1].diagnostics,items[0].diagnostics);
+    assert.ok(preview.cases.every((c:any)=>c.corrected&&c.version===1));assert.equal(preview.cases[0].rubric,undefined);assert.equal(preview.code,undefined);
+    assert.equal((await host.session.call('/teaching-sessions/preview','POST',input)).preparationToken,preview.preparationToken);
+    const request={...input,name:'Séance vérifiée',preparationToken:preview.preparationToken};
+    await host.session.call('/teaching-sessions','POST',{...request,prcIds:[...input.prcIds].reverse()},409);
+    await host.session.call('/teaching-sessions','POST',{...request,deliveryMode:'synchronous'},409);
+    await host.session.call('/teaching-sessions','POST',{...request,preparationToken:'invalide'},400);
+    assert.deepEqual(await counts(),before);
+    const created=await host.session.call('/teaching-sessions','POST',request,201);
+    const detail=await host.session.call(`/teaching-sessions/${created.id}`);
+    assert.equal(detail.report.maximum,preview.maximum);assert.deepEqual(detail.cases.map((c:any)=>c.maximum),preview.cases.map((c:any)=>c.grading.maximum));
+    for(let i=0;i<detail.cases.length;i++) {
+      const launch=(await host.session.call(`/launches/${detail.cases[i].id}`));
+      assert.equal(launch.caseVersion,preview.cases[i].version);assert.deepEqual(launch.case.observations,preview.cases[i].observations);
+    }
+    // A changed rubric invalidates the inspected summary without creating any session or copy.
+    const reference=(await host.session.call(`/launches/${panels[0].id}`)).reference;
+    const rubric=structuredClone(reference.rubric);rubric.clinicalMaximum=4;
+    await host.session.call(`/launches/${panels[0].id}/reference/rubric`,'PUT',{revision:reference.rubric.revision,rubric});
+    const after=await counts();await host.session.call('/teaching-sessions','POST',request,409);assert.deepEqual(await counts(),after);
+    const refreshed=await host.session.call('/teaching-sessions/preview','POST',input);
+    assert.notEqual(refreshed.preparationToken,preview.preparationToken);assert.equal(refreshed.maximum,28.3);
+    const revised=await host.session.call('/teaching-sessions','POST',{...request,preparationToken:refreshed.preparationToken},201);
+    assert.equal((await host.session.call(`/teaching-sessions/${revised.id}`)).report.maximum,28.3);
+    assert.equal((await host.session.call(`/teaching-sessions/${created.id}`)).report.maximum,30.3);
+    // Case edits and new reference versions also invalidate an older summary.
+    const current=await host.session.call(`/prcs/${items[0].id}`);
+    await host.session.call(`/prcs/${items[0].id}`,'PUT',{...current,version:current.version,scenario:'Scénario modifié après vérification.',diagnostics:current.diagnostics.map((d:any)=>d.label)});
+    await host.session.call('/teaching-sessions','POST',{...request,preparationToken:refreshed.preparationToken},409);
+    for(const prcIds of [[],[items[1].id,items[1].id],['bad-id']]) await host.session.call('/teaching-sessions/preview','POST',{...input,prcIds},400);
+  });
+  await t.test('expert preflight requires complete authorized cases but no student correction or artificial grade', async()=>{
+    const host=await newUser(), item=await host.session.call('/prcs','POST',completeCase(),201);
+    const input={role:'panel',deliveryMode:'synchronous',prcIds:[item.id]};
+    const preview=await host.session.call('/teaching-sessions/preview','POST',input);
+    assert.equal(preview.maximum,null);assert.equal(preview.attainableMaximum,null);assert.equal(preview.cases[0].grading,null);
+    assert.deepEqual(preview.cases[0].observations,item.observations);
+    await host.session.call('/teaching-sessions/preview','POST',{...input,role:'students'},409);
+    await host.session.call('/teaching-sessions/preview','POST',{...input,deliveryMode:'asynchronous'},400);
+    await host.session.call('/teaching-sessions','POST',{...input,name:'Panel vérifié',preparationToken:preview.preparationToken},201);
+  });
+
   await t.test('teacher-authorized asynchronous session advances each learner independently and releases only personal correction before closure', async () => {
     const host=await newUser(), outsider=await newUser();
     const items=[];

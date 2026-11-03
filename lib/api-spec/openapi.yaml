@@ -381,6 +381,22 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TeachingSessionCreated" }
+  /teaching-sessions/preview:
+    post:
+      operationId: previewTeachingSession
+      tags: [activities]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TeachingPreparationInput" }
+      responses:
+        "200":
+          description: Récapitulatif et aperçu réservés au professeur sans création de séance ni de copie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeachingPreparation" }
+        "409": { $ref: "#/components/responses/Error" }
   /teaching-sessions/options:
     get:
       operationId: listTeachingSessionOptions
@@ -1160,6 +1176,7 @@ components:
     TeachingSessionInput:
       type: object
       properties:
+        preparationToken: { type: string, pattern: "^[a-f0-9]{64}$", description: Empreinte du récapitulatif confirmé ; refuse une création si le contenu ou le barème a changé. Facultatif pour les anciens clients. }
         deliveryMode: { type: string, enum: [synchronous, asynchronous], default: synchronous, description: Choix du professeur. Le mode peut être changé avant le début et avant toute inscription. }
         name: { type: string, minLength: 1, maxLength: 160 }
         role: { type: string, enum: [panel, students] }
@@ -1199,6 +1216,36 @@ components:
         id: { type: string }
         code: { type: string }
       required: [id, code]
+    TeachingPreparationInput:
+      type: object
+      properties:
+        role: { type: string, enum: [panel, students] }
+        deliveryMode: { type: string, enum: [synchronous, asynchronous], default: synchronous }
+        prcIds: { type: array, minItems: 1, maxItems: 20, uniqueItems: true, items: { type: string } }
+      required: [role, prcIds]
+    TeachingPreparedCase:
+      allOf:
+        - $ref: "#/components/schemas/CaseSnapshot"
+        - type: object
+          properties:
+            id: { type: string }
+            version: { type: integer }
+            corrected: { type: boolean }
+            grading:
+              anyOf:
+                - $ref: "#/components/schemas/GradingSummary"
+                - type: "null"
+          required: [id, version, corrected, grading]
+    TeachingPreparation:
+      type: object
+      properties:
+        role: { type: string, enum: [panel, students] }
+        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
+        maximum: { type: [number, "null"] }
+        attainableMaximum: { type: [number, "null"] }
+        preparationToken: { type: string, pattern: "^[a-f0-9]{64}$" }
+        cases: { type: array, items: { $ref: "#/components/schemas/TeachingPreparedCase" } }
+      required: [role, deliveryMode, maximum, attainableMaximum, preparationToken, cases]
     TeachingCaseOption:
       type: object
       properties:

@@ -83,6 +83,8 @@ import type {
   TeachingMemberAdvanceInput,
   TeachingMemberContext,
   TeachingModeInput,
+  TeachingPreparation,
+  TeachingPreparationInput,
   TeachingSessionCreated,
   TeachingSessionDetail,
   TeachingSessionInput,
@@ -1965,6 +1967,88 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateTeachingSessionMutationOptions(options), queryClient);
+    }
+
+export const getPreviewTeachingSessionUrl = () => {
+
+
+
+
+  return `/api/teaching-sessions/preview`
+}
+
+export const previewTeachingSession = async (teachingPreparationInput: TeachingPreparationInput, options?: Parameters<typeof customFetch>[1]): Promise<TeachingPreparation> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<TeachingPreparation>(getPreviewTeachingSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(teachingPreparationInput)
+  }
+);}
+
+
+
+
+
+export const getPreviewTeachingSessionMutationKey = () => ['previewTeachingSession'] as const;
+
+export const getPreviewTeachingSessionMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewTeachingSession>>, TError,PreviewTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof previewTeachingSession>>, TError,PreviewTeachingSessionMutationVariables, TContext> => {
+
+const mutationKey = getPreviewTeachingSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof previewTeachingSession>>, PreviewTeachingSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  previewTeachingSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type PreviewTeachingSessionMutationResult = NonNullable<Awaited<ReturnType<typeof previewTeachingSession>>>
+    export type PreviewTeachingSessionMutationBody = BodyType<TeachingPreparationInput>
+    export type PreviewTeachingSessionMutationError = ErrorType<ErrorResponse>
+    export type PreviewTeachingSessionMutationVariables = {data: BodyType<TeachingPreparationInput>}
+
+    export const usePreviewTeachingSession = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof previewTeachingSession>>, TError,PreviewTeachingSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof previewTeachingSession>>,
+        TError,
+        PreviewTeachingSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getPreviewTeachingSessionMutationOptions(options), queryClient);
     }
 
 export const getListTeachingSessionOptionsUrl = () => {
