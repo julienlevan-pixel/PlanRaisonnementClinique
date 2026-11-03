@@ -979,6 +979,128 @@ async function studentDiscussion(
   };
 }
 
+async function validatedReferenceFor(
+  client: PoolClient,
+  prcId: string,
+  version: number,
+) {
+  return (
+    await client.query(
+      `SELECT r.id,r.snapshot FROM prc_private.references r JOIN prc_private.launches panel ON panel.id=r.launch_id
+     WHERE panel.prc_id=$1 AND panel.case_version=$2 AND panel.role='panel' AND NOT panel.is_trial AND r.status='validated'
+     ORDER BY r.validated_at DESC,r.id DESC LIMIT 1`,
+      [prcId, version],
+    )
+  ).rows[0];
+}
+function teachingInput(input: JsonRecord) {
+  const role = validRole(input.role),
+    deliveryMode = input.deliveryMode ?? "synchronous";
+  if (deliveryMode !== "synchronous" && deliveryMode !== "asynchronous")
+    fail(400, "Mode de séance invalide.");
+  if (role !== "students" && deliveryMode === "asynchronous")
+    fail(400, "Le parcours autonome est réservé aux séances étudiantes.");
+  const values = arrayValue(input.prcIds, "Cas de la séance");
+  if (
+    !values.length ||
+    values.length > 20 ||
+    new Set(values).size !== values.length ||
+    values.some(
+      (id) =>
+        typeof id !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          id,
+        ),
+    )
+  )
+    fail(400, "Choisissez de 1 à 20 PRC distincts, dans l’ordre souhaité.");
+  return {
+    role,
+    deliveryMode: deliveryMode as DeliveryMode,
+    ids: values as string[],
+  };
+}
+async function teachingPreparation(
+  client: PoolClient,
+  teacher: TeacherPrincipal,
+  ids: string[],
+  role: "panel" | "students",
+  deliveryMode: "synchronous" | "asynchronous",
+) {
+  const records: Array<{
+    id: string;
+    version: number;
+    data: CaseData;
+    grading: ReturnType<typeof rubricSummary> | null;
+    referenceId: string | null;
+    rubric: Rubric | null;
+  }> = [];
+  for (const id of ids) {
+    const r = (
+      await client.query(
+        `SELECT p.current_version,p.archived_at,v.name,v.scenario,v.instructions,v.diagnostics,v.observations FROM prc_private.prcs p JOIN prc_private.prc_versions v ON v.prc_id=p.id AND v.version=p.current_version WHERE p.id=$1`,
+        [id],
+      )
+    ).rows[0];
+    if (!r) fail(404, "PRC introuvable.");
+    if (r.archived_at)
+      fail(
+        409,
+        `Restaurez le PRC « ${r.name} » avant de préparer cette séance.`,
+      );
+    const missing = missingCase(r);
+    if (missing.length) fail(409, `${r.name} : ${missing.join(" ")}`);
+    const data: CaseData = {
+      name: r.name,
+      scenario: r.scenario,
+      instructions: r.instructions,
+      diagnostics: r.diagnostics,
+      observations: r.observations,
+    };
+    const reference =
+      role === "students"
+        ? await validatedReferenceFor(client, id, r.current_version)
+        : undefined;
+    if (role === "students" && !reference)
+      fail(
+        409,
+        `Validez d’abord le corrigé de la version actuelle du PRC « ${r.name} ».`,
+      );
+    const rubric = reference
+      ? (reference.snapshot.rubric ??
+        defaultRubric(data, reference.snapshot.distributions))
+      : undefined;
+    records.push({
+      id,
+      version: r.current_version,
+      data,
+      grading: rubric ? rubricSummary(rubric) : null,
+      referenceId: reference?.id ?? null,
+      rubric: rubric ?? null,
+    });
+  }
+  const sum = (field: "maximum" | "attainableMaximum") =>
+    Math.round(
+      records.reduce((n, c) => n + (c.grading?.[field] ?? 0), 0) * 100,
+    ) / 100;
+  return {
+    role,
+    deliveryMode,
+    maximum: role === "students" ? sum("maximum") : null,
+    attainableMaximum: role === "students" ? sum("attainableMaximum") : null,
+    preparationToken: hashToken(
+      JSON.stringify({ teacherId: teacher.id, role, deliveryMode, records }),
+    ),
+    cases: records.map((c) => ({
+      id: c.id,
+      version: c.version,
+      corrected: !!c.referenceId,
+      grading: c.grading,
+      ...c.data,
+    })),
+  };
+}
+
 async function createLaunch(
   request: Request,
   prcId: string,
@@ -1051,20 +1173,19 @@ async function createLaunch(
     if (missing.length) fail(409, missing.join(" "));
     let referenceId: string | null = null;
     if (role === "students") {
-      const reference = await client.query(
-        `SELECT r.id,r.snapshot FROM prc_private.references r JOIN prc_private.launches panel ON panel.id = r.launch_id
-        WHERE panel.prc_id = $1 AND panel.case_version = $2 AND panel.role = 'panel'
-          AND NOT panel.is_trial AND r.status = 'validated' ORDER BY r.validated_at DESC LIMIT 1`,
-        [prcId, prc.current_version],
+      const reference = await validatedReferenceFor(
+        client,
+        prcId,
+        prc.current_version,
       );
-      if (!reference.rows[0])
+      if (!reference)
         fail(
           409,
           "Fermez un panel, générez puis validez un corrigé pour cette version du PRC avant de lancer les étudiants.",
         );
-      referenceId = reference.rows[0].id;
+      referenceId = reference.id;
       if (caseSnapshot.studentWorkflow) {
-        const snapshot = reference.rows[0].snapshot as PanelSnapshot & {
+        const snapshot = reference.snapshot as PanelSnapshot & {
           rubric?: Rubric;
         };
         caseSnapshot.studentWorkflow.rubric =
@@ -1424,6 +1545,31 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       })),
     );
   }
+  if (path === "/api/teaching-sessions/preview" && method === "POST") {
+    const teacher = await requireTeacher(request),
+      input = teachingInput(await body(request));
+    if (input.deliveryMode === "asynchronous") await asyncTeachingReady();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      for (const id of [...input.ids].sort())
+        await lockPrcAccess(client, id, teacher.id, true);
+      const preview = await teachingPreparation(
+        client,
+        teacher,
+        input.ids,
+        input.role,
+        input.deliveryMode,
+      );
+      await client.query("COMMIT");
+      return send(preview);
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
   if (path === "/api/teaching-sessions" && method === "GET") {
     const teacher = await requireTeacher(request);
     const sessions = (
@@ -1450,26 +1596,32 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       input = await body(request);
     const name = stringValue(input.name, "Nom de la séance", 160);
     if (!name) fail(400, "Nommez la séance.");
-    const deliveryMode = input.deliveryMode ?? "synchronous";
-    if (deliveryMode !== "synchronous" && deliveryMode !== "asynchronous")
-      fail(400, "Mode de séance invalide.");
-    const role = validRole(input.role);
-    if (deliveryMode === "asynchronous" && role !== "students")
-      fail(400, "Le parcours autonome est réservé aux séances étudiantes.");
+    const { role, deliveryMode, ids } = teachingInput(input);
     if (deliveryMode === "asynchronous") await asyncTeachingReady();
-    const ids = arrayValue(input.prcIds, "Cas de la séance");
-    if (
-      !ids.length ||
-      ids.length > 20 ||
-      ids.some((id) => typeof id !== "string") ||
-      new Set(ids).size !== ids.length
-    )
-      fail(400, "Choisissez de 1 à 20 PRC distincts, dans l’ordre souhaité.");
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
       for (const id of [...(ids as string[])].sort())
         await lockPrcAccess(client, id, teacher.id, true);
+      if (input.preparationToken !== undefined) {
+        if (
+          typeof input.preparationToken !== "string" ||
+          !/^[a-f0-9]{64}$/.test(input.preparationToken)
+        )
+          fail(400, "Le récapitulatif de la séance est invalide.");
+        const preview = await teachingPreparation(
+          client,
+          teacher,
+          ids,
+          role,
+          deliveryMode,
+        );
+        if (input.preparationToken !== preview.preparationToken)
+          fail(
+            409,
+            "Les cas ou leurs barèmes ont changé. Actualisez le récapitulatif avant de créer la séance.",
+          );
+      }
       const id = newId(),
         code = `S-${randomCode()}`;
       await client.query(

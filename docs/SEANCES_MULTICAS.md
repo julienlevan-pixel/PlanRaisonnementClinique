@@ -7,7 +7,8 @@
 1. Ouvrir **Mes séances → Nouvelle séance**, puis nommer la séance.
 2. Choisir le public : **Étudiants** ou **Cliniciens experts**. Pour les étudiants, choisir **Synchrone · je guide le groupe** ou **Asynchrone · chacun avance à son rythme**. Les séances multi-cas expertes restent synchrones. Les accès asynchrones individuels par PRC restent disponibles.
 3. Sélectionner de 1 à 20 PRC distincts et ajuster leur ordre avec les flèches. Les cas doivent être complets. Pour une séance étudiante, chaque version doit déjà disposer d’un corrigé validé.
-4. Cliquer sur **Créer la séance**. Les versions cliniques et les barèmes sont fixés à cet instant pour tous les cas. Une modification ultérieure du PRC ou du barème ne réécrit pas cette séance.
+4. Cliquer sur **Vérifier la séance**. Le récapitulatif présente le public, le mode, l’ordre, les versions, les corrigés et le maximum réel. Déplier l’aperçu étudiant ou expert pour essayer le questionnaire sans créer de copie. **Modifier la préparation** conserve les choix ; **Actualiser le récapitulatif** relit les données récentes.
+5. Cliquer sur **Créer la séance**. Les versions cliniques et les barèmes sont fixés à cet instant pour tous les cas. Une modification ultérieure du PRC ou du barème ne réécrit pas cette séance.
 
 Seuls les cas sur lesquels le professeur a le droit de gérer les séances sont proposés. Une séance possède un responsable ; le partage d’un PRC n’accorde pas l’accès aux noms et réponses des autres cas de la séance. Le responsable doit conserver les droits de gestion sur tous les cas pour accéder au pilotage et au suivi nominatif.
 
@@ -20,6 +21,8 @@ Seuls les cas sur lesquels le professeur a le droit de gérer les séances sont 
 - Fermer les réponses et animer la discussion. Pour les étudiants, afficher la comparaison, les corrigés puis **Publier les résultats**. La publication du cas est nécessaire avant le passage au suivant. Si aucune copie n’a été soumise et que le cas est fermé, **Passer sans noter ce cas** permet de poursuivre : après confirmation, le cas entier est exclu de la note globale et de son maximum, sans attribuer de zéros. Un cas comportant une soumission ne peut pas être exclu ainsi. Pour les experts, fermer la collecte avant de poursuivre ; chacun garde la comparaison automatique du panel après sa soumission.
 - Cliquer sur **Passer au cas suivant**. Les participants passent automatiquement au nouveau cas après quelques secondes, sans nouveau code ni nouvelle identification. Une double commande ne saute pas un cas. Les anciennes sauvegardes ne peuvent pas écraser la copie du nouveau cas.
 - Après le dernier cas, cliquer sur **Terminer et afficher le bilan**. Une salle de projection ouverte suit la progression et affiche le bilan final. Les résultats de chaque cas sont conservés.
+
+Le panneau de pilotage regroupe le numéro du cas, le suivi privé, la comparaison, les commandes de correction et la publication. Après publication, le passage au cas suivant apparaît dans le même panneau.
 
 Pendant la correction, **Revoir le cas clinique** permet de revenir au scénario et aux données sans rouvrir les réponses. Après une séance experte, les liens vers chaque panel permettent de générer et valider ses corrigés avant de préparer une séance étudiante.
 

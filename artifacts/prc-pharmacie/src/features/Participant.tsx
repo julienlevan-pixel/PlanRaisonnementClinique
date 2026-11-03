@@ -1052,6 +1052,7 @@ export function DiagnosticSelect({
   );
 }
 export function ObservationMatrix({
+  idPrefix = "participant",
   observations,
   mainChoices,
   alternativeChoices,
@@ -1067,6 +1068,7 @@ export function ObservationMatrix({
   expertPoints = false,
   renderObservation,
 }: {
+  idPrefix?: string;
   observations: { id: string; text: string; category: string }[];
   mainChoices: Choice[];
   alternativeChoices: Choice[];
@@ -1104,7 +1106,7 @@ export function ObservationMatrix({
       <label className="expert-points">
         <span>Pouvoir discriminant</span>
         <select
-          id={`participant-${role}-points-${observation.id}`}
+          id={`${idPrefix}-${role}-points-${observation.id}`}
           aria-label={`Points ${role === "main" ? "impression clinique" : "impression clinique alternative"} — ${observation.text}`}
           disabled={disabled}
           value={selected.points ?? ""}
@@ -1184,7 +1186,7 @@ export function ObservationMatrix({
             <th scope="col">Donnée clinique</th>
             <th scope="col">
               <span
-                id={renderObservation ? undefined : "participant-main-counter"}
+                id={renderObservation ? undefined : `${idPrefix}-main-counter`}
                 tabIndex={-1}
                 className="matrix-counter"
               >
@@ -1194,7 +1196,7 @@ export function ObservationMatrix({
               </span>
               {diagnostics && onDiagnosisChange && (
                 <DiagnosticSelect
-                  id="participant-main-diagnosis"
+                  id={`${idPrefix}-main-diagnosis`}
                   label="Impression clinique"
                   options={diagnostics}
                   value={mainDiagnosticId ?? null}
@@ -1210,7 +1212,7 @@ export function ObservationMatrix({
                   id={
                     renderObservation
                       ? undefined
-                      : "participant-alternative-counter"
+                      : `${idPrefix}-alternative-counter`
                   }
                   tabIndex={-1}
                   className="matrix-counter"
@@ -1221,7 +1223,7 @@ export function ObservationMatrix({
                 </span>
                 {diagnostics && onDiagnosisChange && (
                   <DiagnosticSelect
-                    id="participant-alternative-diagnosis"
+                    id={`${idPrefix}-alternative-diagnosis`}
                     label="Impression clinique alternative"
                     options={diagnostics}
                     value={alternativeDiagnosticId ?? null}

@@ -193,6 +193,10 @@ export function LiveSessionControls({
 }
 
 export function SynchronousCockpit({
+  caseLabel,
+  attendance,
+  continuation,
+  inlineClosedControls = false,
   phase,
   status,
   role,
@@ -207,6 +211,10 @@ export function SynchronousCockpit({
   onClose,
   busy,
 }: {
+  caseLabel?: string;
+  attendance?: ReactNode;
+  continuation?: ReactNode;
+  inlineClosedControls?: boolean;
   phase: LiveSession["phase"];
   status: string;
   role: string;
@@ -283,6 +291,7 @@ export function SynchronousCockpit({
       className="panel-card synchronous-cockpit"
       aria-label="Suivi de la séance synchrone"
     >
+      {caseLabel && <h2 className="cockpit-case-label">{caseLabel}</h2>}
       <div className="eyebrow">
         ÉTAPE {current + 1} / {stages.length} ·{" "}
         {stages[current].toLocaleUpperCase("fr")}
@@ -327,6 +336,7 @@ export function SynchronousCockpit({
         max={Math.max(1, participants)}
         aria-label="Copies soumises parmi les participants ayant rejoint"
       />
+      {attendance}
       <p className="cockpit-next">
         <strong>Prochaine action</strong>
         <span>{next}</span>
@@ -337,7 +347,7 @@ export function SynchronousCockpit({
           {students ? "Terminer le temps de réponse" : "Fermer la collecte"}
         </Btn>
       )}
-      {closed && (
+      {closed && !inlineClosedControls && (
         <a className="btn btn-outline" href={target}>
           {students
             ? status === "published"
@@ -348,6 +358,7 @@ export function SynchronousCockpit({
               : "Établir le corrigé"}
         </a>
       )}
+      {continuation}
     </section>
   );
 }

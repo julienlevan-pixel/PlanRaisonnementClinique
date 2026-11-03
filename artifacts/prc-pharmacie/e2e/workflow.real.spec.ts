@@ -317,6 +317,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await builder.getByLabel('Nom de la séance',{exact:true}).fill('Atelier multi-cas navigateur');
       await builder.getByRole('checkbox',{name:/Circuit navigateur/}).check();
       await builder.getByRole('checkbox',{name:/Toux/}).check();
+      await builder.getByRole('button',{name:'Vérifier la séance',exact:true}).click();
+      await expect(builder.getByRole('region',{name:'Récapitulatif de la séance',exact:true})).toContainText('31 points');
       await builder.getByRole('button',{name:'Créer la séance (2 cas)',exact:true}).click();
       await expect(teacher).toHaveURL(/\/seances\/[0-9a-f-]+$/);
       const lessonPath=new URL(teacher.url()).pathname;
@@ -350,6 +352,13 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
         await teacher.getByRole('button',{name:'Publier les résultats',exact:true}).click();
         await expect(learner.getByRole('heading',{name:'Votre résultat',exact:true})).toBeVisible({timeout:12000});
         total+=(await(await learner.request.get('/api/participant/results')).json()).score;
+        if(position===0){
+          await expect(teacher.getByRole('button',{name:'Passer au cas suivant',exact:true})).toBeEnabled();
+          await teacher.setViewportSize({width:390,height:844});
+          await teacher.getByRole('region',{name:'Suivi de la séance synchrone',exact:true}).screenshot({path:'/workspace/attachments/prc-pilotage-synchrone-complet-mobile.png',animations:'disabled'});
+          await teacher.setViewportSize({width:1280,height:720});
+        }
+
         await confirmClick(teacher,position===0?'Passer au cas suivant':'Terminer et afficher le bilan');
         if(position===0)await expect(learner).toHaveURL(/\/participant$/,{timeout:12000});
       }

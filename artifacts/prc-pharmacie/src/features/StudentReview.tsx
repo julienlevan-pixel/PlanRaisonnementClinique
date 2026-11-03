@@ -81,16 +81,16 @@ export function MaximumScoreGuide({
         <p>
           Impression clinique : diagnostic sur{" "}
           {number(grading.mainDiagnosisMaximum)} + données sur{" "}
-          {number(grading.clinicalMaximum)}. Impression clinique alternative : diagnostic
-          sur {number(grading.alternativeDiagnosisMaximum)} + données sur{" "}
-          {number(grading.clinicalMaximum)}.
+          {number(grading.clinicalMaximum)}. Impression clinique alternative :
+          diagnostic sur {number(grading.alternativeDiagnosisMaximum)} + données
+          sur {number(grading.clinicalMaximum)}.
         </p>
         <p>
-          Retenez deux impressions cliniques distinctes et cinq données signées par
-          impression clinique. Les points des données s’additionnent jusqu’au plafond
-          indiqué. Les valeurs sont celles du barème enregistré par le
-          professeur pour cette séance, proposé à partir des fréquences du panel
-          puis personnalisable.
+          Retenez deux impressions cliniques distinctes et cinq données signées
+          par impression clinique. Les points des données s’additionnent
+          jusqu’au plafond indiqué. Les valeurs sont celles du barème enregistré
+          par le professeur pour cette séance, proposé à partir des fréquences
+          du panel puis personnalisable.
         </p>
         {grading.attainableMaximum < grading.maximum && (
           <small>
@@ -122,10 +122,10 @@ export function MaximumScoreGuide({
       </p>
       {topTwo && (
         <small>
-          Les impressions cliniques moins fréquentes gardent des points diagnostiques
-          partiels selon leur fréquence et les deux meilleurs effectifs du
-          panel. Une impression clinique qu’aucun expert n’a retenue ne rapporte aucun
-          point, y compris pour les données.
+          Les impressions cliniques moins fréquentes gardent des points
+          diagnostiques partiels selon leur fréquence et les deux meilleurs
+          effectifs du panel. Une impression clinique qu’aucun expert n’a
+          retenue ne rapporte aucun point, y compris pour les données.
         </small>
       )}
     </section>
@@ -203,8 +203,8 @@ export function HypothesisComparison({
       </div>
       <p className="review-note">
         Le pourcentage indique la proportion des participants ayant retenu ce
-        diagnostic. Chacun choisit deux impressions cliniques distinctes : la somme des
-        pourcentages peut donc atteindre 200 %.
+        diagnostic. Chacun choisit deux impressions cliniques distinctes : la
+        somme des pourcentages peut donc atteindre 200 %.
       </p>
     </section>
   );
@@ -363,8 +363,8 @@ export function DiagnosticCorrectionTable({
           ) ? (
             <p>
               Points des données avant plafonnement :{" "}
-              <b>{number(correction.raw)}</b> · plafond de cette impression clinique :{" "}
-              <b>{correction.clinicalMaximum ?? 5}</b>.
+              <b>{number(correction.raw)}</b> · plafond de cette impression
+              clinique : <b>{correction.clinicalMaximum ?? 5}</b>.
             </p>
           ) : (
             <p>
@@ -458,11 +458,13 @@ export function StudentReview({
 }
 
 export function DiscussionControls({
+  compact = false,
   discussion,
   reveals,
   busy,
   onAction,
 }: {
+  compact?: boolean;
   discussion?: StudentReviewData;
   reveals: Record<string, any>;
   busy: boolean;
@@ -489,9 +491,9 @@ export function DiscussionControls({
       <div className="eyebrow">ANIMER LA DISCUSSION</div>
       <h2>Une impression clinique à la fois</h2>
       <p>
-        1. Affichez la comparaison. 2. Corrigez les impressions cliniques dans l’ordre des
-        choix experts. Les étudiants suivent les mêmes étapes sur leur écran,
-        avec leur propre réponse et leurs points.
+        1. Affichez la comparaison. 2. Corrigez les impressions cliniques dans
+        l’ordre des choix experts. Les étudiants suivent les mêmes étapes sur
+        leur écran, avec leur propre réponse et leurs points.
       </p>
       <Btn
         disabled={busy || visible}
@@ -530,7 +532,7 @@ export function DiscussionControls({
         {corrected.length} / {discussion.comparison.length} corrigé(s)
         révélé(s). Les étapes restent accessibles après rechargement.
       </p>
-      <HypothesisComparison rows={discussion.comparison} />
+      {!compact && <HypothesisComparison rows={discussion.comparison} />}
     </section>
   );
 }

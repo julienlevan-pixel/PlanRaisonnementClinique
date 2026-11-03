@@ -212,3 +212,46 @@
   background: #3d7563;
   border-radius: 6px;
 }
+.cockpit-case-label {
+  font-size: 22px;
+  line-height: 1.4;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.synchronous-cockpit .discussion-controls {
+  padding: 20px 0;
+  margin: 20px 0;
+  border: 0;
+  border-top: 1px solid #d4e2da;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.synchronous-cockpit .publish-row {
+  margin: 20px 0;
+  padding: 20px;
+  border-top: 1px solid #d4e2da;
+  flex-wrap: wrap;
+}
+.synchronous-cockpit .session-next {
+  margin: 20px 0 0;
+  padding: 20px;
+  background: #edf4f0;
+}
+.synchronous-cockpit .session-attendance {
+  margin: 12px 0 20px;
+}
+.synchronous-cockpit .session-attendance summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.synchronous-cockpit .publish-row b {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.synchronous-cockpit .publish-row p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
