@@ -22,6 +22,13 @@ import { Btn, Input, Loading, ErrorBox } from "../app/ui";
 import { getError } from "../app/utils";
 import { api } from "../app/api";
 import {
+  CaseQuickAccess,
+  MobileImpressionSwitch,
+  ParticipantInstructions,
+  PersonalFeedback,
+  SubmissionReview,
+} from "./ParticipantExperience";
+import {
   StudentReview,
   MaximumScoreGuide,
   type StudentReviewData,
@@ -271,14 +278,6 @@ export function Join({ actions }: { actions: AppActions }) {
             : "ACTIVITÉ ÉTUDIANTE"}
         </div>
         <h1>{info.data.name}</h1>
-        {info.data.teachingSessionId &&
-          info.data.deliveryMode === "asynchronous" && (
-            <p>
-              Parcours à votre rythme : répondez à chaque cas, consultez votre
-              corrigé et passez au suivant sans attendre le groupe. Votre bilan
-              personnel sera disponible à la fin.
-            </p>
-          )}
         <TrialNotice trial={info.data.isTrial} />
         {info.data.teachingSessionId && info.data.canResume && (
           <p>
@@ -306,14 +305,16 @@ export function Join({ actions }: { actions: AppActions }) {
               reprendre ensuite votre copie, utilisez ce même navigateur ; le
               pseudonyme seul ne donne pas accès à une copie.
             </p>
-            {info.data.guidedReview && (
-              <p className="participant-notice">
-                Deux impressions cliniques distinctes, cinq données cliniques
-                pour chacune.{" "}
-                {info.data.deliveryMode === "asynchronous"
-                  ? "Votre corrigé personnel sera disponible dès la soumission."
-                  : "Le professeur guidera la correction après la fin du temps de réponse."}
-              </p>
+            {!closed && (
+              <ParticipantInstructions
+                expert={info.data.role === "panel"}
+                asynchronous={info.data.deliveryMode === "asynchronous"}
+                exactFive={
+                  info.data.role === "panel" ||
+                  info.data.requiredChoices === 5 ||
+                  !!info.data.teachingSessionId
+                }
+              />
             )}
             {error && (
               <div className="form-error" role="alert">
@@ -393,6 +394,14 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
   const [notice, setNotice] = useState("");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [mobileRole, setMobileRole] = useState<Role>("main");
+  const [preparingReview, setPreparingReview] = useState(false);
+  const [review, setReview] = useState<{
+    copy: Draft;
+    revision: number;
+    version: number;
+    launchId: string;
+  } | null>(null);
   const [validation, setValidation] = useState<
     { message: string; target: string }[]
   >([]);
@@ -598,7 +607,15 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
   const edit = (change: Partial<Draft>) => {
-    if (submitted || status !== "open" || submitting || !canAnswer) return;
+    if (
+      submitted ||
+      status !== "open" ||
+      submitting ||
+      preparingReview ||
+      review ||
+      !canAnswer
+    )
+      return;
     localVersion.current++;
     const next = { ...latest.current, ...change };
     latest.current = next;
@@ -641,30 +658,34 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       role === "main" ? { mainChoices: next } : { alternativeChoices: next },
     );
   };
-  const transmit = async () => {
-    if (!joinInfo || submitted || status !== "open" || !canAnswer) return;
+  const focusTarget = (target: string) => {
+    setMobileRole(target.includes("alternative") ? "alternative" : "main");
+    requestAnimationFrame(() => document.getElementById(target)?.focus());
+  };
+  const validateCopy = (copy: Draft) => {
+    if (!joinInfo) return [];
     const missing: { message: string; target: string }[] = [];
-    if (!draft.mainDiagnosticId)
+    if (!copy.mainDiagnosticId)
       missing.push({
         message: "Choisissez votre impression clinique.",
         target: "participant-main-diagnosis",
       });
-    if (!draft.alternativeDiagnosticId)
+    if (!copy.alternativeDiagnosticId)
       missing.push({
         message: "Choisissez votre impression clinique alternative.",
         target: "participant-alternative-diagnosis",
       });
     if (
-      draft.mainDiagnosticId &&
-      draft.mainDiagnosticId === draft.alternativeDiagnosticId
+      copy.mainDiagnosticId &&
+      copy.mainDiagnosticId === copy.alternativeDiagnosticId
     )
       missing.push({
         message: "Choisissez deux diagnostics différents.",
         target: "participant-alternative-diagnosis",
       });
     for (const [role, choices, name] of [
-      ["main", draft.mainChoices, "principale"],
-      ["alternative", draft.alternativeChoices, "alternative"],
+      ["main", copy.mainChoices, "principale"],
+      ["alternative", copy.alternativeChoices, "alternative"],
     ] as const) {
       if (
         choices.length < 1 ||
@@ -692,11 +713,26 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           });
       }
     }
+    return missing;
+  };
+  const showValidation = (missing: { message: string; target: string }[]) => {
     setValidation(missing);
-    if (missing.length) {
-      document.getElementById(missing[0].target)?.focus();
+    if (missing.length) focusTarget(missing[0].target);
+  };
+  const transmit = async () => {
+    if (
+      !joinInfo ||
+      submitted ||
+      submitting ||
+      preparingReview ||
+      review ||
+      status !== "open" ||
+      !canAnswer
+    )
       return;
-    }
+    const missing = validateCopy(latest.current);
+    showValidation(missing);
+    if (missing.length) return;
     if (!online || conflict) {
       setSaveError(
         conflict
@@ -705,21 +741,61 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       );
       return;
     }
-    if (
-      !window.confirm(
-        "Confirmer la soumission définitive ? Votre copie sera verrouillée.",
-      )
-    )
-      return;
-    setSubmitting(true);
+    setPreparingReview(true);
     try {
       if (!(await saveDraft())) return;
+      if (
+        !context.current.online ||
+        context.current.status !== "open" ||
+        context.current.submitted ||
+        !context.current.canAnswer ||
+        context.current.conflict
+      )
+        return;
+      const acknowledged = validateCopy(latest.current);
+      showValidation(acknowledged);
+      if (acknowledged.length) return;
+      setSaveError("");
+      setReview({
+        copy: structuredClone(latest.current),
+        revision: revision.current,
+        version: localVersion.current,
+        launchId: context.current.launchId,
+      });
+    } finally {
+      setPreparingReview(false);
+    }
+  };
+  const confirmTransmission = async () => {
+    if (
+      !review ||
+      submitting ||
+      !online ||
+      conflict ||
+      status !== "open" ||
+      !canAnswer ||
+      submitted
+    )
+      return;
+    if (
+      revision.current !== review.revision ||
+      localVersion.current !== review.version ||
+      context.current.launchId !== review.launchId
+    ) {
+      setReview(null);
+      setSaveError(
+        "Votre copie a changé pendant la vérification. Vérifiez à nouveau la version enregistrée avant de transmettre.",
+      );
+      return;
+    }
+    setSubmitting(true);
+    try {
       const result = await api<SavedResponse>(
         "/api/participant/submit",
         "POST",
         {
-          expectedRevision: revision.current,
-          launchId: context.current.launchId,
+          expectedRevision: review.revision,
+          launchId: review.launchId,
         },
       );
       setSubmitted(result.state === "submitted");
@@ -731,6 +807,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         /chang|revision|récente/i.test(getError(error))
       )
         setConflict(true);
+      setReview(null);
       setSaveError(getError(error));
       stateQuery.refetch();
     } finally {
@@ -831,7 +908,13 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       </div>
     );
   }
-  const locked = submitted || status !== "open" || submitting || !canAnswer;
+  const locked =
+    submitted ||
+    status !== "open" ||
+    submitting ||
+    preparingReview ||
+    !!review ||
+    !canAnswer;
   const saveLabel = !online
     ? "Hors connexion — les nouveaux choix ne sont pas encore enregistrés"
     : saving
@@ -847,6 +930,29 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       <main className="participant-content">
         <h1>{joinInfo.name}</h1>
         <TrialNotice trial={joinInfo.isTrial} />
+        <div className="participant-response-tools">
+          <CaseQuickAccess
+            data={joinInfo}
+            disabled={preparingReview || submitting || !!review}
+          />
+          <span className="participant-response-progress">
+            Principale : {draft.mainChoices.length}/5 · Alternative :{" "}
+            {draft.alternativeChoices.length}/5
+          </span>
+          {joinInfo.role === "students" && (
+            <MobileImpressionSwitch
+              active={mobileRole}
+              mainCount={draft.mainChoices.length}
+              alternativeCount={draft.alternativeChoices.length}
+              onChange={(role) => {
+                setMobileRole(role);
+                document
+                  .getElementById("participant-observation-matrix")
+                  ?.scrollTo({ top: 0 });
+              }}
+            />
+          )}
+        </div>
         {status === "open" && (
           <SessionCountdown
             session={liveSession}
@@ -930,9 +1036,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
                 <li key={item.target}>
                   <button
                     type="button"
-                    onClick={() =>
-                      document.getElementById(item.target)?.focus()
-                    }
+                    onClick={() => focusTarget(item.target)}
                   >
                     {item.message}
                   </button>
@@ -952,15 +1056,15 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         <p className="body-copy">
           {joinInfo.role === "panel" && (
             <>
-              Attribuez à chaque donnée choisie de 1 à 3 points : 1 = peu
-              discriminante, 2 = modérément discriminante, 3 = très
-              discriminante.{" "}
+              Attribuez une importance clinique à chaque donnée choisie : 1 =
+              peu importante, 2 = importante, 3 = très importante.{" "}
             </>
           )}
           Une même donnée peut soutenir une impression clinique et affaiblir
           l’autre. Cliquez à nouveau sur un signe retenu pour retirer ce choix.
         </p>
         <ObservationMatrix
+          mobileRole={joinInfo.role === "students" ? mobileRole : undefined}
           observations={joinInfo.observations}
           diagnostics={joinInfo.diagnostics}
           mainDiagnosticId={draft.mainDiagnosticId}
@@ -996,11 +1100,45 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
             disabled={locked || saving || !online || conflict}
             onClick={transmit}
           >
-            {submitting ? "Transmission…" : "Vérifier et transmettre"}{" "}
+            {submitting
+              ? "Transmission…"
+              : preparingReview
+                ? "Vérification…"
+                : "Vérifier et transmettre"}{" "}
             <ArrowRight size={15} />
           </Btn>
         </div>
       </main>
+      {review && (
+        <SubmissionReview
+          data={joinInfo}
+          copy={review.copy}
+          expert={joinInfo.role === "panel"}
+          busy={submitting}
+          disabled={
+            !online || conflict || status !== "open" || !canAnswer || submitted
+          }
+          error={
+            submitted
+              ? "Cette copie a déjà été transmise. Sa restitution est accessible depuis votre participation."
+              : !online
+                ? "Hors connexion. Reconnectez-vous pour transmettre cette copie."
+                : status !== "open"
+                  ? "Les réponses sont maintenant fermées. Cette copie reste un brouillon non soumis."
+                  : conflict
+                    ? "Une autre version de la copie est enregistrée. Fermez cet aperçu pour la charger."
+                    : saveError
+          }
+          onClose={() => {
+            if (!submitting) setReview(null);
+          }}
+          onEdit={(role) => {
+            setReview(null);
+            focusTarget(`participant-${role}-diagnosis`);
+          }}
+          onConfirm={() => void confirmTransmission()}
+        />
+      )}
       <footer className="entry-footer">
         PRC Pharmacie · Votre pseudonyme ne donne pas accès à une copie
         d’autrui.
@@ -1053,6 +1191,7 @@ export function DiagnosticSelect({
 }
 export function ObservationMatrix({
   idPrefix = "participant",
+  mobileRole,
   observations,
   mainChoices,
   alternativeChoices,
@@ -1069,6 +1208,7 @@ export function ObservationMatrix({
   renderObservation,
 }: {
   idPrefix?: string;
+  mobileRole?: Role;
   observations: { id: string; text: string; category: string }[];
   mainChoices: Choice[];
   alternativeChoices: Choice[];
@@ -1102,34 +1242,84 @@ export function ObservationMatrix({
       (choice) => choice.observationId === observation.id,
     );
     if (!expertPoints || !selected) return null;
+    const update = (value: number) => {
+      const next = choices.map((choice) =>
+        choice.observationId === observation.id
+          ? { ...choice, points: value }
+          : choice,
+      );
+      (role === "main" ? setMainChoices : setAlternativeChoices)(next);
+    };
     return (
-      <label className="expert-points">
-        <span>Pouvoir discriminant</span>
-        <select
+      <div className="expert-points">
+        <span>Importance clinique</span>
+        <div
+          className="importance-buttons"
           id={`${idPrefix}-${role}-points-${observation.id}`}
+          role="radiogroup"
           aria-label={`Points ${role === "main" ? "impression clinique" : "impression clinique alternative"} — ${observation.text}`}
-          disabled={disabled}
-          value={selected.points ?? ""}
-          onChange={(event) => {
-            const next = choices.map((choice) =>
-              choice.observationId === observation.id
-                ? {
-                    ...choice,
-                    points: event.target.value
-                      ? Number(event.target.value)
-                      : undefined,
-                  }
-                : choice,
-            );
-            (role === "main" ? setMainChoices : setAlternativeChoices)(next);
+          tabIndex={-1}
+          onKeyDown={(event) => {
+            if (
+              disabled ||
+              ![
+                "ArrowRight",
+                "ArrowLeft",
+                "ArrowUp",
+                "ArrowDown",
+                "Home",
+                "End",
+              ].includes(event.key)
+            )
+              return;
+            event.preventDefault();
+            const current = selected.points ?? 0;
+            const value =
+              event.key === "Home"
+                ? 1
+                : event.key === "End"
+                  ? 3
+                  : current === 0
+                    ? 1
+                    : ((current -
+                        1 +
+                        (["ArrowRight", "ArrowDown"].includes(event.key)
+                          ? 1
+                          : 2)) %
+                        3) +
+                      1;
+            update(value);
+            event.currentTarget
+              .querySelector<HTMLButtonElement>(
+                `button[data-importance="${value}"]`,
+              )
+              ?.focus();
           }}
         >
-          <option value="">Attribuer des points</option>
-          <option value="1">1 · Peu discriminante</option>
-          <option value="2">2 · Modérément discriminante</option>
-          <option value="3">3 · Très discriminante</option>
-        </select>
-      </label>
+          {(["Peu importante", "Importante", "Très importante"] as const).map(
+            (label, index) => (
+              <button
+                type="button"
+                key={label}
+                data-importance={index + 1}
+                role="radio"
+                aria-checked={selected.points === index + 1}
+                tabIndex={
+                  selected.points === index + 1 ||
+                  (!selected.points && index === 0)
+                    ? 0
+                    : -1
+                }
+                disabled={disabled}
+                onClick={() => update(index + 1)}
+              >
+                <b>{index + 1}</b>
+                <small>{label}</small>
+              </button>
+            ),
+          )}
+        </div>
+      </div>
     );
   };
   const cell = (
@@ -1166,7 +1356,9 @@ export function ObservationMatrix({
   };
   return (
     <section
-      className="observation-choices prc-matrix-scroll"
+      id={mobileRole ? "participant-observation-matrix" : undefined}
+      data-active-impression={mobileRole}
+      className={`observation-choices prc-matrix-scroll${mobileRole ? " student-mobile-matrix" : ""}`}
       aria-label={
         renderObservation
           ? "Création du tableau clinique"
@@ -1184,7 +1376,7 @@ export function ObservationMatrix({
         <thead>
           <tr>
             <th scope="col">Donnée clinique</th>
-            <th scope="col">
+            <th scope="col" data-impression="main">
               <span
                 id={renderObservation ? undefined : `${idPrefix}-main-counter`}
                 tabIndex={-1}
@@ -1207,7 +1399,7 @@ export function ObservationMatrix({
               )}
             </th>
             {hasAlternative && (
-              <th scope="col">
+              <th scope="col" data-impression="alternative">
                 <span
                   id={
                     renderObservation
@@ -1253,7 +1445,7 @@ export function ObservationMatrix({
                   </>
                 )}
               </th>
-              <td>
+              <td data-impression="main">
                 <div className="matrix-signs">
                   {cell(observation, "main", "+", mainChoices)}
                   {cell(observation, "main", "-", mainChoices)}
@@ -1261,7 +1453,7 @@ export function ObservationMatrix({
                 {points(observation, "main", mainChoices)}
               </td>
               {hasAlternative && (
-                <td>
+                <td data-impression="alternative">
                   <div className="matrix-signs">
                     {cell(observation, "alternative", "+", alternativeChoices)}
                     {cell(observation, "alternative", "-", alternativeChoices)}
@@ -1417,13 +1609,12 @@ export function ParticipantResults({
           </>
         )}
         <h1>{data.case.name}</h1>
-        {reviewing && (
-          <details className="participant-notice">
-            <summary>Revoir le scénario et les données cliniques</summary>
-            <CasePresentation data={data.case} />
-          </details>
-        )}
         <TrialNotice trial={data.case.isTrial} />
+        {!!data.case.scenario && (
+          <div className="participant-response-tools">
+            <CaseQuickAccess data={data.case} />
+          </div>
+        )}
         {!submitted ? (
           <section className="participant-notice">
             <h2>Non soumis</h2>
@@ -1441,6 +1632,20 @@ export function ParticipantResults({
             {!reviewing && <Link href="/participant">Revoir ma copie</Link>}
           </p>
         )}
+        {role === "students" &&
+          submitted &&
+          data.deliveryMode !== "asynchronous" &&
+          !data.published &&
+          data.status === "open" && (
+            <section className="participant-notice" role="status">
+              <h2>Réponse reçue</h2>
+              <p>
+                Prochaine étape : la comparaison présentée par le professeur.
+                Vous pouvez garder cet onglet ouvert ; l’écran se mettra à jour
+                automatiquement.
+              </p>
+            </section>
+          )}
         {published ? (
           <section className="participant-score">
             <h2>Votre résultat</h2>
@@ -1513,6 +1718,9 @@ export function ParticipantResults({
             scoringVersion={data.case.scoringVersion}
             grading={data.case.grading}
           />
+        )}
+        {role === "students" && submitted && (
+          <PersonalFeedback review={data.studentReview} />
         )}
         <section className="participant-own-copy">
           {data.guidedReview && submitted ? (
@@ -1690,6 +1898,135 @@ function ExpertComparison({
   data: ParticipantResult;
   panel: Aggregate;
 }) {
+  const ownIds = [
+    data.response.mainDiagnosticId,
+    data.response.alternativeDiagnosticId,
+  ];
+  const ownDiagnostics = data.case.diagnostics
+    .filter((d) => ownIds.includes(d.id))
+    .sort((a, b) => ownIds.indexOf(a.id) - ownIds.indexOf(b.id));
+  const otherDiagnostics = data.case.diagnostics.filter(
+    (d) => !ownIds.includes(d.id),
+  );
+  const renderDiagnostic = (
+    diagnostic: CaseData["diagnostics"][number],
+    index: number,
+  ) => {
+    const distributions =
+      panel.distributions?.filter(
+        (row) => row.diagnosticId === diagnostic.id,
+      ) ?? [];
+    const n = distributions.reduce((sum, row) => sum + row.expertCount, 0);
+    const ownRole =
+      data.response.mainDiagnosticId === diagnostic.id
+        ? "main"
+        : data.response.alternativeDiagnosticId === diagnostic.id
+          ? "alternative"
+          : null;
+    const own =
+      ownRole === "main"
+        ? data.response.mainChoices
+        : ownRole === "alternative"
+          ? data.response.alternativeChoices
+          : [];
+    const rows = data.case.observations.map((observation) => {
+      const counts = distributions.flatMap((row) =>
+        row.observations.filter(
+          (item) => item.observationId === observation.id,
+        ),
+      );
+      const positive = counts.reduce((sum, row) => sum + row.positive, 0);
+      const negative = counts.reduce((sum, row) => sum + row.negative, 0);
+      const positivePoints = counts.reduce(
+        (sum, row) => sum + (row.positivePoints ?? row.positive),
+        0,
+      );
+      const negativePoints = counts.reduce(
+        (sum, row) => sum + (row.negativePoints ?? row.negative),
+        0,
+      );
+      return {
+        observation,
+        positive,
+        negative,
+        positivePoints,
+        negativePoints,
+        total: positivePoints + negativePoints,
+      };
+    });
+    const maximum = Math.max(0, ...rows.map((row) => row.total));
+    return (
+      <article key={diagnostic.id} className="expert-diagnostic">
+        <h3>
+          Impression clinique {index + 1} · {diagnostic.label}
+        </h3>
+        <p>
+          {n} expert(s) ont retenu ce diagnostic.
+          {ownRole
+            ? ` Votre impression clinique ${ownRole === "main" ? "principale" : "alternative"}.`
+            : " Vous n’avez pas retenu ce diagnostic."}
+        </p>
+        <div
+          className="participant-count-scroll"
+          role="region"
+          aria-label={`Tableau ${diagnostic.label}`}
+          tabIndex={0}
+        >
+          <table className="participant-count-table expert-comparison-table">
+            <caption>
+              {diagnostic.label} · {data.case.observations.length} données
+              cliniques · panel, vous compris
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Donnée clinique</th>
+                <th scope="col">Votre choix et vos points</th>
+                <th scope="col">
+                  Panel en faveur (+)<small>Réponses · points</small>
+                </th>
+                <th scope="col">
+                  Panel en défaveur (−)<small>Réponses · points</small>
+                </th>
+                <th scope="col">Total des points du panel</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => {
+                const choice = own.find(
+                  (item) => item.observationId === row.observation.id,
+                );
+                return (
+                  <tr
+                    key={row.observation.id}
+                    className={choice ? "expert-own-selection" : undefined}
+                  >
+                    <th scope="row">{row.observation.text}</th>
+                    <td>
+                      {choice
+                        ? `${choice.sign === "+" ? "+ En faveur" : "− En défaveur"} · ${choice.points ?? 1} point(s)`
+                        : "Non choisie"}
+                    </td>
+                    <td>
+                      {row.positive} / {n} · {row.positivePoints} pt
+                    </td>
+                    <td>
+                      {row.negative} / {n} · {row.negativePoints} pt
+                    </td>
+                    <td>
+                      <b>{row.total} pt</b>
+                      {maximum > 0 && row.total === maximum && (
+                        <small>Plus fort total pour ce diagnostic</small>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    );
+  };
   return (
     <section
       className="expert-comparison"
@@ -1706,122 +2043,29 @@ function ExpertComparison({
         alternative sont réunis. Les points en faveur et en défaveur restent
         séparés ; ils ne s’annulent pas.
       </p>
-      {data.case.diagnostics.map((diagnostic, index) => {
-        const distributions =
-          panel.distributions?.filter(
-            (row) => row.diagnosticId === diagnostic.id,
-          ) ?? [];
-        const n = distributions.reduce((sum, row) => sum + row.expertCount, 0);
-        const ownRole =
-          data.response.mainDiagnosticId === diagnostic.id
-            ? "main"
-            : data.response.alternativeDiagnosticId === diagnostic.id
-              ? "alternative"
-              : null;
-        const own =
-          ownRole === "main"
-            ? data.response.mainChoices
-            : ownRole === "alternative"
-              ? data.response.alternativeChoices
-              : [];
-        const rows = data.case.observations.map((observation) => {
-          const counts = distributions.flatMap((row) =>
-            row.observations.filter(
-              (item) => item.observationId === observation.id,
+      <p>
+        Vos deux impressions sont affichées en premier. Vous pouvez ensuite
+        déplier les autres impressions du panel.
+      </p>
+      {ownDiagnostics.map((d) =>
+        renderDiagnostic(
+          d,
+          data.case.diagnostics.findIndex((c) => c.id === d.id),
+        ),
+      )}
+      {!!otherDiagnostics.length && (
+        <details className="other-expert-impressions">
+          <summary>
+            Autres impressions du panel ({otherDiagnostics.length})
+          </summary>
+          {otherDiagnostics.map((d) =>
+            renderDiagnostic(
+              d,
+              data.case.diagnostics.findIndex((c) => c.id === d.id),
             ),
-          );
-          const positive = counts.reduce((sum, row) => sum + row.positive, 0);
-          const negative = counts.reduce((sum, row) => sum + row.negative, 0);
-          const positivePoints = counts.reduce(
-            (sum, row) => sum + (row.positivePoints ?? row.positive),
-            0,
-          );
-          const negativePoints = counts.reduce(
-            (sum, row) => sum + (row.negativePoints ?? row.negative),
-            0,
-          );
-          return {
-            observation,
-            positive,
-            negative,
-            positivePoints,
-            negativePoints,
-            total: positivePoints + negativePoints,
-          };
-        });
-        const maximum = Math.max(0, ...rows.map((row) => row.total));
-        return (
-          <article key={diagnostic.id} className="expert-diagnostic">
-            <h3>
-              Impression clinique {index + 1} · {diagnostic.label}
-            </h3>
-            <p>
-              {n} expert(s) ont retenu ce diagnostic.
-              {ownRole
-                ? ` Votre impression clinique ${ownRole === "main" ? "principale" : "alternative"}.`
-                : " Vous n’avez pas retenu ce diagnostic."}
-            </p>
-            <div
-              className="participant-count-scroll"
-              role="region"
-              aria-label={`Tableau ${diagnostic.label}`}
-              tabIndex={0}
-            >
-              <table className="participant-count-table expert-comparison-table">
-                <caption>
-                  {diagnostic.label} · {data.case.observations.length} données
-                  cliniques · panel, vous compris
-                </caption>
-                <thead>
-                  <tr>
-                    <th scope="col">Donnée clinique</th>
-                    <th scope="col">Votre choix et vos points</th>
-                    <th scope="col">
-                      Panel en faveur (+)<small>Réponses · points</small>
-                    </th>
-                    <th scope="col">
-                      Panel en défaveur (−)<small>Réponses · points</small>
-                    </th>
-                    <th scope="col">Total des points du panel</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((row) => {
-                    const choice = own.find(
-                      (item) => item.observationId === row.observation.id,
-                    );
-                    return (
-                      <tr
-                        key={row.observation.id}
-                        className={choice ? "expert-own-selection" : undefined}
-                      >
-                        <th scope="row">{row.observation.text}</th>
-                        <td>
-                          {choice
-                            ? `${choice.sign === "+" ? "+ En faveur" : "− En défaveur"} · ${choice.points ?? 1} point(s)`
-                            : "Non choisie"}
-                        </td>
-                        <td>
-                          {row.positive} / {n} · {row.positivePoints} pt
-                        </td>
-                        <td>
-                          {row.negative} / {n} · {row.negativePoints} pt
-                        </td>
-                        <td>
-                          <b>{row.total} pt</b>
-                          {maximum > 0 && row.total === maximum && (
-                            <small>Plus fort total pour ce diagnostic</small>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </article>
-        );
-      })}
+          )}
+        </details>
+      )}
     </section>
   );
 }

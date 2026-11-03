@@ -1,7 +1,9 @@
 import { test, expect, type Page, type Route } from "@playwright/test";
 
-test.beforeEach(async ({page}) => {
-  await page.route('**/api/participant/teaching-session', route => route.fulfill({json:{session:null}}));
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/participant/teaching-session", (route) =>
+    route.fulfill({ json: { session: null } }),
+  );
 });
 
 const caseData = {
@@ -98,7 +100,11 @@ async function questionnaire(
   } = {},
 ) {
   let response = options.response ?? draft();
-  const info = { ...caseData, role: options.role ?? caseData.role, requiredChoices: options.requiredChoices };
+  const info = {
+    ...caseData,
+    role: options.role ?? caseData.role,
+    requiredChoices: options.requiredChoices,
+  };
   await page.route("**/api/participant/response", async (route) => {
     if (route.request().method() === "PUT") {
       const input = route.request().postDataJSON();
@@ -137,22 +143,32 @@ test("expert rates each selected datum and keeps points when flipping a sign or 
   const saved = await questionnaire(page, { role: "panel" });
   await page.getByTestId("choice-main-positive-obs-1").click();
   await page
-    .getByLabel("Points impression clinique — Observation 1", { exact: true })
-    .selectOption("3");
+    .getByRole("radiogroup", {
+      name: "Points impression clinique — Observation 1",
+      exact: true,
+    })
+    .getByRole("radio", { name: /^3/ })
+    .click();
   await page.getByTestId("choice-main-negative-obs-1").click();
   await expect(
-    page.getByLabel("Points impression clinique — Observation 1", {
-      exact: true,
-    }),
-  ).toHaveValue("3");
+    page
+      .getByRole("radiogroup", {
+        name: "Points impression clinique — Observation 1",
+        exact: true,
+      })
+      .getByRole("radio", { name: /^3/ }),
+  ).toHaveAttribute("aria-checked", "true");
   await expect.poll(() => saved().mainChoices[0]?.points).toBe(3);
   await expect.poll(() => saved().mainChoices[0]?.sign).toBe("-");
   await page.reload();
   await expect(
-    page.getByLabel("Points impression clinique — Observation 1", {
-      exact: true,
-    }),
-  ).toHaveValue("3");
+    page
+      .getByRole("radiogroup", {
+        name: "Points impression clinique — Observation 1",
+        exact: true,
+      })
+      .getByRole("radio", { name: /^3/ }),
+  ).toHaveAttribute("aria-checked", "true");
 });
 
 test("experts must rate their ten selected data before submitting; students never see rating controls", async ({
@@ -168,11 +184,11 @@ test("experts must rate their ten selected data before submitting; students neve
     "Attribuez de 1 à 3 points",
   );
   await expect(
-    page.getByRole("combobox", { name: /^Points impression clinique/ }),
+    page.getByRole("radiogroup", { name: /^Points impression clinique/ }),
   ).toHaveCount(10);
   await questionnaire(page);
   await expect(
-    page.getByRole("combobox", { name: /^Points impression clinique/ }),
+    page.getByRole("radiogroup", { name: /^Points impression clinique/ }),
   ).toHaveCount(0);
 });
 
@@ -272,15 +288,23 @@ test("submitted expert immediately sees all diagnostic tables and totals refresh
   ).toBe(true);
 });
 
-test('a new student group requires five data per hypothesis without asking for expert points', async ({ page }) => {
+test("a new student group requires five data per hypothesis without asking for expert points", async ({
+  page,
+}) => {
   await questionnaire(page, { requiredChoices: 5 });
   for (let i = 1; i <= 4; i++) {
     await page.getByTestId(`choice-main-positive-obs-${i}`).click();
     await page.getByTestId(`choice-alternative-negative-obs-${i}`).click();
   }
-  await page.getByRole('button', { name: 'Vérifier et transmettre', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('exactement cinq observations signées');
-  await expect(page.getByRole('combobox', { name: /^Points impression clinique/ })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Vérifier et transmettre", exact: true })
+    .click();
+  await expect(page.getByRole("alert")).toContainText(
+    "exactement cinq observations signées",
+  );
+  await expect(
+    page.getByRole("radiogroup", { name: /^Points impression clinique/ }),
+  ).toHaveCount(0);
 });
 
 test("saves signed choices, prevents a sixth choice and restores the acknowledged draft", async ({
@@ -746,8 +770,14 @@ test("submits only the revision reviewed by this participant", async ({
       json: { error: "Votre copie a changé dans une autre session." },
     });
   });
-  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: /Vérifier et transmettre/ }).click();
+  await page
+    .getByRole("dialog", {
+      name: "Vérifier ma réponse avant transmission",
+      exact: true,
+    })
+    .getByRole("button", { name: "Transmettre définitivement", exact: true })
+    .click();
   await expect(
     page.getByText("Une autre version de cette copie est enregistrée."),
   ).toBeVisible();

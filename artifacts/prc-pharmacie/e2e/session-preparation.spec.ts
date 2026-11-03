@@ -300,16 +300,19 @@ test("expert preparation shows no student grade and lets the professor try the i
   });
   await preview.getByTestId("choice-main-positive-o0").click();
   await preview
-    .getByRole("combobox", {
+    .getByRole("radiogroup", {
       name: "Points impression clinique — Observation 1",
       exact: true,
     })
-    .selectOption("3");
+    .getByRole("radio", { name: /^3/ })
+    .click();
   await preview.getByTestId("choice-main-negative-o0").click();
   await expect(
-    preview.getByRole("combobox", {
-      name: "Points impression clinique — Observation 1",
-      exact: true,
-    }),
-  ).toHaveValue("3");
+    preview
+      .getByRole("radiogroup", {
+        name: "Points impression clinique — Observation 1",
+        exact: true,
+      })
+      .getByRole("radio", { name: /^3/ }),
+  ).toHaveAttribute("aria-checked", "true");
 });
