@@ -78,7 +78,7 @@ for (const invitation of [false, true]) {
     await page
       .getByLabel("Votre nom ou pseudonyme", { exact: true })
       .fill("Expert test");
-    await page.getByRole("button", { name: "Rejoindre l’activité" }).click();
+    await page.getByRole("button", { name: "Rejoindre la séance" }).click();
     await expect(page).toHaveURL("/participant");
     await expect(
       page.getByRole("heading", { name: caseData.name, exact: true }),
@@ -584,13 +584,13 @@ test("reuses the private join retry key after a lost response and reload", async
   await page
     .getByLabel("Votre nom ou pseudonyme", { exact: true })
     .fill("Étudiant test");
-  await page.getByRole("button", { name: "Rejoindre l’activité" }).click();
+  await page.getByRole("button", { name: "Rejoindre la séance" }).click();
   await expect(page.getByRole("alert")).toContainText("Réponse interrompue");
   await page.reload();
   await page
     .getByLabel("Votre nom ou pseudonyme", { exact: true })
     .fill("Étudiant test");
-  await page.getByRole("button", { name: "Rejoindre l’activité" }).click();
+  await page.getByRole("button", { name: "Rejoindre la séance" }).click();
   await expect(page).toHaveURL("/participant");
   expect(attempts).toHaveLength(2);
   expect(attempts[0].joinKey).toMatch(/^[a-f0-9-]{36}$/);

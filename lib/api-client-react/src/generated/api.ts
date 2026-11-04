@@ -54,9 +54,11 @@ import type {
   LoginInput,
   Ok,
   PanelResults,
+  ParticipantAccessTrial,
   ParticipantActivityState,
   ParticipantResponseInput,
   ParticipantResults,
+  ParticipantResume,
   ParticipantSession,
   ParticipantState,
   PasswordChangeInput,
@@ -5026,6 +5028,175 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateTrialMutationOptions(options), queryClient);
+    }
+
+export const getGetParticipantResumeUrl = () => {
+
+
+
+
+  return `/api/participant/resume`
+}
+
+/**
+ * Reconnaît uniquement la participation du cookie courant. Sans cookie valide, available vaut false. Aucun pseudonyme saisi ne permet de rechercher une autre copie.
+ */
+export const getParticipantResume = async ( options?: Parameters<typeof customFetch>[1]): Promise<ParticipantResume> => {
+
+  return customFetch<ParticipantResume>(getGetParticipantResumeUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetParticipantResumeQueryKey = () => {
+    return [
+    `/api/participant/resume`
+    ] as const;
+    }
+
+
+export const getGetParticipantResumeQueryOptions = <TData = Awaited<ReturnType<typeof getParticipantResume>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantResume>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetParticipantResumeQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getParticipantResume>>> = ({ signal }) => getParticipantResume({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getParticipantResume>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetParticipantResumeQueryResult = NonNullable<Awaited<ReturnType<typeof getParticipantResume>>>
+export type GetParticipantResumeQueryError = ErrorType<unknown>
+
+
+export function useGetParticipantResume<TData = Awaited<ReturnType<typeof getParticipantResume>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantResume>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getParticipantResume>>,
+          TError,
+          Awaited<ReturnType<typeof getParticipantResume>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetParticipantResume<TData = Awaited<ReturnType<typeof getParticipantResume>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantResume>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getParticipantResume>>,
+          TError,
+          Awaited<ReturnType<typeof getParticipantResume>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetParticipantResume<TData = Awaited<ReturnType<typeof getParticipantResume>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantResume>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetParticipantResume<TData = Awaited<ReturnType<typeof getParticipantResume>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getParticipantResume>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetParticipantResumeQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateParticipantAccessTrialUrl = (launchId: string,) => {
+
+
+
+
+  return `/api/launches/${launchId}/trial`
+}
+
+/**
+ * Crée une collecte d’essai isolée du cas figé, avec le rôle, la modalité, la référence et le barème de la collecte source. Les réponses d’essai sont ouvertes immédiatement. Requiert les droits de gestion de la source ; les contributions ne peuvent pas créer de corrigé réel.
+ */
+export const createParticipantAccessTrial = async (launchId: string, options?: Parameters<typeof customFetch>[1]): Promise<ParticipantAccessTrial> => {
+
+  return customFetch<ParticipantAccessTrial>(getCreateParticipantAccessTrialUrl(launchId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateParticipantAccessTrialMutationKey = () => ['createParticipantAccessTrial'] as const;
+
+export const getCreateParticipantAccessTrialMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createParticipantAccessTrial>>, TError,CreateParticipantAccessTrialMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createParticipantAccessTrial>>, TError,CreateParticipantAccessTrialMutationVariables, TContext> => {
+
+const mutationKey = getCreateParticipantAccessTrialMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createParticipantAccessTrial>>, CreateParticipantAccessTrialMutationVariables> = (props) => {
+          const {launchId} = props ?? {};
+
+          return  createParticipantAccessTrial(launchId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateParticipantAccessTrialMutationResult = NonNullable<Awaited<ReturnType<typeof createParticipantAccessTrial>>>
+
+    export type CreateParticipantAccessTrialMutationError = ErrorType<unknown>
+    export type CreateParticipantAccessTrialMutationVariables = {launchId: string}
+
+    export const useCreateParticipantAccessTrial = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createParticipantAccessTrial>>, TError,CreateParticipantAccessTrialMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createParticipantAccessTrial>>,
+        TError,
+        CreateParticipantAccessTrialMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateParticipantAccessTrialMutationOptions(options), queryClient);
     }
 
 export const getGetParticipantActivityStateUrl = () => {

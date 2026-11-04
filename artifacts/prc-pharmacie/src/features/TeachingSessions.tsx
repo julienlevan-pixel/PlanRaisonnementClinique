@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
+import { ShortJoinAddress, TestParticipantAccess } from "./ParticipantAccess";
 import type { AppActions } from "../app/actions";
 import { api } from "../app/api";
 import { getError } from "../app/utils";
@@ -830,6 +831,14 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
             </section>
           )}
           <SessionCaseProgress session={s} />
+          {current && (
+            <TestParticipantAccess
+              key={current.id}
+              launchId={current.id}
+              caseLabel={`Cas ${s.currentPosition + 1} · ${current.name}`}
+              cases={s.cases}
+            />
+          )}
           {s.status === "finished" ? (
             <>
               <CumulativeReport
@@ -882,6 +891,10 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
                   size={160}
                   title="Rejoindre la séance asynchrone"
                 />
+                <p>
+                  <strong>Code : {s.code}</strong>
+                </p>
+                <ShortJoinAddress />
                 <p>
                   {s.report.memberCount} participant(s). Les corrigés
                   individuels sont disponibles après chaque soumission. La
@@ -1083,6 +1096,16 @@ export function TeachingParticipantBoundary({
             ? "Séance terminée"
             : `Cas ${s.position + 1} sur ${s.total}`}
         </span>
+        <span>
+          {s.deliveryMode === "asynchronous"
+            ? "À votre rythme"
+            : "Guidé par le professeur"}
+        </span>
+        <progress
+          value={s.status === "finished" ? s.total : s.position}
+          max={Math.max(1, s.total)}
+          aria-label="Avancement des cas de la séance"
+        />
       </header>
       {s.status === "finished" && query.data?.report ? (
         <main className="participant-result-content">

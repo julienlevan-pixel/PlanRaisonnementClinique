@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Link, Redirect, useLocation, useParams } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
+import { ShortJoinAddress, TestParticipantAccess } from "./ParticipantAccess";
 import {
   getGetCurrentUserQueryKey,
   useGetCurrentUser,
@@ -722,6 +723,7 @@ export function ActivityPage({
                 : "ACCÈS ÉTUDIANT"}
             </div>
             <b>{displayCode}</b>
+            <ShortJoinAddress />
             <p>
               <a href={accessUrl}>{accessUrl}</a>
             </p>
@@ -737,6 +739,13 @@ export function ActivityPage({
             )}
           </div>
         </section>
+      )}
+      {!embedded && !l.isTrial && (
+        <TestParticipantAccess
+          key={launchId}
+          launchId={launchId}
+          caseLabel={name}
+        />
       )}
       {l.role === "panel" && !closed && !l.teachingSession && !embedded && (
         <section className="panel-card">
@@ -1207,51 +1216,59 @@ export function ProjectionPage({
         Vue collective : aucune identité, copie individuelle ou note personnelle
         n’est affichée.
       </p>
+      <section
+        className={`panel-card ${(p.status || p.launch?.status) === "open" ? "" : "projection-access-compact"}`}
+        aria-label="Rejoindre la séance"
+      >
+        <h2>
+          {(p.status || p.launch?.status) !== "open"
+            ? "Accès et reprise de la séance"
+            : p.launch?.liveSession?.phase === "lobby"
+              ? "Bienvenue dans la séance"
+              : p.launch?.liveSession?.phase === "case"
+                ? "Présentation du cas"
+                : "Réponses en cours"}
+        </h2>
+        <div className="projection-session-access">
+          <QRCodeSVG
+            value={new URL(
+              `/join/${encodeURIComponent(sessionCode || p.launch?.teachingSession?.code || p.launch?.code || p.code)}`,
+              window.location.origin,
+            ).toString()}
+            size={(p.status || p.launch?.status) === "open" ? 220 : 96}
+            title="Rejoindre la séance"
+          />
+          <div>
+            <span>
+              Scannez le QR code ou saisissez le code sur la page d’accueil
+            </span>
+            <ShortJoinAddress />
+            <p>
+              <strong>
+                {sessionCode ||
+                  p.launch?.teachingSession?.code ||
+                  p.launch?.code ||
+                  p.code}
+              </strong>
+            </p>
+          </div>
+        </div>
+        <p>
+          {p.launch?.participantCount ?? 0} personne(s) ont rejoint ·{" "}
+          {p.launch?.submissionCount ?? 0} réponse(s) soumise(s).
+        </p>
+        <p>
+          {(p.status || p.launch?.status) !== "open"
+            ? "Les réponses sont fermées. Les participants peuvent retrouver leur propre copie dans le navigateur utilisé pour répondre."
+            : p.launch?.liveSession?.phase === "lobby"
+              ? "Le professeur présentera bientôt le cas. Les réponses ne sont pas encore ouvertes."
+              : p.launch?.liveSession?.phase === "case"
+                ? "Prenez connaissance du cas. Attendez le signal du professeur pour répondre."
+                : "Les résultats restent masqués pendant la collecte."}
+        </p>
+      </section>
       {(p.status || p.launch?.status) === "open" ? (
         <>
-          <section className="panel-card" aria-label="Rejoindre la séance">
-            <h2>
-              {p.launch?.liveSession?.phase === "lobby"
-                ? "Bienvenue dans la séance"
-                : p.launch?.liveSession?.phase === "case"
-                  ? "Présentation du cas"
-                  : "Réponses en cours"}
-            </h2>
-            <div className="projection-session-access">
-              <QRCodeSVG
-                value={new URL(
-                  `/join/${encodeURIComponent(sessionCode || p.launch?.teachingSession?.code || p.launch?.code || p.code)}`,
-                  window.location.origin,
-                ).toString()}
-                size={150}
-                title="Rejoindre la séance"
-              />
-              <div>
-                <span>
-                  Scannez le QR code ou saisissez le code sur la page d’accueil
-                </span>
-                <p>
-                  <strong>
-                    {sessionCode ||
-                      p.launch?.teachingSession?.code ||
-                      p.launch?.code ||
-                      p.code}
-                  </strong>
-                </p>
-              </div>
-            </div>
-            <p>
-              {p.launch?.participantCount ?? 0} personne(s) ont rejoint ·{" "}
-              {p.launch?.submissionCount ?? 0} réponse(s) soumise(s).
-            </p>
-            <p>
-              {p.launch?.liveSession?.phase === "lobby"
-                ? "Le professeur présentera bientôt le cas. Les réponses ne sont pas encore ouvertes."
-                : p.launch?.liveSession?.phase === "case"
-                  ? "Prenez connaissance du cas. Attendez le signal du professeur pour répondre."
-                  : "Les résultats restent masqués pendant la collecte."}
-            </p>
-          </section>
           <SessionCountdown
             session={p.launch?.liveSession}
             serverNow={p.launch?.serverNow}

@@ -2,6 +2,8 @@
 
 ## Avant de répondre
 
+L’accueil par code ou QR, la reprise dans le même navigateur, la confirmation de séance, les repères de progression et les essais du professeur sont décrits dans [Accès et progression](ACCES_ET_PROGRESSION.md).
+
 L’accès par code ou QR conserve l’identification sans création de compte. Une courte introduction distingue la contribution experte et le parcours étudiant : deux impressions cliniques distinctes, le nombre de données attendu, les signes +/−, puis la vérification et la transmission.
 
 Les experts sont informés que leur contribution servira au corrigé et qu’ils ne reçoivent pas de note. Ils attribuent une importance de 1 à 3 à chaque donnée retenue. Pour les étudiants, le message indique quand le corrigé sera accessible selon le mode choisi par le professeur.

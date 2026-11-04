@@ -904,6 +904,7 @@ export const GetOwnTeachingCaseReviewParams = zod.object({
   "position": zod.coerce.number().int().min(getOwnTeachingCaseReviewPathPositionMin)
 })
 
+
 export const getOwnTeachingCaseReviewResponseCaseTwoRequiredChoicesMax = 5;
 
 export const getOwnTeachingCaseReviewResponseResponseMainChoicesItemPointsMax = 3;
@@ -1100,6 +1101,9 @@ export const GetOwnTeachingCaseReviewResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),
@@ -1757,6 +1761,7 @@ export const GetJoinInfoParams = zod.object({
   "code": zod.coerce.string()
 })
 
+
 export const getJoinInfoResponseTwoRequiredChoicesMax = 5;
 
 
@@ -1789,6 +1794,9 @@ export const GetJoinInfoResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),
@@ -1834,6 +1842,7 @@ export const joinLaunchResponseResponseMainChoicesItemPointsMax = 3;
 export const joinLaunchResponseResponseAlternativeChoicesItemPointsMax = 3;
 
 export const joinLaunchResponseResponseRevisionMin = 0;
+
 
 export const joinLaunchResponseJoinInfoTwoRequiredChoicesMax = 5;
 
@@ -1887,6 +1896,9 @@ export const JoinLaunchResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),
@@ -1913,6 +1925,7 @@ export const getParticipantResponseResponseResponseMainChoicesItemPointsMax = 3;
 export const getParticipantResponseResponseResponseAlternativeChoicesItemPointsMax = 3;
 
 export const getParticipantResponseResponseResponseRevisionMin = 0;
+
 
 export const getParticipantResponseResponseJoinInfoTwoRequiredChoicesMax = 5;
 
@@ -1964,6 +1977,9 @@ export const GetParticipantResponseResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),
@@ -2027,6 +2043,7 @@ export const saveParticipantResponseResponseResponseAlternativeChoicesItemPoints
 
 export const saveParticipantResponseResponseResponseRevisionMin = 0;
 
+
 export const saveParticipantResponseResponseJoinInfoTwoRequiredChoicesMax = 5;
 
 
@@ -2077,6 +2094,9 @@ export const SaveParticipantResponseResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),
@@ -3144,6 +3164,7 @@ export const GetLaunchResultsResponse = zod.object({
 /**
  * Renvoie uniquement sa copie. Pour un expert ayant soumis, expertPanel contient immédiatement les agrégats anonymes du panel, même pendant la collecte. studentReview suit les étapes révélées en synchrone, avec des sous-totaux personnels uniquement pour les diagnostics corrigés ; la note globale attend la publication. En asynchrone, la copie soumise reçoit immédiatement ses deux corrections et sa note, sans résultats des autres étudiants. Un brouillon reste non soumis, sans note ; les experts ne sont jamais notés. Les anciens groupes conservent leurs étapes historiques.
  */
+
 export const getParticipantResultsResponseCaseTwoRequiredChoicesMax = 5;
 
 export const getParticipantResultsResponseResponseMainChoicesItemPointsMax = 3;
@@ -3340,6 +3361,9 @@ export const GetParticipantResultsResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),
@@ -3692,8 +3716,35 @@ export const CreateTrialResponse = zod.object({
 
 
 /**
+ * Reconnaît uniquement la participation du cookie courant. Sans cookie valide, available vaut false. Aucun pseudonyme saisi ne permet de rechercher une autre copie.
+ */
+export const GetParticipantResumeResponse = zod.object({
+  "available": zod.boolean(),
+  "name": zod.string().optional(),
+  "pseudonym": zod.string().optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "isTrial": zod.boolean().optional()
+})
+
+
+/**
+ * Crée une collecte d’essai isolée du cas figé, avec le rôle, la modalité, la référence et le barème de la collecte source. Les réponses d’essai sont ouvertes immédiatement. Requiert les droits de gestion de la source ; les contributions ne peuvent pas créer de corrigé réel.
+ */
+export const CreateParticipantAccessTrialParams = zod.object({
+  "launchId": zod.coerce.string()
+})
+
+export const CreateParticipantAccessTrialResponse = zod.object({
+  "launchId": zod.string(),
+  "code": zod.string(),
+  "url": zod.string()
+})
+
+
+/**
  * État de sa propre séance, sans copie d’autrui. Pour les séances pilotées, inclut le cas lorsque le professeur l’a présenté, l’étape courante et le nombre de personnes ayant rejoint.
  */
+
 export const getParticipantActivityStateResponseJoinInfoTwoRequiredChoicesMax = 5;
 
 export const getParticipantActivityStateResponseRevisionMin = 0;
@@ -3734,6 +3785,9 @@ export const GetParticipantActivityStateResponse = zod.object({
   "role": zod.string(),
   "status": zod.string(),
   "isTrial": zod.boolean().optional(),
+  "teacherName": zod.string().optional().describe('Nom public du professeur organisateur'),
+  "caseCount": zod.number().int().min(1).optional(),
+  "pseudonym": zod.string().optional().describe('Pseudonyme de la participation reconnue par le cookie courant uniquement.'),
   "liveSession": zod.object({
   "phase": zod.enum(['lobby', 'case', 'answering']),
   "openedAt": zod.coerce.date().optional(),

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/handler.ts",
     "./netlify": "./src/netlify.ts",
-    "./scoring": "./src/scoring.ts"
+    "./scoring": "./src/scoring.ts",
+    "./access-code": "./src/access-code.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",

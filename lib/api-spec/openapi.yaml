@@ -1006,6 +1006,31 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/TrialResult" }
+  /participant/resume:
+    get:
+      operationId: getParticipantResume
+      security: []
+      tags: [participants]
+      description: Reconnaît uniquement la participation du cookie courant. Sans cookie valide, available vaut false. Aucun pseudonyme saisi ne permet de rechercher une autre copie.
+      responses:
+        "200":
+          description: Participation reconnue dans ce navigateur
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParticipantResume" }
+  /launches/{launchId}/trial:
+    post:
+      operationId: createParticipantAccessTrial
+      tags: [activities]
+      description: Crée une collecte d’essai isolée du cas figé, avec le rôle, la modalité, la référence et le barème de la collecte source. Les réponses d’essai sont ouvertes immédiatement. Requiert les droits de gestion de la source ; les contributions ne peuvent pas créer de corrigé réel.
+      parameters:
+        - { in: path, name: launchId, required: true, schema: { type: string } }
+      responses:
+        "201":
+          description: Accès et code de l’essai
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParticipantAccessTrial" }
   /participant/state:
     get:
       operationId: getParticipantActivityState
@@ -1394,6 +1419,9 @@ components:
             role: { type: string }
             status: { type: string }
             isTrial: { type: boolean }
+            teacherName: { type: string, description: Nom public du professeur organisateur, fourni à l’entrée. }
+            caseCount: { type: integer, minimum: 1 }
+            pseudonym: { type: string, description: Pseudonyme de la participation reconnue par le cookie courant uniquement. }
             liveSession: { $ref: "#/components/schemas/LiveSession" }
             guidedReview: { type: boolean }
             scoringVersion: { type: string }
@@ -1646,6 +1674,22 @@ components:
         code: { type: string }
         invitationUrl: { type: string, description: Lien individuel secret à ouvrir dans une session participante distincte. }
       required: [launch, code, invitationUrl]
+    ParticipantResume:
+      type: object
+      properties:
+        available: { type: boolean }
+        name: { type: string }
+        pseudonym: { type: string }
+        role: { type: string, enum: [panel, students] }
+        isTrial: { type: boolean }
+      required: [available]
+    ParticipantAccessTrial:
+      type: object
+      properties:
+        launchId: { type: string }
+        code: { type: string }
+        url: { type: string }
+      required: [launchId, code, url]
     ParticipantActivityState:
       type: object
       properties:

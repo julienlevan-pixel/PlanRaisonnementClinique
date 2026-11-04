@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { normalizeAccessCode } from "./access-code.js";
 import { pool, type PoolClient } from "@workspace/db";
 import {
   clearLoginLimit,
@@ -42,6 +43,7 @@ import {
 
 type JsonRecord = Record<string, unknown>;
 type CaseData = {
+  organizerName?: string;
   teachingSession?: {
     id: string;
     name: string;
@@ -707,11 +709,14 @@ async function getPanelSnapshot(
   return snapshot;
 }
 
-function caseForJoin(launch: LaunchRow) {
+function caseForJoin(launch: LaunchRow, participant?: ParticipantPrincipal) {
   const waiting = launch.reveals.liveSession?.phase === "lobby";
   return {
     launchId: launch.id,
     teachingSession: launch.case_snapshot.teachingSession,
+    caseCount: launch.case_snapshot.teachingSession?.total ?? 1,
+    teacherName: launch.case_snapshot.organizerName,
+    ...(participant ? { pseudonym: participant.pseudonym } : {}),
     role: launch.role,
     name: launch.case_snapshot.name,
     isTrial: launch.is_trial ?? false,
@@ -1141,6 +1146,7 @@ async function createLaunch(
     if (reuseDemoSession && (!prc.is_demo || role !== "students" || isTrial))
       fail(409, "Ce lancement est réservé à la démonstration étudiante.");
     const caseSnapshot: CaseData = {
+      organizerName: teacher.username,
       ...(input.sessionMode !== undefined
         ? { sessionMode: input.sessionMode as DeliveryMode }
         : {}),
@@ -1518,10 +1524,14 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
   const url = new URL(request.url),
     path = url.pathname.replace(/\/+$/, ""),
     method = request.method;
+  const rawJoinCode = path.match(/^\/api\/join\/([^/]+)$/)?.[1];
+  const joinCode = rawJoinCode
+    ? normalizeAccessCode(decodeURIComponent(rawJoinCode))
+    : "";
   const relevant =
     path.startsWith("/api/teaching-sessions") ||
     path.startsWith("/api/participant/teaching-session") ||
-    /^\/api\/join\/S-/i.test(path);
+    joinCode.startsWith("S-");
   if (!relevant) return;
   await teachingReady();
   if (path === "/api/teaching-sessions/options" && method === "GET") {
@@ -1667,12 +1677,11 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
       client.release();
     }
   }
-  const codeMatch = path.match(/^\/api\/join\/(S-[^/]+)$/i);
-  if (codeMatch && method === "GET") {
+  if (joinCode.startsWith("S-") && method === "GET") {
     const found = (
       await pool.query<TeachingSessionRow>(
         "SELECT * FROM prc_private.teaching_sessions WHERE code=$1",
-        [decodeURIComponent(codeMatch[1]).toUpperCase()],
+        [joinCode],
       )
     ).rows[0];
     if (!found) fail(404, "Code de séance introuvable.");
@@ -1681,10 +1690,20 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
         headers: request.headers,
       }),
     );
+    const canResume =
+      principal?.kind === "participant" &&
+      principal.teachingSessionId === found.id;
+    const metadata = (
+      await pool.query(
+        "SELECT u.username AS teacher_name,(SELECT count(*)::int FROM prc_private.teaching_session_cases WHERE session_id=$1) AS case_count FROM prc_private.users u WHERE u.id=$2",
+        [found.id, found.owner_id],
+      )
+    ).rows[0];
     return send({
-      canResume:
-        principal?.kind === "participant" &&
-        principal.teachingSessionId === found.id,
+      canResume,
+      ...(canResume ? { pseudonym: principal.pseudonym } : {}),
+      teacherName: metadata?.teacher_name,
+      caseCount: metadata?.case_count ?? 1,
       deliveryMode: found.delivery_mode ?? "synchronous",
       teachingSessionId: found.id,
       launchId: found.id,
@@ -1724,7 +1743,7 @@ async function handleTeaching(request: Request): Promise<Response | undefined> {
           [id],
         )
       ).rows[0];
-      if (!session || session.code !== String(input.code).toUpperCase())
+      if (!session || session.code !== normalizeAccessCode(String(input.code)))
         fail(404, "Code de séance invalide.");
       let member = (
         await client.query(
@@ -2178,6 +2197,24 @@ async function handle(request: Request): Promise<Response> {
   if (method === "GET" && path.endsWith("/healthz"))
     return send({ status: "ok" });
   if (method === "GET" && path === "/api/demo-case") return send(demoCase);
+  if (method === "GET" && path === "/api/participant/resume") {
+    const participant = await getPrincipal(request);
+    if (participant?.kind !== "participant") return send({ available: false });
+    const launch = (
+      await pool.query<LaunchRow>(
+        "SELECT * FROM prc_private.launches WHERE id=$1",
+        [participant.launchId],
+      )
+    ).rows[0];
+    if (!launch) return send({ available: false });
+    return send({
+      available: true,
+      name: launch.case_snapshot.teachingSession?.name ?? launch.name,
+      pseudonym: participant.pseudonym,
+      role: participant.role,
+      isTrial: launch.is_trial,
+    });
+  }
 
   if (
     !["GET", "HEAD", "OPTIONS"].includes(method) &&
@@ -2983,6 +3020,71 @@ async function handle(request: Request): Promise<Response> {
     );
   }
 
+  const accessTrialMatch = match(/^\/api\/launches\/([^/]+)\/trial$/);
+  if (accessTrialMatch && method === "POST") {
+    const teacher = await requireTeacher(request);
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      const source = (
+        await lockManagedLaunch(
+          client,
+          segment(accessTrialMatch[1]),
+          teacher.id,
+        )
+      ).rows[0];
+      if (!source) fail(404, "Activité introuvable.");
+      if (source.is_trial) fail(409, "Cette collecte est déjà un essai.");
+      const snapshot = { ...source.case_snapshot };
+      snapshot.organizerName = teacher.username;
+      delete snapshot.teachingSession;
+      const trial = (
+        await client.query<LaunchRow>(
+          `INSERT INTO prc_private.launches(id,prc_id,owner_id,role,name,code,status,case_version,case_snapshot,reference_id,is_trial,reveals)
+         VALUES($1,$2,$3,$4,$5,$6,'open',$7,$8::jsonb,$9,true,$10::jsonb) RETURNING *`,
+          [
+            newId(),
+            source.prc_id,
+            source.owner_id,
+            source.role,
+            `${source.name.slice(0, 150)} · Essai`,
+            randomCode(),
+            source.case_version,
+            JSON.stringify(snapshot),
+            source.reference_id,
+            JSON.stringify(
+              source.reveals.liveSession
+                ? {
+                    liveSession: {
+                      phase: "answering",
+                      openedAt: new Date().toISOString(),
+                    },
+                  }
+                : {},
+            ),
+          ],
+        )
+      ).rows[0];
+      await client.query("COMMIT");
+      const base =
+        process.env.APP_BASE_URL?.replace(/\/$/, "") ??
+        new URL(request.url).origin;
+      return send(
+        {
+          launchId: trial.id,
+          code: trial.code,
+          url: `${base}/join/${trial.code}`,
+        },
+        201,
+      );
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   const launchMatch = match(/^\/api\/launches\/([^/]+)$/);
   if (launchMatch && method === "GET") {
     const launchId = segment(launchMatch[1]);
@@ -3033,7 +3135,7 @@ async function handle(request: Request): Promise<Response> {
 
   const joinCodeMatch = match(/^\/api\/join\/([^/]+)$/);
   if (joinCodeMatch && method === "GET") {
-    const code = segment(joinCodeMatch[1]).toUpperCase();
+    const code = normalizeAccessCode(segment(joinCodeMatch[1]));
     const result = await pool.query<LaunchRow>(
       "SELECT * FROM prc_private.launches WHERE code = $1",
       [code],
@@ -3041,7 +3143,27 @@ async function handle(request: Request): Promise<Response> {
     if (!result.rows[0]) fail(404, "Code d’activité introuvable.");
     if (result.rows[0].case_snapshot.teachingSession)
       fail(409, "Rejoignez ce cas avec le code commun de sa séance.");
-    return send(caseForJoin(result.rows[0]));
+    const principal = await getPrincipal(
+      new Request(new URL("/api/participant/response", request.url), {
+        headers: request.headers,
+      }),
+    );
+    const own =
+      principal?.kind === "participant" &&
+      principal.launchId === result.rows[0].id
+        ? principal
+        : undefined;
+    const teacher = (
+      await pool.query("SELECT username FROM prc_private.users WHERE id=$1", [
+        result.rows[0].owner_id,
+      ])
+    ).rows[0];
+    return send({
+      ...caseForJoin(result.rows[0], own),
+      teacherName:
+        result.rows[0].case_snapshot.organizerName ?? teacher?.username,
+      canResume: !!own,
+    });
   }
 
   const joinMatch = match(/^\/api\/launches\/([^/]+)\/join$/);
@@ -3129,11 +3251,9 @@ async function handle(request: Request): Promise<Response> {
       }
       let invitationId: string | null = null;
       if (launch.role === "panel" && !input.invitationToken) {
-        const code = stringValue(
-          input.code,
-          "Code de séance",
-          100,
-        ).toUpperCase();
+        const code = normalizeAccessCode(
+          stringValue(input.code, "Code de séance", 100),
+        );
         if (!code || code !== launch.code)
           fail(
             403,
@@ -3256,7 +3376,7 @@ async function handle(request: Request): Promise<Response> {
         ? {
             participantCount: (await launchCounts(participant.launchId))
               .participants,
-            joinInfo: caseForJoin(row as LaunchRow),
+            joinInfo: caseForJoin(row as LaunchRow, participant),
           }
         : {}),
     });
@@ -3270,7 +3390,7 @@ async function handle(request: Request): Promise<Response> {
     );
     return send({
       response: mapResponse(result.rows[0]),
-      joinInfo: caseForJoin(launch),
+      joinInfo: caseForJoin(launch, participant),
       csrfToken: participant.csrfToken,
     });
   }

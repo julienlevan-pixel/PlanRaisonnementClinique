@@ -15,6 +15,12 @@ export type JoinInfo = CaseSnapshot & ({
   role: string;
   status: string;
   isTrial?: boolean;
+  /** Nom public du professeur organisateur */
+  teacherName?: string;
+  /** @minimum 1 */
+  caseCount?: number;
+  /** Pseudonyme de la participation reconnue par le cookie courant uniquement. */
+  pseudonym?: string;
   liveSession?: LiveSession;
   guidedReview?: boolean;
   scoringVersion?: string;
