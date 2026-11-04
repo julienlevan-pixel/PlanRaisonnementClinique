@@ -33,6 +33,7 @@ import "./activity.css";
 import { ProfessorJourney } from "./ProfessorJourney";
 import { GradeDistribution } from "./GradeDistribution";
 import { StudentChoiceAnalysis } from "./StudentChoiceAnalysis";
+import { RevealedClinicalHistograms } from "./ChoiceHistograms";
 import { RubricEditor } from "./RubricEditor";
 import {
   CasePresentation,
@@ -43,7 +44,6 @@ import {
 import {
   DiscussionControls,
   HypothesisComparison,
-  DiagnosticCorrectionTable,
   MaximumScoreGuide,
 } from "./StudentReview";
 
@@ -878,12 +878,18 @@ export function ActivityPage({
             />
           ) : (
             <HypothesisComparison
-              rows={results.data?.discussion?.comparison ?? []}
+              charts={results.data?.discussion?.choiceHistograms}
             />
           )
         ) : (
           discussionControls()
         ))}
+      {guided && closed && !asynchronous && l.reveals?.activeDiagnosticId && (
+        <RevealedClinicalHistograms
+          data={results.data?.discussion?.choiceHistograms}
+          diagnosticId={l.reveals.activeDiagnosticId}
+        />
+      )}
       {guided && closed && asynchronous && (
         <section className="panel-card">
           <h2>Restitutions individuelles disponibles</h2>
@@ -1308,23 +1314,15 @@ export function ProjectionPage({
                 <summary>
                   Revoir la comparaison des impressions cliniques
                 </summary>
-                <HypothesisComparison rows={p.discussion.comparison ?? []} />
+                <HypothesisComparison charts={p.discussion.choiceHistograms} />
               </details>
-              {p.discussion.corrections
-                ?.filter(
-                  (row: any) =>
-                    row.diagnosticId === p.discussion.activeDiagnosticId,
-                )
-                .map((correction: any) => (
-                  <DiagnosticCorrectionTable
-                    key={correction.diagnosticId}
-                    correction={correction}
-                    active
-                  />
-                ))}
+              <RevealedClinicalHistograms
+                data={p.discussion.choiceHistograms}
+                diagnosticId={p.discussion.activeDiagnosticId}
+              />
             </>
           ) : p.discussion?.comparisonVisible ? (
-            <HypothesisComparison rows={p.discussion.comparison} />
+            <HypothesisComparison charts={p.discussion.choiceHistograms} />
           ) : (
             <p>
               La comparaison des impressions cliniques sera affichée par le

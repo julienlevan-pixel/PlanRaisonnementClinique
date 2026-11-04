@@ -1989,6 +1989,15 @@ components:
         action: { type: string, enum: [comparison, diagnostic] }
         diagnosticId: { type: string }
       required: [action]
+    ReviewChoiceHistograms:
+      type: object
+      description: Histogrammes de séance anonymes. Impressions retenues par les experts seulement ; les observations restent absentes jusqu’à la révélation du corrigé correspondant. Jamais transmis pendant la réponse ou avant publication collective en asynchrone.
+      properties:
+        submittedCount: { type: integer }
+        panelTotal: { type: integer }
+        main: { type: array, items: { $ref: "#/components/schemas/StudentDiagnosticChoices" } }
+        alternative: { type: array, items: { $ref: "#/components/schemas/StudentDiagnosticChoices" } }
+      required: [submittedCount, panelTotal, main, alternative]
     StudentReview:
       type: object
       description: Restitution contrôlée par le serveur. En synchrone, seules les étapes révélées sont présentes ; en asynchrone, seules les deux impressions cliniques d’un étudiant ayant soumis sont corrigées, sans résultat des autres étudiants. La projection ne contient aucun champ personnel.
@@ -1998,6 +2007,7 @@ components:
         grading: { $ref: "#/components/schemas/GradingSummary" }
         deliveryMode: { type: string, enum: [synchronous, asynchronous] }
         comparisonVisible: { type: boolean }
+        choiceHistograms: { $ref: "#/components/schemas/ReviewChoiceHistograms" }
         comparison:
           type: array
           items:

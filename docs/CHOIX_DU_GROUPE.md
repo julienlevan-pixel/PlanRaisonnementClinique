@@ -20,3 +20,13 @@ Pour les impressions, la base est l’ensemble des soumissions du groupe. Pour l
 Le cas et le panel sont ceux enregistrés pour la collecte. Le barème, les choix originaux et les notes restent conservés. Aucune migration Supabase, dépendance supplémentaire ou variable d’environnement n’est nécessaire.
 
 L’accès reste réservé au professeur autorisé. Le bilan ne renvoie aucun nom ni identifiant participant et n’est pas ajouté aux parcours étudiants ou à la projection. Les histogrammes ouverts s’actualisent pendant la collecte ; les cas sont toujours chargés séparément.
+
+## Une présentation commune en séance et dans le rapport
+
+Les graphiques de l’écran étudiant, de la projection et du rapport utilisent les mêmes composants, couleurs, effectifs et échelles. La comparaison conserve les barres **Étudiants** et **Experts**.
+
+Pendant la séance, chaque graphique d’impressions affiche uniquement les diagnostics retenus par au moins un expert dans le rôle correspondant. Le professeur ouvre les données cliniques une impression à la fois ; les fréquences de ces données restent absentes des réponses publiques tant que le corrigé correspondant n’a pas été révélé. Une impression sans aucun expert, dans les deux rôles, ne peut pas être ouverte comme corrigé. Les anciennes révélations ne peuvent pas contourner ce filtre.
+
+Le tableau personnel de correction reste disponible pour expliquer à l’étudiant ses points. Les graphiques collectifs ne transmettent aucun nom, aucune copie individuelle et aucune note personnelle. En asynchrone, les protections existantes restent conservées : le corrigé personnel n’ouvre pas l’accès aux choix des autres étudiants.
+
+Dans le rapport privé, le filtre expert est appliqué par défaut. Lorsque des étudiants ont retenu d’autres impressions, **Afficher tous les choix des étudiants** permet de les ajouter aux mêmes histogrammes. Les choix absents du panel restent conservés dans les réponses et le rapport ; ils ne créent pas un corrigé expert. Les diagnostics non choisis par les deux groupes ne sont pas ajoutés pour remplir le graphique.

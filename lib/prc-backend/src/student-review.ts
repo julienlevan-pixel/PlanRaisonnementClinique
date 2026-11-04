@@ -1,3 +1,4 @@
+import { choiceAnalysisFromSnapshots } from "./student-choice-analysis.js";
 import {
   combineDiagnostic,
   scoreRole,
@@ -80,7 +81,11 @@ export function buildStudentReview(input: {
     }))
     .sort((a, b) => b.panelCount - a.panelCount);
   const corrections = ranked
-    .filter((row) => input.diagnosticIds.includes(row.diagnosticId))
+    .filter(
+      (row) =>
+        input.diagnosticIds.includes(row.diagnosticId) &&
+        (input.mode !== "synchronous" || row.panelCount > 0),
+    )
     .map((diagnostic) => {
       const distribution = combineDiagnostic(
         input.panel.distributions,
@@ -234,13 +239,42 @@ export function buildStudentReview(input: {
         }),
       };
     });
+  const choices =
+    input.mode === "synchronous" && input.comparisonVisible
+      ? choiceAnalysisFromSnapshots(
+          input.caseData,
+          input.classroom,
+          input.panel,
+        )
+      : undefined;
+  const visibleChoices = (rows: NonNullable<typeof choices>["main"]) =>
+    rows
+      .filter((row) => row.panelCount > 0)
+      .map((row) => ({
+        ...row,
+        observations: input.diagnosticIds.includes(row.diagnosticId)
+          ? row.observations
+          : [],
+      }));
   return {
     maximum: grading?.maximum ?? 20,
     grading,
     scoringVersion: input.scoringVersion ?? "panel-weighted-v2",
     deliveryMode: input.mode,
     comparisonVisible: input.comparisonVisible,
-    comparison: input.comparisonVisible ? ranked : [],
+    comparison: input.comparisonVisible
+      ? ranked.filter((row) => row.panelCount > 0)
+      : [],
+    ...(choices
+      ? {
+          choiceHistograms: {
+            submittedCount: choices.submittedCount,
+            panelTotal: choices.panelTotal,
+            main: visibleChoices(choices.main),
+            alternative: visibleChoices(choices.alternative),
+          },
+        }
+      : {}),
     corrections,
     activeDiagnosticId: corrections.some(
       (row) => row.diagnosticId === input.activeDiagnosticId,

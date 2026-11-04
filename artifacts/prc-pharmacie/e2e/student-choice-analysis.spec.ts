@@ -45,8 +45,8 @@ function data(name = "Toux", empty = false) {
     panelTotal: 10,
     main: [
       diagnostic("a", "Asthme", 1, 8),
-      diagnostic("b", "Reflux", 3, 2),
-      diagnostic("c", "Infection", 0, 0),
+      diagnostic("b", "Reflux", 2, 2),
+      diagnostic("c", "Infection", 1, 0),
     ],
     alternative: [
       diagnostic("a", "Asthme", 1, 2),
@@ -168,6 +168,14 @@ test("four simple histograms compare roles separately and show unsigned clinical
       exact: true,
     }),
   ).toHaveValue("b");
+  await expect(main).not.toContainText("Infection");
+  await report
+    .getByRole("checkbox", {
+      name: "Afficher tous les choix des étudiants",
+      exact: true,
+    })
+    .check();
+  await expect(main).toContainText("Infection");
   await clinical
     .getByLabel("Impression clinique", { exact: true })
     .selectOption("c");
@@ -181,30 +189,36 @@ test("four simple histograms compare roles separately and show unsigned clinical
     right = await alternative.boundingBox();
   expect(right!.x).toBeGreaterThan(left!.x);
   await page.setViewportSize({ width: 390, height: 844 });
-  await expect.poll(async () => {
-    const box=await page.locator(".sidebar").boundingBox();
-    return box ? box.x+box.width : 0;
-  }).toBeLessThanOrEqual(1);
+  await expect
+    .poll(async () => {
+      const box = await page.locator(".sidebar").boundingBox();
+      return box ? box.x + box.width : 0;
+    })
+    .toBeLessThanOrEqual(1);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
   await main.screenshot({
-    path: testInfo.outputPath("impression-principale-mobile.png"), animations: "disabled",
+    path: testInfo.outputPath("impression-principale-mobile.png"),
+    animations: "disabled",
   });
   await alternative.screenshot({
-    path: testInfo.outputPath("impression-alternative-mobile.png"), animations: "disabled",
+    path: testInfo.outputPath("impression-alternative-mobile.png"),
+    animations: "disabled",
   });
   await clinical.evaluate((el) => el.scrollIntoView({ block: "start" }));
   await page.screenshot({
-    path: testInfo.outputPath("donnees-principales-mobile.png"), animations: "disabled",
+    path: testInfo.outputPath("donnees-principales-mobile.png"),
+    animations: "disabled",
   });
   await clinicalAlternative.evaluate((el) =>
     el.scrollIntoView({ block: "start" }),
   );
   await page.screenshot({
-    path: testInfo.outputPath("donnees-alternative-mobile.png"), animations: "disabled",
+    path: testInfo.outputPath("donnees-alternative-mobile.png"),
+    animations: "disabled",
   });
   expect(requests).toEqual(["GET"]);
 });

@@ -104,6 +104,7 @@ export * from './referenceScoring';
 export * from './referenceValidateInput';
 export * from './revealInput';
 export * from './revealState';
+export * from './reviewChoiceHistograms';
 export * from './rubricDiagnostic';
 export * from './rubricObservation';
 export * from './rubricUpdateInput';

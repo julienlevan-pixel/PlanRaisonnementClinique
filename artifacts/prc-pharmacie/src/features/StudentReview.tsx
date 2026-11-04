@@ -1,5 +1,11 @@
 import { useEffect, useState } from "react";
 import { Btn } from "../app/ui";
+import {
+  ImpressionHistograms,
+  RevealedClinicalHistograms,
+  expertChoices,
+  type ChoiceCharts,
+} from "./ChoiceHistograms";
 import "./student-review.css";
 import type { GradingSummary } from "./RubricEditor";
 
@@ -53,6 +59,7 @@ export type StudentReviewData = {
   maximum?: number;
   deliveryMode: "synchronous" | "asynchronous";
   comparisonVisible: boolean;
+  choiceHistograms?: ChoiceCharts;
   comparison: DiagnosticComparison[];
   corrections: DiagnosticCorrection[];
   activeDiagnosticId?: string | null;
@@ -133,79 +140,22 @@ export function MaximumScoreGuide({
 }
 
 export function HypothesisComparison({
-  rows,
+  charts,
 }: {
-  rows: DiagnosticComparison[];
+  rows?: DiagnosticComparison[];
+  charts?: ChoiceCharts;
 }) {
   return (
     <section
       className="hypothesis-comparison"
       aria-label="Comparaison des impressions cliniques"
     >
-      <h2>Quelles impressions cliniques ont été retenues ?</h2>
-      <p>
-        Les diagnostics proposés sont classés du plus au moins choisi par les
-        experts.
-      </p>
-      <div
-        className="review-table-scroll"
-        role="region"
-        aria-label="Effectifs et pourcentages par impression clinique"
-        tabIndex={0}
-      >
-        <table className="review-table hypothesis-comparison-table">
-          <caption>
-            Principale ou alternative · réponses définitives uniquement
-          </caption>
-          <thead>
-            <tr>
-              <th scope="col">Impression clinique</th>
-              <th scope="col">Étudiants</th>
-              <th scope="col">Experts cliniques</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row.diagnosticId}>
-                <th scope="row">
-                  {row.label}
-                  {row.topDiagnosis && (
-                    <small className="review-best">
-                      Top 2 du panel · candidat au plein crédit
-                    </small>
-                  )}
-                  {!row.panelCount && (
-                    <small>Aucun expert · aucun point au barème</small>
-                  )}
-                </th>
-                <td>
-                  <b>
-                    {row.studentCount} / {row.studentTotal}
-                  </b>{" "}
-                  <span>({number(row.studentPercent)} %)</span>
-                  <div className="review-bar students" aria-hidden="true">
-                    <span style={{ width: `${row.studentPercent}%` }} />
-                  </div>
-                </td>
-                <td>
-                  <b>
-                    {row.panelCount} / {row.panelTotal}
-                  </b>{" "}
-                  <span>({number(row.panelPercent)} %)</span>
-                  <div className="review-bar experts" aria-hidden="true">
-                    <span style={{ width: `${row.panelPercent}%` }} />
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <p className="review-note">
-        Le pourcentage indique la proportion des participants ayant retenu ce
-        diagnostic. Chacun choisit deux impressions cliniques distinctes : la
-        somme des pourcentages peut donc atteindre 200 %.
-      </p>
+      <h2>Impressions cliniques</h2>
+      {charts ? (
+        <ImpressionHistograms data={expertChoices(charts)} />
+      ) : (
+        <p>Chargement des histogrammes…</p>
+      )}
     </section>
   );
 }
@@ -413,7 +363,7 @@ export function StudentReview({
   useEffect(() => {
     if (review?.activeDiagnosticId)
       document
-        .getElementById(`student-correction-${review.activeDiagnosticId}`)
+        .getElementById(`student-review-stage-${review.activeDiagnosticId}`)
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [review?.activeDiagnosticId]);
   return (
@@ -429,7 +379,7 @@ export function StudentReview({
         </p>
       )}
       {review?.comparisonVisible && (
-        <HypothesisComparison rows={review.comparison} />
+        <HypothesisComparison charts={review.choiceHistograms} />
       )}
       {!review?.corrections.length && (
         <p className="review-wait" role="status">
@@ -440,13 +390,26 @@ export function StudentReview({
               : "Votre copie est conservée. Le professeur terminera le temps de réponse, puis affichera la comparaison et les corrigés, étape par étape."}
         </p>
       )}
-      {review?.corrections.map((correction) => (
-        <DiagnosticCorrectionTable
-          key={correction.diagnosticId}
-          correction={correction}
-          active={review.activeDiagnosticId === correction.diagnosticId}
-        />
-      ))}
+      {review?.corrections
+        .filter(
+          (correction) =>
+            review.deliveryMode !== "synchronous" || correction.represented,
+        )
+        .map((correction) => (
+          <div
+            key={correction.diagnosticId}
+            id={`student-review-stage-${correction.diagnosticId}`}
+          >
+            <RevealedClinicalHistograms
+              data={review.choiceHistograms}
+              diagnosticId={correction.diagnosticId}
+            />
+            <DiagnosticCorrectionTable
+              correction={correction}
+              active={review.activeDiagnosticId === correction.diagnosticId}
+            />
+          </div>
+        ))}
       {review?.explanation && (
         <section className="participant-reference">
           <h3>Explication du professeur</h3>
@@ -475,16 +438,17 @@ export function DiscussionControls({
 }) {
   const [selection, setSelection] = useState("");
   if (!discussion) return <p>Chargement de la discussion…</p>;
-  const corrected: string[] = reveals.correctedDiagnosticIds ?? [];
-  const next = discussion.comparison.find(
-    (row) => !corrected.includes(row.diagnosticId),
+  const eligible = discussion.comparison.filter((row) => row.panelCount > 0);
+  const corrected: string[] = (reveals.correctedDiagnosticIds ?? []).filter(
+    (id: string) => eligible.some((row) => row.diagnosticId === id),
   );
+  const next = eligible.find((row) => !corrected.includes(row.diagnosticId));
   const id =
-    selection ||
+    (eligible.some((row) => row.diagnosticId === selection) ? selection : "") ||
     next?.diagnosticId ||
-    discussion.comparison[0]?.diagnosticId ||
+    eligible[0]?.diagnosticId ||
     "";
-  const current = discussion.comparison.find((row) => row.diagnosticId === id);
+  const current = eligible.find((row) => row.diagnosticId === id);
   const visible = !!reveals.diagnosticComparison;
   return (
     <section className="discussion-controls panel-card">
@@ -511,7 +475,7 @@ export function DiscussionControls({
           value={id}
           onChange={(event) => setSelection(event.target.value)}
         >
-          {discussion.comparison.map((row) => (
+          {eligible.map((row) => (
             <option key={row.diagnosticId} value={row.diagnosticId}>
               {row.label} · {row.panelCount} expert(s)
               {corrected.includes(row.diagnosticId) ? " · déjà révélée" : ""}
@@ -529,10 +493,12 @@ export function DiscussionControls({
         Afficher le corrigé : {current?.label ?? "impression clinique"}
       </Btn>
       <p className="review-note">
-        {corrected.length} / {discussion.comparison.length} corrigé(s)
-        révélé(s). Les étapes restent accessibles après rechargement.
+        {corrected.length} / {eligible.length} corrigé(s) révélé(s). Les étapes
+        restent accessibles après rechargement.
       </p>
-      {!compact && <HypothesisComparison rows={discussion.comparison} />}
+      {!compact && (
+        <HypothesisComparison charts={discussion.choiceHistograms} />
+      )}
     </section>
   );
 }
