@@ -1262,4 +1262,78 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(summary.maximum,0);assert.equal(summary.gradedCaseCount,0);assert.equal(summary.distribution,undefined);
   });
 
+  await t.test("check-in normalizes codes and discloses only the cookie owner's resume identity", async () => {
+    const host = await newUser();
+    const item = await host.session.call('/prcs', 'POST', completeCase(), 201);
+    const live = await host.session.call(`/prcs/${item.id}/launches`, 'POST', {role:'panel',sessionMode:'synchronous'}, 201);
+    const formatted = ` ${live.code.slice(0,4).toLowerCase()} - ${live.code.slice(4).toLowerCase()} `;
+    const entry = await anonymous.call(`/join/${encodeURIComponent(formatted)}`);
+    assert.equal(entry.launchId, live.id); assert.equal(entry.teacherName, host.username); assert.equal(entry.caseCount, 1);
+    assert.equal(entry.canResume, false); assert.equal(entry.pseudonym, undefined);
+    assert.equal(entry.scenario, ''); assert.deepEqual(entry.observations, []);
+    assert.deepEqual(await anonymous.call('/participant/resume'), {available:false});
+    const person = new Session(), joinKey=randomUUID();
+    await person.call(`/launches/${live.id}/join`, 'POST', {pseudonym:'Expert reconnu',code:formatted,joinKey});
+    const own = await person.call(`/join/${live.code}`);
+    assert.equal(own.canResume,true); assert.equal(own.pseudonym,'Expert reconnu');
+    assert.equal((await person.call('/participant/state')).joinInfo.pseudonym,'Expert reconnu');
+    const resume=await person.call('/participant/resume');
+    assert.equal(resume.available,true);assert.equal(resume.name,item.name);assert.equal(resume.pseudonym,'Expert reconnu');
+    const stranger=await anonymous.call(`/join/${live.code}`);
+    assert.equal(stranger.canResume,false);assert.equal(stranger.pseudonym,undefined);
+    await person.call(`/launches/${live.id}/join`, 'POST', {pseudonym:'Expert reconnu',code:formatted,joinKey});
+    assert.equal((await host.session.call(`/launches/${live.id}`)).participantCount,1);
+    const second=await host.session.call('/prcs','POST',completeCase(),201);
+    const lesson=await host.session.call('/teaching-sessions','POST',{name:'Séance de confirmation',role:'panel',prcIds:[item.id,second.id]},201);
+    const formattedLesson=lesson.code.toLowerCase().replaceAll('-','').replace(/(.{4})/g,'$1 ');
+    const lessonEntry=await anonymous.call(`/join/${encodeURIComponent(formattedLesson)}`);
+    assert.equal(lessonEntry.teachingSessionId,lesson.id);assert.equal(lessonEntry.caseCount,2);assert.equal(lessonEntry.teacherName,host.username);
+    await person.call(`/teaching-sessions/${lesson.id}/join`,'POST',{pseudonym:'Membre de séance',joinKey:randomUUID(),code:formattedLesson});
+    assert.equal((await person.call('/participant/resume')).name,'Séance de confirmation');
+    assert.equal((await person.call(`/join/${lesson.code}`)).pseudonym,'Membre de séance');
+    assert.equal((await person.call(`/join/${live.code}`)).canResume,false);
+    await anonymous.call('/join/ZZZZZZZZ','GET',undefined,404);
+  });
+
+  await t.test("participant access trials keep frozen cases and rubrics while remaining outside real teaching sessions", async () => {
+    const host=await newUser(), stranger=await newUser();
+    const item=await host.session.call('/prcs','POST',completeCase(),201);
+    const realPanel=await createReference(host.session,item);
+    const lessons=[];
+    for(const deliveryMode of ['synchronous','asynchronous']) {
+      const lesson=await host.session.call('/teaching-sessions','POST',{name:`Essai ${deliveryMode}`,role:'students',deliveryMode,prcIds:[item.id]},201);
+      lessons.push({lesson,deliveryMode,source:(await host.session.call(`/teaching-sessions/${lesson.id}`)).cases[0].id});
+    }
+    await host.session.call(`/prcs/${item.id}`,'PUT',{...item,diagnostics:item.diagnostics.map((d:any)=>d.label),name:'Nouvelle version',version:item.version,observations:item.observations.map((o:any)=>({...o,text:`Modifié : ${o.text}`}))});
+    for(const {lesson,deliveryMode,source} of lessons) {
+      await anonymous.call(`/launches/${source}/trial`,'POST',{},401);
+      await stranger.session.call(`/launches/${source}/trial`,'POST',{},404);
+      const frozen=(await pool.query('SELECT * FROM prc_private.launches WHERE id=$1',[source])).rows[0];
+      const trial=await host.session.call(`/launches/${source}/trial`,'POST',{},201);
+      const copy=(await pool.query('SELECT * FROM prc_private.launches WHERE id=$1',[trial.launchId])).rows[0];
+      assert.equal(copy.is_trial,true);assert.equal(copy.role,'students');assert.equal(copy.case_version,frozen.case_version);
+      assert.equal(copy.reference_id,frozen.reference_id);assert.equal(copy.case_snapshot.teachingSession,undefined);
+      assert.deepEqual(copy.case_snapshot.studentWorkflow,frozen.case_snapshot.studentWorkflow);
+      assert.deepEqual(copy.case_snapshot.observations,frozen.case_snapshot.observations);
+      assert.equal(copy.case_snapshot.name,item.name);
+      assert.equal(new URL(trial.url).pathname,`/join/${trial.code}`);
+      const learner=new Session();
+      await learner.call(`/launches/${trial.launchId}/join`,'POST',{pseudonym:'Essai étudiant',code:trial.code,joinKey:randomUUID()});
+      assert.equal((await learner.call('/participant/response')).joinInfo.isTrial,true);
+      assert.equal((await learner.call('/participant/teaching-session')).session,null);
+      if(deliveryMode==='synchronous') assert.equal((await learner.call('/participant/state')).liveSession.phase,'answering');
+      await save(learner,answer(item));await learner.call('/participant/submit','POST',{});
+      if(deliveryMode==='asynchronous') {const result=await learner.call('/participant/results');assert.equal(result.score,13);assert.equal(result.case.grading.maximum,15);}
+      const real=await host.session.call(`/launches/${source}`);
+      assert.equal(real.participantCount,0);assert.equal(real.submissionCount,0);
+      if(deliveryMode==='synchronous') assert.equal(real.liveSession.phase,'lobby');
+      assert.equal((await host.session.call(`/teaching-sessions/${lesson.id}`)).report.memberCount,0);
+      await host.session.call(`/launches/${trial.launchId}/trial`,'POST',{},409);
+    }
+    const panelTrial=await host.session.call(`/launches/${realPanel.id}/trial`,'POST',{},201);
+    assert.equal((await host.session.call(`/launches/${panelTrial.launchId}`)).role,'panel');
+    await host.session.call(`/launches/${panelTrial.launchId}/close`,'POST',{});
+    await host.session.call(`/launches/${panelTrial.launchId}/reference/generate`,'POST',{minimumPanelSize:1},409);
+  });
+
 });

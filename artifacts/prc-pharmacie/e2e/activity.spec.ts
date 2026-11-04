@@ -101,7 +101,7 @@ test("open panel shows a shared QR and link while retaining optional individual 
       exact: true,
     }),
   ).toBeVisible();
-  await expect(page.locator(".access-card a")).toHaveAttribute(
+  await expect(page.locator('.access-card a[href*="/join/"]')).toHaveAttribute(
     "href",
     /\/join\/TOUX1234$/,
   );

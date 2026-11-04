@@ -26,7 +26,7 @@ async function confirmClick(page: Page, name: string) {
 }
 async function answerAndSubmit(page: Page, pseudonym: string, teacher?: Page) {
   await page.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(pseudonym);
-  await page.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
+  await page.getByRole('button', { name: 'Rejoindre la séance', exact: true }).click();
   await expect(page).toHaveURL(/\/participant$/);
   if (teacher) {
     await expect(page.getByRole('region', { name: 'Salle d’attente de la séance', exact: true })).toBeVisible();
@@ -136,7 +136,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await teacher.getByRole('button', { name: 'Lancer avec les étudiants', exact: true }).click();
       await expect(teacher).toHaveURL(/\/activity\/[0-9a-f-]+$/);
       expect(new URL(teacher.url()).pathname).not.toBe(panelPath);
-      const access = teacher.locator('.access-card a');
+      const access = teacher.locator('.access-card a[href*="/join/"]');
       await expect(access).toBeVisible();
       studentUrl = (await access.getAttribute('href'))!;
       await student.goto(studentUrl);
@@ -181,7 +181,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await teacher.getByLabel('Modalité du groupe étudiant', { exact: true }).selectOption('asynchronous');
       await teacher.getByRole('button', { name: 'Lancer avec les étudiants', exact: true }).click();
       await expect(teacher).toHaveURL(/\/activity\/[0-9a-f-]+$/);
-      const link = teacher.locator('.access-card a');
+      const link = teacher.locator('.access-card a[href*="/join/"]');
       await expect(link).toBeVisible();
       const asyncStudent = await page();
       await asyncStudent.goto((await link.getAttribute('href'))!);
@@ -257,7 +257,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       for (const [participant, joinLink, name] of [[syncStudent, syncJoin, 'Toux synchrone'], [asyncStudent, asyncJoin, 'Toux asynchrone']] as const) {
         await participant.goto((await joinLink.getAttribute('href'))!);
         await participant.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(name);
-        await participant.getByRole('button', { name: 'Rejoindre l’activité', exact: true }).click();
+        await participant.getByRole('button', { name: 'Rejoindre la séance', exact: true }).click();
         await expect(participant).toHaveURL(/\/participant$/);
         if (name === 'Toux synchrone') {
           await expect(participant.getByRole('region', { name: 'Salle d’attente de la séance', exact: true })).toBeVisible();
@@ -328,11 +328,11 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(teacher).toHaveURL(/\/seances\/[0-9a-f-]+$/);
       const lessonPath=new URL(teacher.url()).pathname;
       const learner=await page();
-      const join=teacher.locator('.access-card a');
+      const join=teacher.locator('.access-card a[href*="/join/"]');
       await expect(join).toBeVisible();
       await learner.goto((await join.getAttribute('href'))!);
       await learner.getByLabel('Votre nom ou pseudonyme',{exact:true}).fill('Étudiant de la séance');
-      await learner.getByRole('button',{name:'Rejoindre l’activité',exact:true}).click();
+      await learner.getByRole('button',{name:'Rejoindre la séance',exact:true}).click();
       await expect(learner).toHaveURL(/\/participant$/);
       const projection=await teacher.context().newPage();
       await projection.goto(`${lessonPath}/projection`);
@@ -383,7 +383,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await expect(access).toBeVisible();const href=(await access.getAttribute('href'))!;
       for(const [p,name] of [[autonomous,'Autonome'],[slower,'En attente']] as const){
         await p.goto(href);await p.getByLabel('Votre nom ou pseudonyme',{exact:true}).fill(name);
-        await p.getByRole('button',{name:'Rejoindre l’activité',exact:true}).click();await expect(p).toHaveURL(/\/participant$/);
+        await p.getByRole('button',{name:'Rejoindre la séance',exact:true}).click();await expect(p).toHaveURL(/\/participant$/);
       }
       for(let position=0;position<2;position++){
         await expect(autonomous.getByLabel('Impression clinique',{exact:true})).toBeVisible();

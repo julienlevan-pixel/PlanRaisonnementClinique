@@ -17,6 +17,9 @@ import {
 } from "lucide-react";
 import { Link, useLocation, useParams } from "wouter";
 import type { Choice } from "@workspace/api-client-react";
+import { normalizeAccessCode } from "@workspace/prc-backend/access-code";
+import { AccessCodeForm, JoinConfirmation } from "./ParticipantAccess";
+import { ParticipantProgress } from "./ParticipantProgress";
 import type { AppActions } from "../app/actions";
 import { Btn, Input, Loading, ErrorBox } from "../app/ui";
 import { getError } from "../app/utils";
@@ -48,6 +51,15 @@ import {
 
 type Role = "main" | "alternative";
 type CaseData = {
+  teacherName?: string;
+  caseCount?: number;
+  pseudonym?: string;
+  teachingSession?: {
+    id: string;
+    name: string;
+    position: number;
+    total: number;
+  };
   teachingSessionId?: string;
   canResume?: boolean;
   liveSession?: LiveSession;
@@ -186,7 +198,8 @@ function TrialNotice({ trial }: { trial?: boolean }) {
 }
 
 export function Join({ actions }: { actions: AppActions }) {
-  const { code = "" } = useParams<{ code: string }>();
+  const { code: rawCode = "" } = useParams<{ code: string }>();
+  const code = normalizeAccessCode(rawCode);
   const info = useQuery({
     queryKey: ["/api/join", code],
     queryFn: () => api<CaseData>(`/api/join/${encodeURIComponent(code)}`),
@@ -250,13 +263,22 @@ export function Join({ actions }: { actions: AppActions }) {
   if (info.isError || !info.data)
     return (
       <div className="participant-layout">
-        <ErrorBox
-          message="Ce code d’activité est invalide ou inaccessible. Vérifiez le code communiqué par votre enseignant."
-          retry={() => info.refetch()}
-        />
-        <Link href="/" className="back-link">
-          <ArrowLeft size={15} /> Accueil
-        </Link>
+        <main className="join-code-error">
+          <ErrorBox
+            message={
+              (info.error as any)?.status === 404
+                ? "Ce code ne correspond à aucune séance. Vérifiez les lettres et les chiffres, puis réessayez."
+                : (info.error as any)?.status === 409
+                  ? getError(info.error)
+                  : "La séance n’a pas pu être vérifiée. Vérifiez votre connexion, puis réessayez."
+            }
+            retry={() => info.refetch()}
+          />
+          <AccessCodeForm initialCode={code} />
+          <Link href="/" className="back-link">
+            <ArrowLeft size={15} /> Accueil
+          </Link>
+        </main>
       </div>
     );
   const closed = info.data.status !== "open";
@@ -280,18 +302,28 @@ export function Join({ actions }: { actions: AppActions }) {
         </div>
         <h1>{info.data.name}</h1>
         <TrialNotice trial={info.data.isTrial} />
-        {info.data.teachingSessionId && info.data.canResume && (
-          <p>
-            <a href="/participant" className="btn btn-primary">
-              Reprendre mon parcours
-            </a>
-          </p>
-        )}
+        <JoinConfirmation info={info.data} />
         {closed && !canResume ? (
           <p className="participant-notice" role="status">
             La collecte est fermée. Une participation existante reste accessible
             dans le navigateur utilisé pour répondre.
           </p>
+        ) : info.data.canResume ? (
+          <section
+            className="resume-participation"
+            aria-label="Votre participation reconnue"
+          >
+            <strong>
+              Bon retour{info.data.pseudonym ? `, ${info.data.pseudonym}` : ""}.
+            </strong>
+            <p>
+              Votre participation à cette séance est reconnue dans ce
+              navigateur.
+            </p>
+            <a href="/participant" className="btn btn-primary">
+              Reprendre mon parcours
+            </a>
+          </section>
         ) : (
           <>
             {closed && (
@@ -307,15 +339,18 @@ export function Join({ actions }: { actions: AppActions }) {
               pseudonyme seul ne donne pas accès à une copie.
             </p>
             {!closed && (
-              <ParticipantInstructions
-                expert={info.data.role === "panel"}
-                asynchronous={info.data.deliveryMode === "asynchronous"}
-                exactFive={
-                  info.data.role === "panel" ||
-                  info.data.requiredChoices === 5 ||
-                  !!info.data.teachingSessionId
-                }
-              />
+              <details className="join-instructions">
+                <summary>Comment se déroule la participation ?</summary>
+                <ParticipantInstructions
+                  expert={info.data.role === "panel"}
+                  asynchronous={info.data.deliveryMode === "asynchronous"}
+                  exactFive={
+                    info.data.role === "panel" ||
+                    info.data.requiredChoices === 5 ||
+                    !!info.data.teachingSessionId
+                  }
+                />
+              </details>
             )}
             {error && (
               <div className="form-error" role="alert">
@@ -340,14 +375,19 @@ export function Join({ actions }: { actions: AppActions }) {
                   ? "Ouverture…"
                   : closed
                     ? "Reprendre ma copie"
-                    : "Rejoindre l’activité"}{" "}
+                    : "Rejoindre la séance"}{" "}
                 <ArrowRight size={16} />
               </Btn>
             </form>
           </>
         )}
-        <Link href="/participant" className="back-link">
-          Reprendre ma participation dans ce navigateur
+        {!info.data.canResume && (
+          <Link href="/participant" className="back-link">
+            Reprendre ma participation dans ce navigateur
+          </Link>
+        )}
+        <Link href="/rejoindre" className="back-link">
+          Saisir un autre code
         </Link>
       </div>
     </div>
@@ -866,6 +906,12 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         <ParticipantTop label="Séance synchrone" />
         <main className="participant-content">
           <h1>{joinInfo.name}</h1>
+          <TrialNotice trial={joinInfo.isTrial} />
+          <ParticipantProgress
+            expert={joinInfo.role === "panel"}
+            asynchronous={false}
+            session={liveSession}
+          />
           <section
             className="session-waiting"
             aria-label="Salle d’attente de la séance"
@@ -877,7 +923,7 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
             </div>
             <h2>
               {liveSession.phase === "lobby"
-                ? "Vous avez rejoint la séance"
+                ? `Vous avez rejoint la séance${joinInfo.pseudonym ? `, ${joinInfo.pseudonym}` : ""}`
                 : "Prenez connaissance du cas clinique"}
             </h2>
             <p>
@@ -931,6 +977,19 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       <main className="participant-content">
         <h1>{joinInfo.name}</h1>
         <TrialNotice trial={joinInfo.isTrial} />
+        <ParticipantProgress
+          expert={joinInfo.role === "panel"}
+          asynchronous={joinInfo.deliveryMode === "asynchronous"}
+          session={liveSession}
+          submitted={submitted}
+          closed={status !== "open"}
+          hasNextCase={
+            joinInfo.teachingSession
+              ? joinInfo.teachingSession.position <
+                joinInfo.teachingSession.total - 1
+              : undefined
+          }
+        />
         <div className="participant-response-tools">
           <CaseQuickAccess
             data={joinInfo}
@@ -1598,6 +1657,26 @@ export function ParticipantResults({
         )}
         <h1>{data.case.name}</h1>
         <TrialNotice trial={data.case.isTrial} />
+        {!reviewing && (
+          <ParticipantProgress
+            expert={role === "panel"}
+            asynchronous={
+              data.deliveryMode === "asynchronous" ||
+              data.case.deliveryMode === "asynchronous"
+            }
+            session={data.case.liveSession}
+            submitted={submitted}
+            published={published}
+            closed={data.status !== "open"}
+            correcting={!!data.studentReview?.corrections?.length}
+            hasNextCase={
+              data.case.teachingSession
+                ? data.case.teachingSession.position <
+                  data.case.teachingSession.total - 1
+                : undefined
+            }
+          />
+        )}
         {!!data.case.scenario && (
           <div className="participant-response-tools">
             <CaseQuickAccess data={data.case} />
@@ -1620,20 +1699,6 @@ export function ParticipantResults({
             {!reviewing && <Link href="/participant">Revoir ma copie</Link>}
           </p>
         )}
-        {role === "students" &&
-          submitted &&
-          data.deliveryMode !== "asynchronous" &&
-          !data.published &&
-          data.status === "open" && (
-            <section className="participant-notice" role="status">
-              <h2>Réponse reçue</h2>
-              <p>
-                Prochaine étape : la comparaison présentée par le professeur.
-                Vous pouvez garder cet onglet ouvert ; l’écran se mettra à jour
-                automatiquement.
-              </p>
-            </section>
-          )}
         {published ? (
           <section className="participant-score">
             <h2>Votre résultat</h2>

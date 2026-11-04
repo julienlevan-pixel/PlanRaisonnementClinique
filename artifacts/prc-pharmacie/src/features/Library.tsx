@@ -17,6 +17,8 @@ import {
   Users,
 } from "lucide-react";
 import { Link, Redirect, useLocation } from "wouter";
+import { normalizeAccessCode } from "@workspace/prc-backend/access-code";
+import { ResumeParticipation } from "./ParticipantAccess";
 import {
   getGetCurrentUserQueryKey,
   getGetWorkspaceSummaryQueryKey,
@@ -193,7 +195,8 @@ export function Home({
   };
   const join = (event: FormEvent) => {
     event.preventDefault();
-    if (code.trim()) navigate(`/join/${encodeURIComponent(code.trim())}`);
+    const normalized = normalizeAccessCode(code);
+    if (normalized) navigate(`/join/${encodeURIComponent(normalized)}`);
   };
   const create = (event: FormEvent) => {
     event.preventDefault();
@@ -285,6 +288,9 @@ export function Home({
                     value={code}
                     onChange={(event) => setCode(event.target.value)}
                     autoComplete="off"
+                    autoCapitalize="characters"
+                    spellCheck={false}
+                    maxLength={40}
                     placeholder="Code d’accès"
                     required
                   />
@@ -293,6 +299,7 @@ export function Home({
                   </button>
                 </div>
               </form>
+              <ResumeParticipation />
               <a
                 className="public-demo-link"
                 href="#demo-toux"
@@ -709,6 +716,7 @@ export function Home({
           </button>
         </form>
       </section>
+      <ResumeParticipation />
     </Shell>
   );
 }

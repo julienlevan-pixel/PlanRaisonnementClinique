@@ -20,6 +20,7 @@ import {
   TeachingParticipantBoundary,
 } from "./features/TeachingSessions";
 import NotFound from "@/pages/not-found";
+import { JoinEntry } from "./features/ParticipantAccess";
 import "./index.css";
 import "./participant-matrix.css";
 function Router() {
@@ -57,6 +58,7 @@ function Router() {
       <Route path="/join/:code">
         <Join actions={actions} />
       </Route>
+      <Route path="/rejoindre" component={JoinEntry} />
       <Route
         path="/participant/review/:position"
         component={ParticipantCaseReview}
