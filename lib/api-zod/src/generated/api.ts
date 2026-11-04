@@ -1010,6 +1010,42 @@ export const GetOwnTeachingCaseReviewResponse = zod.object({
 }).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
+  "choiceHistograms": zod.object({
+  "submittedCount": zod.number().int(),
+  "panelTotal": zod.number().int(),
+  "main": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+})),
+  "alternative": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+}))
+}).optional().describe('Histogrammes de séance anonymes. Impressions retenues par les experts seulement ; les observations restent absentes jusqu’à la révélation du corrigé correspondant. Jamais transmis pendant la réponse ou avant publication collective en asynchrone.'),
   "comparison": zod.array(zod.object({
   "diagnosticId": zod.string().optional(),
   "label": zod.string().optional(),
@@ -3142,6 +3178,42 @@ export const GetLaunchResultsResponse = zod.object({
 }).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
+  "choiceHistograms": zod.object({
+  "submittedCount": zod.number().int(),
+  "panelTotal": zod.number().int(),
+  "main": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+})),
+  "alternative": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+}))
+}).optional().describe('Histogrammes de séance anonymes. Impressions retenues par les experts seulement ; les observations restent absentes jusqu’à la révélation du corrigé correspondant. Jamais transmis pendant la réponse ou avant publication collective en asynchrone.'),
   "comparison": zod.array(zod.object({
   "diagnosticId": zod.string().optional(),
   "label": zod.string().optional(),
@@ -3317,6 +3389,42 @@ export const GetParticipantResultsResponse = zod.object({
 }).optional(),
   "deliveryMode": zod.enum(['synchronous', 'asynchronous']),
   "comparisonVisible": zod.boolean(),
+  "choiceHistograms": zod.object({
+  "submittedCount": zod.number().int(),
+  "panelTotal": zod.number().int(),
+  "main": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+})),
+  "alternative": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+}))
+}).optional().describe('Histogrammes de séance anonymes. Impressions retenues par les experts seulement ; les observations restent absentes jusqu’à la révélation du corrigé correspondant. Jamais transmis pendant la réponse ou avant publication collective en asynchrone.'),
   "comparison": zod.array(zod.object({
   "diagnosticId": zod.string().optional(),
   "label": zod.string().optional(),

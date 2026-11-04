@@ -6,6 +6,7 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { GradingSummary } from './gradingSummary';
+import type { ReviewChoiceHistograms } from './reviewChoiceHistograms';
 import type { StudentReviewComparisonItem } from './studentReviewComparisonItem';
 import type { StudentReviewCorrectionsItem } from './studentReviewCorrectionsItem';
 import type { StudentReviewDeliveryMode } from './studentReviewDeliveryMode';
@@ -19,6 +20,7 @@ export interface StudentReview {
   grading?: GradingSummary;
   deliveryMode: StudentReviewDeliveryMode;
   comparisonVisible: boolean;
+  choiceHistograms?: ReviewChoiceHistograms;
   comparison: StudentReviewComparisonItem[];
   corrections: StudentReviewCorrectionsItem[];
   /** @nullable */

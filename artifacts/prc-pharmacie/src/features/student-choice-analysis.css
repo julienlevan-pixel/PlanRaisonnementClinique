@@ -177,3 +177,25 @@
     gap: 10px;
   }
 }
+
+.choice-clinical {
+  margin-top: 24px;
+}
+.choice-scope {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  font-size: 14px;
+}
+.choice-scope input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: var(--palette-action);
+}
+.choice-active-diagnostic {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0 0 20px;
+}

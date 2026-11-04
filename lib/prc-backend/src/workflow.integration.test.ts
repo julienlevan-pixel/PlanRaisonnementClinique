@@ -376,17 +376,27 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const hidden = await a.call('/participant/results');
     assert.equal(hidden.score, null);
     assert.equal(hidden.studentReview.comparisonVisible, false);
+    assert.equal(hidden.studentReview.choiceHistograms,undefined);
     assert.deepEqual(hidden.studentReview.corrections, []);
     await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[1].id }, 409);
     await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'comparison' });
     await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: 'invalid' }, 400);
     const comparison = (await a.call('/participant/results')).studentReview;
-    assert.equal(comparison.comparison.length, 5);
+    assert.equal(comparison.comparison.length, 3);
+    assert.ok(comparison.comparison.every((row:any)=>row.panelCount>0));
+    assert.deepEqual(comparison.choiceHistograms.main.map((row:any)=>row.diagnosticId),[item.diagnostics[0].id,item.diagnostics[2].id]);
+    assert.deepEqual(comparison.choiceHistograms.alternative.map((row:any)=>row.diagnosticId),[item.diagnostics[1].id]);
+    assert.ok([...comparison.choiceHistograms.main,...comparison.choiceHistograms.alternative].every((row:any)=>row.observations.length===0));
+    await owner.session.call(`/launches/${launch.id}/discussion`,'POST',{action:'diagnostic',diagnosticId:item.diagnostics[3].id},400);
     assert.equal(comparison.comparison[0].diagnosticId, item.diagnostics[1].id);
     assert.equal(comparison.comparison[0].panelPercent, 100);
     assert.equal(comparison.comparison[0].studentPercent, 50);
     assert.equal(comparison.comparison[0].studentTotal, 2);
     assert.deepEqual(comparison.corrections, []);
+    const privateChoices=await owner.session.call(`/launches/${launch.id}/choice-analysis`);
+    const unsupported=privateChoices.alternative.find((row:any)=>row.diagnosticId===item.diagnostics[3].id);
+    assert.equal(unsupported.count,1);assert.equal(unsupported.panelCount,0);
+
     await owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[1].id });
     const notChosen = await a.call('/participant/results');
     assert.equal(notChosen.studentReview.corrections.length, 1);
@@ -398,23 +408,30 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(chosen.observations.length, 20);
     const projection = await owner.session.call(`/launches/${launch.id}/projection`);
     assert.equal(projection.discussion.corrections.length, 1);
+    assert.equal(projection.discussion.choiceHistograms.alternative[0].observations.length,20);
+    assert.ok(projection.discussion.choiceHistograms.main.every((row:any)=>row.observations.length===0));
+    assert.deepEqual(projection.discussion.choiceHistograms,notChosen.studentReview.choiceHistograms);
     assert.equal(projection.discussion.corrections[0].score, undefined);
     assert.equal(projection.discussion.corrections[0].observations[0].studentSign, undefined);
     assert.equal(JSON.stringify(projection).includes('Private student'), false);
-    await Promise.all([0, 3].map(i => owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[i].id })));
+    await Promise.all([0, 2].map(i => owner.session.call(`/launches/${launch.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: item.diagnostics[i].id })));
     const stages = (await owner.session.call(`/launches/${launch.id}`)).reveals.correctedDiagnosticIds;
     assert.equal(new Set(stages).size, 3);
     const partial = await a.call('/participant/results');
     assert.equal(partial.score, null);
-    const zero = partial.studentReview.corrections.find((row: any) => row.diagnosticId === item.diagnostics[3].id);
-    assert.equal(zero.diagnosisScore, 0);
-    assert.equal(zero.justificationScore, 0);
-    assert.equal(zero.score, 0);
+    assert.equal(partial.studentReview.corrections.find((row:any)=>row.diagnosticId===item.diagnostics[3].id),undefined);
+    assert.equal(partial.response.alternativeDiagnosticId,item.diagnostics[3].id);
     assert.deepEqual(partial.components, {});
     await owner.session.call(`/launches/${launch.id}/publish`, 'POST', {});
     const published = await a.call('/participant/results');
     assert.equal(published.score, 10);
-    assert.equal(published.studentReview.corrections.length, 5);
+    assert.equal(published.studentReview.corrections.length, 3);
+    const finalCharts=await owner.session.call(`/launches/${launch.id}/choice-analysis`);
+    for(const role of ['main','alternative'])for(const row of published.studentReview.choiceHistograms[role])
+      assert.deepEqual(row,finalCharts[role].find((candidate:any)=>candidate.diagnosticId===row.diagnosticId));
+
+    assert.equal(published.components.alternativeDiagnosis,0);
+    assert.equal(published.components.alternativeJustification,0);
     assert.equal((await unsent.call('/participant/results')).score, null);
   });
 
@@ -438,6 +455,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     assert.equal(result.score, 10);
     assert.equal((await a.call('/participant/state')).published, true);
     assert.equal(result.studentReview.corrections.length, 2);
+    assert.equal(result.studentReview.choiceHistograms,undefined);
     assert.deepEqual(result.studentReview.comparison, []);
     assert.deepEqual(result.class, {});
     assert.deepEqual(result.panel, {});
@@ -870,7 +888,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await owner.session.call(`/launches/${sync.id}/discussion`, 'POST', { action: 'comparison' });
     const comparison = (await syncStudent.call('/participant/results')).studentReview;
     assert.equal(comparison.comparisonVisible, true);
-    assert.equal(comparison.comparison.length, 5);
+    assert.equal(comparison.comparison.length, 4);assert.ok(comparison.comparison.every((row:any)=>row.panelCount>0));
     await owner.session.call(`/launches/${sync.id}/discussion`, 'POST', { action: 'diagnostic', diagnosticId: document.diagnostics[0].id });
     assert.equal((await syncStudent.call('/participant/results')).studentReview.corrections.length, 1);
     const replacement = await owner.session.call(`/prcs/${first.prcId}/demo-session`, 'POST', { deliveryMode: 'synchronous' });

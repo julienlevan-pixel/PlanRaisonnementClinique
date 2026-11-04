@@ -1041,6 +1041,16 @@ export const StudentReviewDeliveryMode = {
 } as const;
 
 /**
+ * Histogrammes de séance anonymes. Impressions retenues par les experts seulement ; les observations restent absentes jusqu’à la révélation du corrigé correspondant. Jamais transmis pendant la réponse ou avant publication collective en asynchrone.
+ */
+export interface ReviewChoiceHistograms {
+  submittedCount: number;
+  panelTotal: number;
+  main: StudentDiagnosticChoices[];
+  alternative: StudentDiagnosticChoices[];
+}
+
+/**
  * @nullable
  */
 export type StudentReviewCorrectionsItemSelectedRole = typeof StudentReviewCorrectionsItemSelectedRole[keyof typeof StudentReviewCorrectionsItemSelectedRole] | null;
@@ -1136,6 +1146,7 @@ export interface StudentReview {
   grading?: GradingSummary;
   deliveryMode: StudentReviewDeliveryMode;
   comparisonVisible: boolean;
+  choiceHistograms?: ReviewChoiceHistograms;
   comparison: StudentReviewComparisonItem[];
   corrections: StudentReviewCorrectionsItem[];
   /** @nullable */

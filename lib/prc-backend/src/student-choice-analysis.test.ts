@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   studentChoiceAnalysis,
+  choiceAnalysisFromSnapshots,
   type ChoiceResponse,
 } from "./student-choice-analysis.js";
 import type { PanelDistribution } from "./scoring.js";
@@ -125,4 +126,41 @@ test("empty and unselected diagnoses retain case labels without fabricating clin
   assert.equal(data.main[2].count, 0);
   assert.equal(data.main[2].observations[0].count, 0);
   assert.equal(JSON.stringify(data).includes("score"), false);
+});
+
+test("live snapshot histograms and final submission histograms produce identical frequencies", () => {
+  const distribution = (
+    role: "main" | "alternative",
+    diagnosticId: string,
+    expertCount: number,
+    observationId: string,
+    positive: number,
+    negative: number,
+  ): PanelDistribution => ({
+    role,
+    diagnosticId,
+    expertCount,
+    ceiling: 0,
+    observations: [{ observationId, positive, negative, notSelected: 0 }],
+  });
+  const students = {
+    totalSubmissions: 4,
+    distributions: [
+      distribution("main", "a", 2, "o1", 1, 1),
+      distribution("main", "b", 2, "o1", 2, 0),
+      distribution("alternative", "a", 1, "o2", 0, 1),
+      distribution("alternative", "b", 1, "o2", 0, 1),
+      distribution("alternative", "c", 2, "o2", 0, 2),
+    ],
+  };
+  const experts = { totalSubmissions: 4, distributions: panel };
+  const report = studentChoiceAnalysis(
+    caseData,
+    [row(), row("b", "a"), row("a", "c", "-"), row("b", "c")],
+    experts,
+  );
+  assert.deepEqual(
+    choiceAnalysisFromSnapshots(caseData, students, experts),
+    report,
+  );
 });

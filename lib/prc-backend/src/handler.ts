@@ -3871,6 +3871,19 @@ async function handle(request: Request): Promise<Response> {
             409,
             "Affichez d’abord la comparaison des impressions cliniques.",
           );
+        const reference = await client.query<{ snapshot: PanelSnapshot }>(
+          "SELECT snapshot FROM prc_private.references WHERE id=$1",
+          [launch.reference_id],
+        );
+        if (
+          !reference.rows[0]?.snapshot.distributions.some(
+            (row) => row.diagnosticId === id && row.expertCount > 0,
+          )
+        )
+          fail(
+            400,
+            "Cette impression clinique n’a pas été retenue par les experts et ne possède pas de corrigé à présenter.",
+          );
         reveals.correctedDiagnosticIds = [
           ...new Set([...(reveals.correctedDiagnosticIds ?? []), id]),
         ];
