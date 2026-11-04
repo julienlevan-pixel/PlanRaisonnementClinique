@@ -3742,6 +3742,382 @@ export const CreateParticipantAccessTrialResponse = zod.object({
 
 
 /**
+ * Feuille privée du professeur. Requiert les droits de gestion sur toute la séance. Sans migration 007, installed vaut false.
+ */
+export const GetAttendanceParams = zod.object({
+  "scope": zod.enum(['teaching-sessions', 'launches']),
+  "scopeId": zod.coerce.string().uuid()
+})
+
+export const GetAttendanceResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})).optional(),
+  "summary": zod.object({
+  "unconfirmed": zod.number().int(),
+  "present": zod.number().int(),
+  "late": zod.number().int(),
+  "absent": zod.number().int(),
+  "excused": zod.number().int()
+}).optional()
+}))
+
+
+/**
+ * Active ou rouvre les confirmations. Le choix de recueillir le matricule peut être modifié avant la première ligne de la feuille.
+ */
+export const OpenAttendanceParams = zod.object({
+  "scope": zod.enum(['teaching-sessions', 'launches']),
+  "scopeId": zod.coerce.string().uuid()
+})
+
+export const openAttendanceBodyCollectStudentNumberDefault = false;
+
+export const OpenAttendanceBody = zod.object({
+  "collectStudentNumber": zod.boolean().default(openAttendanceBodyCollectStudentNumberDefault)
+})
+
+export const OpenAttendanceResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})).optional(),
+  "summary": zod.object({
+  "unconfirmed": zod.number().int(),
+  "present": zod.number().int(),
+  "late": zod.number().int(),
+  "absent": zod.number().int(),
+  "excused": zod.number().int()
+}).optional()
+}))
+
+
+/**
+ * Termine les confirmations sans fermer le questionnaire ni transformer les statuts à confirmer en absences.
+ */
+export const CloseAttendanceParams = zod.object({
+  "scope": zod.enum(['teaching-sessions', 'launches']),
+  "scopeId": zod.coerce.string().uuid()
+})
+
+export const CloseAttendanceResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})).optional(),
+  "summary": zod.object({
+  "unconfirmed": zod.number().int(),
+  "present": zod.number().int(),
+  "late": zod.number().int(),
+  "absent": zod.number().int(),
+  "excused": zod.number().int()
+}).optional()
+}))
+
+
+export const AddAttendanceRosterParams = zod.object({
+  "scope": zod.enum(['teaching-sessions', 'launches']),
+  "scopeId": zod.coerce.string().uuid()
+})
+
+export const addAttendanceRosterBodyRowsItemFullNameMax = 160;
+
+export const addAttendanceRosterBodyRowsItemStudentNumberMax = 80;
+
+export const addAttendanceRosterBodyRowsMax = 500;
+
+
+
+export const AddAttendanceRosterBody = zod.object({
+  "rows": zod.array(zod.object({
+  "fullName": zod.string().min(1).max(addAttendanceRosterBodyRowsItemFullNameMax),
+  "studentNumber": zod.string().max(addAttendanceRosterBodyRowsItemStudentNumberMax).nullish()
+})).min(1).max(addAttendanceRosterBodyRowsMax)
+})
+
+export const AddAttendanceRosterResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})).optional(),
+  "summary": zod.object({
+  "unconfirmed": zod.number().int(),
+  "present": zod.number().int(),
+  "late": zod.number().int(),
+  "absent": zod.number().int(),
+  "excused": zod.number().int()
+}).optional()
+}))
+
+
+/**
+ * Corrige explicitement un statut, y compris après la séance. Une révision périmée est refusée.
+ */
+export const MarkAttendanceParams = zod.object({
+  "scope": zod.enum(['teaching-sessions', 'launches']),
+  "scopeId": zod.coerce.string().uuid(),
+  "entryId": zod.coerce.string().uuid()
+})
+
+export const markAttendanceBodyExpectedRevisionMin = 0;
+
+
+
+export const MarkAttendanceBody = zod.object({
+  "expectedRevision": zod.number().int().min(markAttendanceBodyExpectedRevisionMin),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused'])
+})
+
+export const MarkAttendanceResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})).optional(),
+  "summary": zod.object({
+  "unconfirmed": zod.number().int(),
+  "present": zod.number().int(),
+  "late": zod.number().int(),
+  "absent": zod.number().int(),
+  "excused": zod.number().int()
+}).optional()
+}))
+
+
+/**
+ * Retire seulement une ligne attendue non liée à une participation.
+ */
+export const RemoveAttendanceRosterEntryParams = zod.object({
+  "scope": zod.enum(['teaching-sessions', 'launches']),
+  "scopeId": zod.coerce.string().uuid(),
+  "entryId": zod.coerce.string().uuid()
+})
+
+export const removeAttendanceRosterEntryBodyExpectedRevisionMin = 0;
+
+
+
+export const RemoveAttendanceRosterEntryBody = zod.object({
+  "expectedRevision": zod.number().int().min(removeAttendanceRosterEntryBodyExpectedRevisionMin)
+})
+
+export const RemoveAttendanceRosterEntryResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "entries": zod.array(zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+})).optional(),
+  "summary": zod.object({
+  "unconfirmed": zod.number().int(),
+  "present": zod.number().int(),
+  "late": zod.number().int(),
+  "absent": zod.number().int(),
+  "excused": zod.number().int()
+}).optional()
+}))
+
+
+/**
+ * Retourne exclusivement sa propre confirmation. Les identités et statuts d’autrui restent privés.
+ */
+export const GetOwnAttendanceResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "own": zod.union([zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+}),zod.null()]).optional()
+}))
+
+
+/**
+ * Confirmation unique par participation à la séance, indépendante des cas et du pointage. Une correction du professeur est conservée.
+ */
+export const confirmOwnAttendanceBodyFullNameMax = 160;
+
+export const confirmOwnAttendanceBodyStudentNumberMax = 80;
+
+
+
+export const ConfirmOwnAttendanceBody = zod.object({
+  "fullName": zod.string().min(1).max(confirmOwnAttendanceBodyFullNameMax),
+  "studentNumber": zod.string().max(confirmOwnAttendanceBodyStudentNumberMax).nullish()
+})
+
+export const ConfirmOwnAttendanceResponse = zod.object({
+  "installed": zod.boolean(),
+  "enabled": zod.boolean(),
+  "deliveryMode": zod.enum(['synchronous', 'asynchronous']).optional(),
+  "role": zod.enum(['panel', 'students']).optional(),
+  "sourceFinished": zod.boolean().optional(),
+  "register": zod.object({
+  "id": zod.string(),
+  "collectStudentNumber": zod.boolean(),
+  "openedAt": zod.coerce.date(),
+  "closedAt": zod.coerce.date().nullable(),
+  "open": zod.boolean()
+}).optional()
+}).and(zod.object({
+  "own": zod.union([zod.object({
+  "id": zod.string(),
+  "revision": zod.number().int(),
+  "fullName": zod.string(),
+  "studentNumber": zod.string().nullable(),
+  "status": zod.enum(['unconfirmed', 'present', 'late', 'absent', 'excused']),
+  "source": zod.enum(['roster', 'participant']),
+  "confirmedAt": zod.coerce.date().nullable(),
+  "teacherMarkedAt": zod.coerce.date().nullable(),
+  "updatedAt": zod.coerce.date(),
+  "canDelete": zod.boolean()
+}),zod.null()]).optional()
+}))
+
+
+/**
  * État de sa propre séance, sans copie d’autrui. Pour les séances pilotées, inclut le cas lorsque le professeur l’a présenté, l’étape courante et le nombre de personnes ayant rejoint.
  */
 

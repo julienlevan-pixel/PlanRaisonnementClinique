@@ -1,5 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { normalizeAccessCode } from "./access-code.js";
+import { AttendanceError, handleAttendance } from "./attendance.js";
 import { pool, type PoolClient } from "@workspace/db";
 import {
   clearLoginLimit,
@@ -2223,6 +2224,94 @@ async function handle(request: Request): Promise<Response> {
     fail(403, "La requête doit provenir de cette application.");
   }
 
+  // Resolve identities before taking a transaction client: a whole room can check in together.
+  const attendanceTeacher = path.startsWith("/api/attendance/")
+    ? await requireTeacher(request)
+    : undefined;
+  const attendanceParticipant =
+    path === "/api/participant/attendance"
+      ? await requireParticipant(request)
+      : undefined;
+  const attendanceResponse = await handleAttendance(request, {
+    teacher: async (scope, client) => {
+      const teacher = attendanceTeacher;
+      if (!teacher) fail(401, "Connexion enseignante requise.");
+      if (scope.kind === "teaching-sessions") {
+        const { session } = await lockTeaching(client, scope.id, teacher);
+        return {
+          scope,
+          teacherId: teacher.id,
+          role: session.role,
+          deliveryMode: session.delivery_mode ?? "synchronous",
+          finished: session.status === "finished",
+        };
+      }
+      const launch = (await lockManagedLaunch(client, scope.id, teacher.id))
+        .rows[0];
+      if (!launch) fail(404, "Collecte introuvable.");
+      if (launch.case_snapshot.teachingSession)
+        fail(
+          409,
+          "Les présences de ce cas se gèrent avec la feuille commune de sa séance.",
+        );
+      return {
+        scope,
+        teacherId: teacher.id,
+        role: launch.role,
+        deliveryMode:
+          launch.case_snapshot.studentWorkflow?.deliveryMode ??
+          launch.case_snapshot.sessionMode ??
+          "synchronous",
+        finished:
+          launch.role === "panel"
+            ? launch.status !== "open"
+            : launch.status === "published",
+      };
+    },
+    participant: async (client) => {
+      const participant = attendanceParticipant;
+      if (!participant) fail(401, "Rejoignez d’abord cette activité.");
+      if (participant.teachingSessionId) {
+        if (!participant.teachingMemberId)
+          fail(401, "Reprenez votre participation avec le code de la séance.");
+        const session = (
+          await client.query<TeachingSessionRow>(
+            "SELECT * FROM prc_private.teaching_sessions WHERE id=$1 FOR SHARE",
+            [participant.teachingSessionId],
+          )
+        ).rows[0];
+        if (!session) fail(404, "Séance introuvable.");
+        return {
+          scope: { kind: "teaching-sessions", id: session.id },
+          memberId: participant.teachingMemberId,
+          role: participant.role,
+          deliveryMode: session.delivery_mode ?? "synchronous",
+          finished: session.status === "finished",
+        };
+      }
+      const launch = (
+        await client.query<LaunchRow>(
+          "SELECT * FROM prc_private.launches WHERE id=$1 FOR SHARE",
+          [participant.launchId],
+        )
+      ).rows[0];
+      if (!launch) fail(404, "Collecte introuvable.");
+      return {
+        scope: { kind: "launches", id: launch.id },
+        participantId: participant.id,
+        role: participant.role,
+        deliveryMode:
+          launch.case_snapshot.studentWorkflow?.deliveryMode ??
+          launch.case_snapshot.sessionMode ??
+          "synchronous",
+        finished:
+          launch.role === "panel"
+            ? launch.status !== "open"
+            : launch.status === "published",
+      };
+    },
+  });
+  if (attendanceResponse) return attendanceResponse;
   const teachingResponse = await handleTeaching(request);
   if (teachingResponse) return teachingResponse;
 
@@ -4199,7 +4288,7 @@ export async function handleApiRequest(request: Request): Promise<Response> {
     );
     return await handle(normalized);
   } catch (error) {
-    if (error instanceof ApiError)
+    if (error instanceof ApiError || error instanceof AttendanceError)
       return send({ error: error.message }, error.status);
     const code =
       error && typeof error === "object" && "code" in error

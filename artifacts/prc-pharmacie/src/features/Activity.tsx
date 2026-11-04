@@ -11,6 +11,7 @@ import {
 import { Link, Redirect, useLocation, useParams } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { ShortJoinAddress, TestParticipantAccess } from "./ParticipantAccess";
+import { AttendanceManager } from "./Attendance";
 import {
   getGetCurrentUserQueryKey,
   useGetCurrentUser,
@@ -739,6 +740,14 @@ export function ActivityPage({
             )}
           </div>
         </section>
+      )}
+      {!embedded && (
+        <AttendanceManager
+          key={`attendance-${launchId}`}
+          kind="launches"
+          id={launchId}
+          name={name}
+        />
       )}
       {!embedded && !l.isTrial && (
         <TestParticipantAccess

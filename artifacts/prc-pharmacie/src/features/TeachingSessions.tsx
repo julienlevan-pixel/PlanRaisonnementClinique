@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation, useParams } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { ShortJoinAddress, TestParticipantAccess } from "./ParticipantAccess";
+import { AttendanceManager, ParticipantAttendance } from "./Attendance";
 import type { AppActions } from "../app/actions";
 import { api } from "../app/api";
 import { getError } from "../app/utils";
@@ -847,6 +848,12 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
             </section>
           )}
           <SessionCaseProgress session={s} />
+          <AttendanceManager
+            key={s.id}
+            kind="teaching-sessions"
+            id={s.id}
+            name={s.name}
+          />
           {current && (
             <TestParticipantAccess
               key={current.id}
@@ -1125,6 +1132,7 @@ export function TeachingParticipantBoundary({
       </header>
       {s.status === "finished" && query.data?.report ? (
         <main className="participant-result-content">
+          <ParticipantAttendance key={s.id} scopeKey={s.id} />
           <CumulativeReport role={s.role} report={query.data.report} own />
           {s.deliveryMode === "asynchronous" && !s.groupFinished && (
             <p>

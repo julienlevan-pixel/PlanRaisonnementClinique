@@ -102,6 +102,11 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await teacher.getByRole('button', { name: 'Faire répondre le panel', exact: true }).click();
       await expect(teacher).toHaveURL(/\/activity\/[0-9a-f-]+$/);
       panelPath = new URL(teacher.url()).pathname;
+      await teacher.getByRole('button',{name:'Prendre les présences',exact:true}).click();
+      const attendance=teacher.getByRole('dialog',{name:'Feuille de présence',exact:true});
+      await attendance.getByRole('button',{name:'Activer la prise de présences',exact:true}).click();
+      await expect(attendance).toContainText('Confirmations ouvertes');
+      await attendance.getByRole('button',{name:'Fermer',exact:true}).click();
       await teacher.getByLabel('Nom de l’invitation', { exact: true }).fill('Expert fictif navigateur');
       await teacher.getByRole('button', { name: 'Créer une invitation', exact: true }).click();
       const link = teacher.locator('.invitation-banner a');
@@ -110,6 +115,14 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       expect(new URL(invitationUrl, baseURL).origin).toBe(new URL(baseURL).origin);
       await expert.goto(invitationUrl);
       await answerAndSubmit(expert, 'Expert navigateur fictif', teacher);
+      const ownAttendance=expert.getByRole('region',{name:'Votre présence à la séance',exact:true});
+      await ownAttendance.getByLabel('Nom et prénom pour la feuille de présence',{exact:true}).fill('Expert présence fictive');
+      await ownAttendance.getByRole('button',{name:'Confirmer ma présence',exact:true}).click();
+      await expect(ownAttendance).toContainText('Expert présence fictive · Présent·e');
+      await expect(teacher.getByRole('button',{name:'Prendre les présences',exact:true})).toHaveCount(1);
+      await teacher.getByRole('button',{name:'Prendre les présences',exact:true}).click();
+      await expect(attendance).toContainText('Expert présence fictive');
+      await attendance.getByRole('button',{name:'Fermer',exact:true}).click();
       await expert.reload();
       await expect(expert.getByRole('heading', { name: 'Votre réponse définitive', exact: true })).toBeVisible();
       await expect(expert.locator('.expert-diagnostic')).toHaveCount(2);
@@ -164,7 +177,8 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await student.reload();
       await expect(student.getByRole('heading', { name: 'Votre résultat', exact: true })).toBeVisible();
       await expect(student.locator('.participant-score')).toContainText('100 %');
-      await expect(student.locator('.score-components > div')).toHaveCount(4);
+      await expect(student.locator('.score-components .score-impression')).toHaveCount(2);
+      await expect(student.locator('.score-components dl > div')).toHaveCount(4);
       await expect(student.getByRole('heading', { name: 'Explication du professeur', exact: true })).toBeVisible();
       const own = await (await student.request.get('/api/participant/results')).json();
       expect(own.score).toBe(15);
