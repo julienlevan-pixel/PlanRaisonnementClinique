@@ -14,6 +14,14 @@ import {
   Settings2,
   ShieldCheck,
   Brain,
+  Archive,
+  CheckCircle2,
+  Clock3,
+  Eye,
+  LockKeyhole,
+  Pencil,
+  PlayCircle,
+  Send,
 } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
@@ -109,13 +117,54 @@ export function SectionTitle({
     </div>
   );
 }
-export function Status({ value }: { value?: string | null }) {
+export function Status({
+  value,
+  phase,
+}: {
+  value?: string | null;
+  phase?: "lobby" | "case" | "answering";
+}) {
   const val = value || "brouillon";
+  const states = {
+    draft: { label: "Brouillon", tone: "neutral", icon: Pencil },
+    brouillon: { label: "Brouillon", tone: "neutral", icon: Pencil },
+    ready: { label: "Prêt", tone: "success", icon: CheckCircle2 },
+    open:
+      phase === "lobby"
+        ? { label: "En attente", tone: "waiting", icon: Clock3 }
+        : phase === "case"
+          ? { label: "Présentation", tone: "running", icon: Eye }
+          : { label: "Réponses ouvertes", tone: "running", icon: PlayCircle },
+    in_progress: { label: "En cours", tone: "running", icon: PlayCircle },
+    closed: { label: "Réponses fermées", tone: "neutral", icon: LockKeyhole },
+    revealed: { label: "Corrigé affiché", tone: "running", icon: Eye },
+    published: { label: "Terminé", tone: "success", icon: CheckCircle2 },
+    finished: { label: "Terminé", tone: "success", icon: CheckCircle2 },
+    validated: { label: "Validé", tone: "success", icon: CheckCircle2 },
+    submitted: { label: "Transmis", tone: "success", icon: Send },
+    archived: { label: "Archivé", tone: "neutral", icon: Archive },
+    active: { label: "Actif", tone: "success", icon: CheckCircle2 },
+    actif: { label: "Actif", tone: "success", icon: CheckCircle2 },
+    inactive: { label: "Inactif", tone: "neutral", icon: LockKeyhole },
+    disabled: { label: "Inactif", tone: "neutral", icon: LockKeyhole },
+    suspended: { label: "Suspendu", tone: "neutral", icon: LockKeyhole },
+    suspendu: { label: "Suspendu", tone: "neutral", icon: LockKeyhole },
+    pending: { label: "En attente", tone: "waiting", icon: Clock3 },
+    "à générer": { label: "À préparer", tone: "waiting", icon: Clock3 },
+  };
+  const state = states[val.toLowerCase() as keyof typeof states] ?? {
+    label: val.replaceAll("_", " "),
+    tone: "neutral",
+    icon: Clock3,
+  };
+  const Icon = state.icon;
   return (
     <span
       className={`status status-${val.toLowerCase().replace(/[^a-z]+/g, "-")}`}
+      data-tone={state.tone}
     >
-      {val.replaceAll("_", " ")}
+      <Icon size={15} aria-hidden="true" />
+      {state.label}
     </span>
   );
 }
@@ -181,18 +230,25 @@ export function Shell({
           <Link
             href="/"
             className={active("/") ? "nav-item selected" : "nav-item"}
-            aria-current={active('/') ? 'page' : undefined}
+            aria-current={active("/") ? "page" : undefined}
             onClick={() => setMobileOpen(false)}
           >
             <ClipboardList size={17} />
             Vue d’ensemble
           </Link>
-          <Link href="/seances" className={active("/seances") ? "nav-item selected" : "nav-item"} aria-current={active("/seances") ? "page" : undefined} onClick={() => setMobileOpen(false)}>
+          <Link
+            href="/seances"
+            className={active("/seances") ? "nav-item selected" : "nav-item"}
+            aria-current={active("/seances") ? "page" : undefined}
+            onClick={() => setMobileOpen(false)}
+          >
             <ClipboardList size={17} /> Mes séances
           </Link>
           <Link
             href="/prcs"
-            aria-current={active('/prcs') || active('/prc/') ? 'page' : undefined}
+            aria-current={
+              active("/prcs") || active("/prc/") ? "page" : undefined
+            }
             className={
               active("/prcs") || active("/prc/")
                 ? "nav-item selected"

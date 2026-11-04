@@ -525,6 +525,7 @@ export function Home({
                             <span>PRC archivé</span>
                           ) : (
                             <Btn
+                              kind="outline"
                               disabled={operation.isPending}
                               onClick={() =>
                                 operation.mutate({
@@ -538,6 +539,7 @@ export function Home({
                           )
                         ) : (
                           <Btn
+                            kind="outline"
                             disabled={operation.isPending}
                             onClick={() => next(prc)}
                           >

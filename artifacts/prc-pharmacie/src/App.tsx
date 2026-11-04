@@ -23,6 +23,7 @@ import NotFound from "@/pages/not-found";
 import { JoinEntry } from "./features/ParticipantAccess";
 import "./index.css";
 import "./participant-matrix.css";
+import "./app-design.css";
 function Router() {
   const actions = useActions();
   return (
