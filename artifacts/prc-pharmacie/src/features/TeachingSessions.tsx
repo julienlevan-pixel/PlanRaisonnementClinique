@@ -4,6 +4,7 @@ import { Link, useLocation, useParams } from "wouter";
 import { QRCodeSVG } from "qrcode.react";
 import { ShortJoinAddress, TestParticipantAccess } from "./ParticipantAccess";
 import { AttendanceManager, ParticipantAttendance } from "./Attendance";
+import { StudentChoiceAnalysis } from "./StudentChoiceAnalysis";
 import type { AppActions } from "../app/actions";
 import { api } from "../app/api";
 import { getError } from "../app/utils";
@@ -992,6 +993,13 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
                 />
               )}
             </>
+          )}
+          {s.role === "students" && (
+            <StudentChoiceAnalysis
+              key={`choices-${s.id}`}
+              cases={s.cases}
+              currentCaseId={current?.id}
+            />
           )}
         </>
       )}

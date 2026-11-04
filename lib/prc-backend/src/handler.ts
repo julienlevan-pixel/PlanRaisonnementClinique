@@ -34,6 +34,10 @@ import { deploymentDatabaseError } from "./deployment.js";
 import { buildStudentReview, type DeliveryMode } from "./student-review.js";
 import { gradeDistribution } from "./grade-distribution.js";
 import {
+  studentChoiceAnalysis,
+  type ChoiceResponse,
+} from "./student-choice-analysis.js";
+import {
   CUSTOM_SCORING_VERSION,
   defaultRubric,
   parseRubric,
@@ -4179,6 +4183,28 @@ async function handle(request: Request): Promise<Response> {
       [launchId],
     );
     return send(mapLaunch(result.rows[0], counts));
+  }
+
+  const choicesMatch = match(/^\/api\/launches\/([^/]+)\/choice-analysis$/);
+  if (choicesMatch && method === "GET") {
+    const { launch } = await requireOwner(request, segment(choicesMatch[1]));
+    if (launch.role !== "students")
+      fail(400, "Ce bilan concerne uniquement les groupes étudiants.");
+    const responses = await pool.query<ChoiceResponse>(
+      `SELECT r.state,r.main_diagnostic_id,r.alternative_diagnostic_id,r.main_choices,r.alternative_choices
+       FROM prc_private.participants p LEFT JOIN prc_private.responses r ON r.participant_id=p.id
+       WHERE p.launch_id=$1 AND p.role='students' ORDER BY lower(p.pseudonym),p.id`,
+      [launch.id],
+    );
+    const reference = await launchReference(launch);
+    return send({
+      ...studentChoiceAnalysis(
+        launch.case_snapshot,
+        responses.rows,
+        reference?.snapshot as PanelSnapshot | undefined,
+      ),
+      status: launch.status,
+    });
   }
 
   const resultsMatch = match(/^\/api\/launches\/([^/]+)\/results$/);

@@ -935,6 +935,55 @@ export interface WorkspaceSummary {
   recentLaunches: Launch[];
 }
 
+export interface StudentObservationChoices {
+  observationId: string;
+  label: string;
+  category: string;
+  positive: number;
+  negative: number;
+  notSelected: number;
+  positivePercent: number;
+  negativePercent: number;
+  panelPositive: number;
+  panelNegative: number;
+  panelPositivePercent: number;
+  panelNegativePercent: number;
+}
+
+export interface StudentDiagnosticChoices {
+  diagnosticId: string;
+  label: string;
+  mainCount: number;
+  alternativeCount: number;
+  totalCount: number;
+  mainPercent: number;
+  alternativePercent: number;
+  totalPercent: number;
+  panelCount: number;
+  panelPercent: number;
+  observations: StudentObservationChoices[];
+}
+
+export type StudentChoiceAnalysisStatus = typeof StudentChoiceAnalysisStatus[keyof typeof StudentChoiceAnalysisStatus];
+
+
+export const StudentChoiceAnalysisStatus = {
+  open: 'open',
+  closed: 'closed',
+  revealed: 'revealed',
+  published: 'published',
+} as const;
+
+export interface StudentChoiceAnalysis {
+  caseName: string;
+  status: StudentChoiceAnalysisStatus;
+  participantCount: number;
+  submittedCount: number;
+  excludedCount: number;
+  panelTotal: number;
+  diagnostics: StudentDiagnosticChoices[];
+}
+
 export interface ScoreComponent {
   diagnosis: number;
   justification: number;
