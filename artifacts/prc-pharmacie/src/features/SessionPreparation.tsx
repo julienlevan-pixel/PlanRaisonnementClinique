@@ -37,12 +37,8 @@ function Preview({ item, expert }: { item: PreparedCase; expert: boolean }) {
         <CasePreview
           key={`${item.id}-${item.version}`}
           data={item}
-          expertPoints={expert}
-          title={
-            expert
-              ? "Essayer le questionnaire expert"
-              : "Essayer le questionnaire étudiant"
-          }
+          initialRole={expert ? "panel" : "students"}
+          title="Essayer le questionnaire"
         />
       )}
     </details>

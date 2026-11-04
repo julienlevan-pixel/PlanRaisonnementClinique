@@ -114,7 +114,7 @@ test("the review shows actual case maxima and a local student preview before cre
     .locator(".preparation-cases>li")
     .first()
     .getByRole("region", {
-      name: "Essayer le questionnaire étudiant",
+      name: "Essayer le questionnaire",
       exact: true,
     });
   await preview
@@ -130,7 +130,7 @@ test("the review shows actual case maxima and a local student preview before cre
     .locator(".preparation-cases>li")
     .nth(1)
     .getByRole("region", {
-      name: "Essayer le questionnaire étudiant",
+      name: "Essayer le questionnaire",
       exact: true,
     });
   await other
@@ -295,9 +295,12 @@ test("expert preparation shows no student grade and lets the professor try the i
   ).toContainText("Sans note étudiante");
   await page.getByText("Aperçu expert · Toux", { exact: true }).click();
   const preview = page.getByRole("region", {
-    name: "Essayer le questionnaire expert",
+    name: "Essayer le questionnaire",
     exact: true,
   });
+  await expect(
+    preview.getByRole("button", { name: "Vue expert", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await preview.getByTestId("choice-main-positive-o0").click();
   await preview
     .getByRole("radiogroup", {
@@ -315,4 +318,19 @@ test("expert preparation shows no student grade and lets the professor try the i
       })
       .getByRole("radio", { name: /^3/ }),
   ).toHaveAttribute("aria-checked", "true");
+  await preview
+    .getByRole("button", { name: "Vue étudiant", exact: true })
+    .click();
+  await expect(preview.getByRole("radiogroup")).toHaveCount(0);
+  await expect(preview.getByTestId("choice-main-negative-o0")).toHaveAttribute(
+    "aria-pressed",
+    "false",
+  );
+  await preview
+    .getByRole("button", { name: "Vue expert", exact: true })
+    .click();
+  await expect(preview.getByRole("radio", { name: /^3/ })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  );
 });

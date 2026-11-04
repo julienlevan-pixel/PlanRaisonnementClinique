@@ -76,6 +76,34 @@
 .mobile-impression-switch {
   display: none;
 }
+.preview-role-switch {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 18px 0;
+}
+.preview-role-switch > span {
+  flex-basis: 100%;
+  font-weight: 600;
+}
+.preview-role-switch button {
+  border: 1px solid #a8c9b9;
+  border-radius: 6px;
+  padding: 10px 16px;
+  min-height: 44px;
+  color: #285c4b;
+  background: #fff;
+}
+.preview-role-switch button[aria-pressed="true"] {
+  background: #285c4b;
+  color: #fff;
+}
+.preview-role-switch button:focus-visible,
+.mobile-impression-switch button:focus-visible {
+  outline: 3px solid #83bda5;
+  outline-offset: 2px;
+}
 .importance-buttons {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -202,29 +230,45 @@
     background: #285c4b;
     font-weight: 600;
   }
-  .student-mobile-matrix[data-active-impression="main"]
+  .responsive-impression-matrix[data-active-impression="main"]
     [data-impression="alternative"],
-  .student-mobile-matrix[data-active-impression="alternative"]
+  .responsive-impression-matrix[data-active-impression="alternative"]
     [data-impression="main"] {
     display: none;
   }
-  .student-mobile-matrix .prc-response-table {
+  .responsive-impression-matrix .prc-response-table {
     min-width: 0;
   }
-  .student-mobile-matrix .prc-response-table thead th:first-child {
+  .responsive-impression-matrix .prc-response-table thead th:first-child {
     width: 52%;
   }
-  .student-mobile-matrix .prc-response-table thead th[data-impression] {
+  .responsive-impression-matrix .prc-response-table thead th[data-impression] {
     width: 48%;
   }
-  .student-mobile-matrix .prc-response-table th,
-  .student-mobile-matrix .prc-response-table td {
+  .responsive-impression-matrix .prc-response-table th,
+  .responsive-impression-matrix .prc-response-table td {
     padding: 10px 7px;
   }
-  .student-mobile-matrix .diagnostic-select select {
+  .responsive-impression-matrix .diagnostic-select select {
     min-width: 0;
     max-width: 100%;
     font-size: 14px;
+  }
+  .responsive-impression-matrix[data-expert] .importance-buttons {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .responsive-impression-matrix[data-expert] .importance-buttons button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-align: left;
+    padding: 8px;
+  }
+  .responsive-impression-matrix[data-expert] .importance-buttons b {
+    min-width: 12px;
+  }
+  .responsive-impression-matrix[data-expert] .importance-buttons small {
+    font-size: 12px;
   }
   .submission-review-copies {
     grid-template-columns: minmax(0, 1fr);
