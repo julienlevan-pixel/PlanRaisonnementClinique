@@ -32,6 +32,7 @@ import { dateLabel, getError } from "../app/utils";
 import "./activity.css";
 import { ProfessorJourney } from "./ProfessorJourney";
 import { GradeDistribution } from "./GradeDistribution";
+import { StudentChoiceAnalysis } from "./StudentChoiceAnalysis";
 import { RubricEditor } from "./RubricEditor";
 import {
   CasePresentation,
@@ -1051,6 +1052,12 @@ export function ActivityPage({
         <GradeDistribution
           data={results.data.gradeDistribution}
           preview={l.status !== "published"}
+        />
+      )}
+      {l.role === "students" && !embedded && (
+        <StudentChoiceAnalysis
+          key={`choices-${launchId}`}
+          cases={[{ id: launchId, name }]}
         />
       )}
       {!liveSession && publication}

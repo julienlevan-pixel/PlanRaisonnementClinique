@@ -141,6 +141,17 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       studentUrl = (await access.getAttribute('href'))!;
       await student.goto(studentUrl);
       await answerAndSubmit(student, 'Étudiant navigateur fictif', teacher);
+      const choices=teacher.locator('.choice-analysis');
+      await choices.locator('summary').first().click();
+      await expect(choices).toContainText('1 / 1');
+      await choices.getByRole('button',{name:'Voir les données pour Hypothèse navigateur A',exact:true}).click();
+      const clinical=choices.getByRole('region',{name:'Données cliniques pour Hypothèse navigateur A',exact:true});
+      await expect(clinical.locator('.choice-observation-list > li')).toHaveCount(20);
+      await expect(clinical.locator('li').first()).toContainText('+ 1/1 (100 %)');
+      await expect(choices).not.toContainText('Étudiant navigateur fictif');
+      const caseId=new URL(teacher.url()).pathname.split('/').pop();
+      expect((await student.request.get(`/api/launches/${caseId}/choice-analysis`)).status()).toBe(401);
+      await choices.locator('summary').first().click();
       await expect(student.getByRole('region',{name:'Votre présence à la séance',exact:true})).toContainText('Présence enregistrée');
       await teacher.getByRole('button',{name:'Voir les présences',exact:true}).click();
       const attendance=teacher.getByRole('dialog',{name:'Présences étudiantes',exact:true});

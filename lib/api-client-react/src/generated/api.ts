@@ -74,6 +74,7 @@ import type {
   RevealInput,
   RubricUpdateInput,
   SessionActionInput,
+  StudentChoiceAnalysis,
   Submission,
   SubmissionInput,
   Teacher,
@@ -4522,6 +4523,104 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getPublishResultsMutationOptions(options), queryClient);
     }
+
+export const getGetStudentChoiceAnalysisUrl = (launchId: string,) => {
+
+
+
+
+  return `/api/launches/${launchId}/choice-analysis`
+}
+
+/**
+ * Synthèse collective réservée au professeur autorisé. Copies définitives uniquement, sans noms ni réponses individuelles. Cas et panel figés de la collecte, disponible en synchrone et asynchrone.
+ */
+export const getStudentChoiceAnalysis = async (launchId: string, options?: Parameters<typeof customFetch>[1]): Promise<StudentChoiceAnalysis> => {
+
+  return customFetch<StudentChoiceAnalysis>(getGetStudentChoiceAnalysisUrl(launchId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStudentChoiceAnalysisQueryKey = (launchId: string,) => {
+    return [
+    `/api/launches/${launchId}/choice-analysis`
+    ] as const;
+    }
+
+
+export const getGetStudentChoiceAnalysisQueryOptions = <TData = Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError = ErrorType<unknown>>(launchId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStudentChoiceAnalysisQueryKey(launchId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>> = ({ signal }) => getStudentChoiceAnalysis(launchId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: launchId !== null && launchId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetStudentChoiceAnalysisQueryResult = NonNullable<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>>
+export type GetStudentChoiceAnalysisQueryError = ErrorType<unknown>
+
+
+export function useGetStudentChoiceAnalysis<TData = Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError = ErrorType<unknown>>(
+ launchId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStudentChoiceAnalysis>>,
+          TError,
+          Awaited<ReturnType<typeof getStudentChoiceAnalysis>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStudentChoiceAnalysis<TData = Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError = ErrorType<unknown>>(
+ launchId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStudentChoiceAnalysis>>,
+          TError,
+          Awaited<ReturnType<typeof getStudentChoiceAnalysis>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStudentChoiceAnalysis<TData = Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError = ErrorType<unknown>>(
+ launchId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetStudentChoiceAnalysis<TData = Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError = ErrorType<unknown>>(
+ launchId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudentChoiceAnalysis>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStudentChoiceAnalysisQueryOptions(launchId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetLaunchResultsUrl = (launchId: string,) => {
 

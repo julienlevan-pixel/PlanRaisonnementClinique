@@ -904,6 +904,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Launch"
+  /launches/{launchId}/choice-analysis:
+    get:
+      operationId: getStudentChoiceAnalysis
+      tags: [activities]
+      description: Synthèse collective réservée au professeur autorisé. Copies définitives uniquement, sans noms ni réponses individuelles. Cas et panel figés de la collecte, disponible en synchrone et asynchrone.
+      parameters:
+        - name: launchId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Choix agrégés du groupe pour ce cas.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StudentChoiceAnalysis" }
   /launches/{launchId}/results:
     get:
       operationId: getLaunchResults
@@ -1599,6 +1615,48 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Launch" }
       required: [prcCount, activeLaunchCount, participantCount, submissionCount, recentLaunches]
+    StudentObservationChoices:
+      type: object
+      properties:
+        observationId: { type: string }
+        label: { type: string }
+        category: { type: string }
+        positive: { type: integer }
+        negative: { type: integer }
+        notSelected: { type: integer }
+        positivePercent: { type: number }
+        negativePercent: { type: number }
+        panelPositive: { type: integer }
+        panelNegative: { type: integer }
+        panelPositivePercent: { type: number }
+        panelNegativePercent: { type: number }
+      required: [observationId, label, category, positive, negative, notSelected, positivePercent, negativePercent, panelPositive, panelNegative, panelPositivePercent, panelNegativePercent]
+    StudentDiagnosticChoices:
+      type: object
+      properties:
+        diagnosticId: { type: string }
+        label: { type: string }
+        mainCount: { type: integer }
+        alternativeCount: { type: integer }
+        totalCount: { type: integer }
+        mainPercent: { type: number }
+        alternativePercent: { type: number }
+        totalPercent: { type: number }
+        panelCount: { type: integer }
+        panelPercent: { type: number }
+        observations: { type: array, items: { $ref: "#/components/schemas/StudentObservationChoices" } }
+      required: [diagnosticId, label, mainCount, alternativeCount, totalCount, mainPercent, alternativePercent, totalPercent, panelCount, panelPercent, observations]
+    StudentChoiceAnalysis:
+      type: object
+      properties:
+        caseName: { type: string }
+        status: { type: string, enum: [open, closed, revealed, published] }
+        participantCount: { type: integer }
+        submittedCount: { type: integer }
+        excludedCount: { type: integer }
+        panelTotal: { type: integer }
+        diagnostics: { type: array, items: { $ref: "#/components/schemas/StudentDiagnosticChoices" } }
+      required: [caseName, status, participantCount, submittedCount, excludedCount, panelTotal, diagnostics]
     LaunchResults:
       type: object
       properties:
