@@ -52,7 +52,7 @@
 }
 .public-prc-home .public-join input {
   min-height: 48px;
-  background: white;
+  background: var(--palette-surface);
   font-size: 15px;
 }
 .public-prc-home .public-join button {
@@ -68,7 +68,7 @@
 .public-prc-home .public-demo-disclosure {
   border: 1px solid hsl(var(--border) / 0.8);
   border-radius: 12px;
-  background: white;
+  background: var(--palette-surface);
   overflow: hidden;
 }
 .public-demo-disclosure > summary {

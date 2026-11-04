@@ -77,11 +77,11 @@
 .distribution-bar {
   display: block;
   width: 75%;
-  background: #628c81;
+  background: var(--palette-chart-panel);
   border-radius: 5px 5px 0 0;
 }
 .distribution-own .distribution-bar {
-  background: #263f58;
+  background: var(--palette-ink);
 }
 .distribution-axis-label {
   font-size: 12px;
@@ -92,7 +92,7 @@
   font-size: 11px;
   margin: 5px auto 0;
   font-weight: 700;
-  color: #263f58;
+  color: var(--palette-ink);
 }
 .grade-distribution .distribution-personal {
   color: hsl(var(--foreground));

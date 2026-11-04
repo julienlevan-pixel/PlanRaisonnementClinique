@@ -15,7 +15,7 @@
 }
 .rubric-instructions {
   padding: 16px;
-  background: #eef7f3;
+  background: var(--palette-accent);
   border-radius: 8px;
   margin: 15px 0;
 }
@@ -87,7 +87,7 @@
 }
 .rubric-attainable {
   padding: 12px;
-  background: #fff8e8;
+  background: var(--palette-warning);
   border-radius: 6px;
 }
 .rubric-actions {

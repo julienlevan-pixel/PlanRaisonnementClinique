@@ -41,8 +41,8 @@
   flex-basis: 100%;
 }
 .session-countdown.elapsed {
-  color: #7b4b13;
-  background: #fff4dc;
+  color: var(--palette-warning-ink);
+  background: var(--palette-warning);
 }
 .session-waiting {
   padding: 28px;
@@ -117,8 +117,8 @@
   }
 }
 .synchronous-cockpit {
-  border-color: #bfd6cb;
-  background: #f7faf8;
+  border-color: var(--palette-border);
+  background: var(--palette-soft);
   line-height: 1.6;
 }
 .cockpit-stages {
@@ -134,17 +134,17 @@
   padding: 5px 10px;
   border: 1px solid #d9e3de;
   border-radius: 20px;
-  color: #60716a;
+  color: var(--palette-muted);
 }
 .cockpit-stages [aria-current] {
-  background: #285c4b;
+  background: var(--palette-action);
   color: #fff;
-  border-color: #285c4b;
+  border-color: var(--palette-action);
   font-weight: 700;
 }
 .cockpit-stages .completed {
-  color: #285c4b;
-  background: #e6f0ea;
+  color: var(--palette-action);
+  background: var(--palette-selected);
 }
 .cockpit-summary {
   display: grid;
@@ -155,7 +155,7 @@
   display: block;
   font-size: 11px;
   letter-spacing: 0.04em;
-  color: #52655e;
+  color: var(--palette-muted);
 }
 .cockpit-summary strong {
   display: block;
@@ -166,7 +166,7 @@
 .synchronous-cockpit progress {
   width: 100%;
   height: 10px;
-  accent-color: #3d7563;
+  accent-color: var(--palette-action);
   margin: 16px 0;
 }
 .cockpit-next {
@@ -198,18 +198,18 @@
   border: 0;
   border-radius: 6px;
   overflow: hidden;
-  background: #dfe7e3;
+  background: var(--palette-selected);
 }
 .synchronous-cockpit progress::-webkit-progress-bar {
-  background: #dfe7e3;
+  background: var(--palette-selected);
   border-radius: 6px;
 }
 .synchronous-cockpit progress::-webkit-progress-value {
-  background: #3d7563;
+  background: var(--palette-action);
   border-radius: 6px;
 }
 .synchronous-cockpit progress::-moz-progress-bar {
-  background: #3d7563;
+  background: var(--palette-action);
   border-radius: 6px;
 }
 .cockpit-case-label {
@@ -236,7 +236,7 @@
 .synchronous-cockpit .session-next {
   margin: 20px 0 0;
   padding: 20px;
-  background: #edf4f0;
+  background: var(--palette-accent);
 }
 .synchronous-cockpit .session-attendance {
   margin: 12px 0 20px;

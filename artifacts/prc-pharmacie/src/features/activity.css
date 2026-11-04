@@ -104,17 +104,17 @@
   display: flex;
   overflow: hidden;
   border-radius: 5px;
-  background: #edf0f3;
+  background: var(--palette-soft);
   min-width: 100px;
 }
 .direction-0 {
-  background: #28624e;
+  background: var(--palette-action);
 }
 .direction-1 {
-  background: #9a4f28;
+  background: var(--palette-danger-ink);
 }
 .direction-2 {
-  background: #a4adb6;
+  background: var(--palette-chart-neutral);
 }
 .direction-values {
   display: flex;
@@ -166,7 +166,7 @@
 }
 .reference-locked {
   font-weight: 600;
-  color: #28624e;
+  color: var(--palette-action);
 }
 .projection-page {
   max-width: 1450px;

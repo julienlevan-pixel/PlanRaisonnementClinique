@@ -118,13 +118,15 @@
   gap: 12px;
   flex-wrap: wrap;
   padding: 16px max(20px, calc((100vw - 1050px) / 2));
-  background: #223242;
-  color: #fff;
+  background: var(--palette-accent);
+  color: var(--palette-ink);
+  border-bottom: 1px solid var(--palette-border);
 }
 .teaching-projection-heading {
   padding: 24px clamp(20px, 4vw, 60px);
-  background: #223242;
-  color: #fff;
+  background: var(--palette-accent);
+  color: var(--palette-ink);
+  border-bottom: 1px solid var(--palette-border);
 }
 .teaching-projection-heading h1 {
   font-size: 28px;
@@ -185,7 +187,7 @@
 .session-review-link {
   display: block;
   margin-top: 6px;
-  color: #285c4b;
+  color: var(--palette-action);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 3px;

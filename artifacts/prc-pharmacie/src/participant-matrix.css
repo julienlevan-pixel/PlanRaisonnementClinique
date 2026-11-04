@@ -170,12 +170,12 @@
   font-weight: 700;
 }
 .prc-response-table .sign-choice.positive {
-  color: #176239;
-  background: #e7f5ec;
+  color: var(--palette-action);
+  background: var(--palette-accent);
 }
 .prc-response-table .sign-choice.negative {
-  color: #9a3225;
-  background: #fff0ed;
+  color: var(--palette-danger-ink);
+  background: var(--palette-danger);
 }
 .prc-response-table .sign-choice:focus-visible,
 .prc-response-table select:focus-visible {
