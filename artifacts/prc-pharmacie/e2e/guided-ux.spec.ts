@@ -231,7 +231,7 @@ test("the student opens an earlier case from the final report without touching t
     page.getByRole("article", { name: "Corrigé Asthme", exact: true }),
   ).toBeVisible();
   await page
-    .getByText("Revoir le scénario et les données cliniques", { exact: true })
+    .getByRole("button", { name: "Revoir le cas", exact: true })
     .click();
   await expect(
     page.getByRole("region", {
@@ -239,6 +239,10 @@ test("the student opens an earlier case from the final report without touching t
       exact: true,
     }),
   ).toContainText(document.scenario);
+  await page
+    .getByRole("dialog", { name: "Revoir le cas clinique", exact: true })
+    .getByRole("button", { name: "Fermer", exact: true })
+    .click();
   await expect(
     page.getByRole("link", { name: "Revoir ma copie", exact: true }),
   ).toHaveCount(0);

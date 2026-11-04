@@ -16,6 +16,11 @@ async function changeInitialPassword(page: Page, previous: string, next: string)
   await expect(page.getByText('Modification du mot de passe requise', { exact: true })).not.toBeVisible();
 }
 async function confirmClick(page: Page, name: string) {
+  if(name==='Vérifier et transmettre'){
+    await page.getByRole('button',{name,exact:true}).click();
+    await page.getByRole('dialog',{name:'Vérifier ma réponse avant transmission',exact:true}).getByRole('button',{name:'Transmettre définitivement',exact:true}).click();
+    return;
+  }
   page.once('dialog', dialog => dialog.accept());
   await page.getByRole('button', { name, exact: true }).click();
 }
@@ -41,7 +46,7 @@ async function answerAndSubmit(page: Page, pseudonym: string, teacher?: Page) {
   }
   await expect(page.locator('#participant-main-counter')).toContainText('5/5');
   await expect(page.locator('#participant-alternative-counter')).toContainText('5/5');
-  for (const selector of await page.getByRole('combobox', { name: /^Points impression clinique/ }).all()) await selector.selectOption('3');
+  for (const group of await page.getByRole('radiogroup', { name: /^Points impression clinique/ }).all()) await group.getByRole('radio',{name:/^3/}).click();
   await confirmClick(page, 'Vérifier et transmettre');
   await expect(page).toHaveURL(/\/participant\/results$/);
   await expect(page.getByText('Votre soumission définitive est enregistrée et verrouillée.', { exact: false })).toBeVisible();
@@ -270,7 +275,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
           await participant.getByRole('button', { name: /^Impression clinique : En faveur —/ }).nth(index).click();
           await participant.getByRole('button', { name: /^Impression clinique alternative : En défaveur —/ }).nth(index).click();
         }
-        await expect(participant.getByRole('combobox', { name: /^Points impression clinique/ })).toHaveCount(0);
+        await expect(participant.getByRole('radiogroup', { name: /^Points impression clinique/ })).toHaveCount(0);
         await confirmClick(participant, 'Vérifier et transmettre');
         await expect(participant).toHaveURL(/\/participant\/results$/);
       }
