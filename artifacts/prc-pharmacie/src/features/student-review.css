@@ -4,9 +4,9 @@
 .maximum-score-guide {
   margin: 22px 0;
   padding: 20px;
-  border: 1px solid #b2cfc5;
+  border: 1px solid var(--palette-border);
   border-radius: 8px;
-  background: #eef7f3;
+  background: var(--palette-accent);
 }
 .maximum-score-guide > div {
   display: flex;
@@ -35,7 +35,7 @@
 .review-table .review-best,
 .review-best {
   display: block;
-  color: #246348;
+  color: var(--palette-action);
   font-size: 12px;
   font-weight: 600;
   margin-top: 6px;
@@ -92,10 +92,10 @@
   height: 100%;
 }
 .review-bar.students span {
-  background: #416c9c;
+  background: var(--palette-chart-students);
 }
 .review-bar.experts span {
-  background: #34715f;
+  background: var(--palette-action);
 }
 .review-note {
   color: hsl(var(--muted-foreground));
@@ -127,8 +127,8 @@
 .hypothesis-score {
   padding: 10px 16px;
   border-radius: 8px;
-  background: #edf7f2;
-  color: #245846;
+  background: var(--palette-accent);
+  color: var(--palette-action);
   font-size: 23px;
   font-weight: bold;
 }
@@ -145,10 +145,10 @@
   margin-bottom: 7px;
 }
 .review-positive {
-  color: #245d47;
+  color: var(--palette-action);
 }
 .review-negative {
-  color: #8a4629;
+  color: var(--palette-danger-ink);
 }
 .review-own-choice {
   background: hsl(var(--primary) / 0.05);
@@ -164,12 +164,12 @@
 }
 .hypothesis-score-detail strong {
   width: 100%;
-  color: #245846;
+  color: var(--palette-action);
   font-size: 20px;
 }
 .review-zero {
   padding: 12px;
-  background: #fff4e8;
+  background: var(--palette-warning);
   border-left: 3px solid #b87936;
 }
 .review-wait {

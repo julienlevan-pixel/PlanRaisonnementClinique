@@ -1,8 +1,8 @@
 .professor-journey {
   padding: clamp(18px, 3vw, 28px);
   margin: 24px 0;
-  background: #edf4f0;
-  border: 1px solid #cadfd5;
+  background: var(--palette-accent);
+  border: 1px solid var(--palette-border);
   border-radius: 10px;
   line-height: 1.6;
 }
@@ -23,8 +23,8 @@
   min-width: 0;
 }
 .professor-journey li[aria-current] {
-  background: #fff;
-  box-shadow: 0 0 0 1px #3d7563;
+  background: var(--palette-surface);
+  box-shadow: 0 0 0 1px var(--palette-action);
 }
 .professor-journey li strong,
 .professor-journey li small {
@@ -32,7 +32,7 @@
   overflow-wrap: anywhere;
 }
 .professor-journey small {
-  color: #52655e;
+  color: var(--palette-muted);
   font-size: 13px;
 }
 .journey-number {
@@ -42,17 +42,17 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: #d5e5dd;
-  color: #285c4b;
+  background: var(--palette-selected);
+  color: var(--palette-action);
   font-size: 13px;
   font-weight: 700;
 }
 .professor-journey [aria-current] .journey-number {
-  background: #285c4b;
+  background: var(--palette-action);
   color: #fff;
 }
 .journey-next {
-  border-top: 1px solid #cadfd5;
+  border-top: 1px solid var(--palette-border);
   padding-top: 16px;
 }
 .journey-actions {

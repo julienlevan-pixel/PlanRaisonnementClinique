@@ -1,0 +1,102 @@
+/* One light palette for public, professor, expert and student screens. */
+:root {
+  color-scheme: light;
+  --background: 60 23% 97%;
+  --foreground: 211 31% 19%;
+  --card: 0 0% 100%;
+  --card-foreground: 211 31% 19%;
+  --border: 142 17% 85%;
+  --card-border: 142 17% 85%;
+  --input: 150 12% 52%;
+  --primary: 158 39% 26%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 140 18% 94%;
+  --secondary-foreground: 211 31% 19%;
+  --muted: 135 15% 96%;
+  --muted-foreground: 153 11% 35%;
+  --accent: 142 27% 94%;
+  --accent-foreground: 158 39% 26%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 211 31% 19%;
+  --popover-border: 142 17% 85%;
+  --ring: 158 39% 26%;
+  --destructive: 5 60% 37%;
+  --destructive-foreground: 0 0% 100%;
+  --sidebar: 142 25% 95%;
+  --sidebar-foreground: 211 31% 19%;
+  --sidebar-border: 142 17% 85%;
+  --sidebar-primary: 158 39% 26%;
+  --sidebar-primary-foreground: 0 0% 100%;
+  --sidebar-accent: 142 28% 89%;
+  --sidebar-accent-foreground: 158 39% 26%;
+  --sidebar-ring: 158 39% 26%;
+
+  --palette-page: hsl(var(--background));
+  --palette-surface: hsl(var(--card));
+  --palette-soft: hsl(var(--muted));
+  --palette-accent: hsl(var(--accent));
+  --palette-selected: hsl(var(--sidebar-accent));
+  --palette-ink: hsl(var(--foreground));
+  --palette-muted: hsl(var(--muted-foreground));
+  --palette-action: hsl(var(--primary));
+  --palette-action-hover: hsl(158 39% 22%);
+  --palette-on-action: hsl(var(--primary-foreground));
+  --palette-border: hsl(var(--border));
+  --palette-focus: #83bda5;
+  --palette-info: #edf3f7;
+  --palette-info-ink: #31546b;
+  --palette-warning: #fff3df;
+  --palette-warning-ink: #78531b;
+  --palette-danger: #fff0ed;
+  --palette-danger-hover: #ffe2de;
+  --palette-danger-ink: hsl(var(--destructive));
+  --palette-chart-students: #416c9c;
+  --palette-chart-panel: #628c81;
+  --palette-chart-neutral: #a4adb6;
+  --palette-overlay: rgb(34 50 66 / 0.28);
+}
+
+.sidebar {
+  border-right: 1px solid var(--palette-border);
+}
+.sidebar .side-label,
+.sidebar .side-note {
+  color: var(--palette-muted);
+}
+.sidebar .nav-item {
+  color: var(--palette-ink);
+}
+.sidebar .nav-item.selected {
+  color: var(--palette-action);
+}
+.sidebar .account-copy small {
+  opacity: 1;
+  color: var(--palette-muted);
+}
+.reasoning-description {
+  color: var(--palette-muted);
+}
+.reasoning-statement {
+  border-right: 1px solid var(--palette-border);
+}
+.auth-page {
+  background: radial-gradient(
+    ellipse at 50% 28%,
+    var(--palette-accent),
+    var(--palette-page) 60%
+  );
+}
+.participant-dialog::backdrop {
+  background: var(--palette-overlay);
+}
+.btn-primary:hover:not(:disabled),
+.public-join button:hover {
+  background: var(--palette-action-hover);
+}
+
+@media (max-width: 700px) {
+  .reasoning-statement {
+    border-right: 0;
+    border-bottom: 1px solid var(--palette-border);
+  }
+}

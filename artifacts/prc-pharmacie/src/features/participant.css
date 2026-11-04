@@ -12,8 +12,8 @@
 .participant-conflict,
 .participant-validation {
   border-color: #a76115;
-  background: #fff8e9;
-  color: #53320b;
+  background: var(--palette-warning);
+  color: var(--palette-warning-ink);
 }
 .participant-validation ul {
   padding-left: 20px;
@@ -43,11 +43,11 @@
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: #a86014;
+  background: var(--palette-warning-ink);
   flex-shrink: 0;
 }
 .network-dot.online {
-  background: #287348;
+  background: var(--palette-action);
 }
 .participant-result-content {
   max-width: 1050px;
