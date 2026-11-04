@@ -6,10 +6,9 @@
  * OpenAPI spec version: 1.0.0
  */
 import type { AttendanceEntry } from './attendanceEntry';
-import type { AttendanceSummary } from './attendanceSummary';
 import type { AttendanceView } from './attendanceView';
 
 export type AttendanceTeacherView = AttendanceView & {
-  entries?: AttendanceEntry[];
-  summary?: AttendanceSummary;
+  entries: AttendanceEntry[];
+  count: number;
 };

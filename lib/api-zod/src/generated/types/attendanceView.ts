@@ -5,15 +5,10 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { AttendanceRegister } from './attendanceRegister';
-import type { AttendanceViewDeliveryMode } from './attendanceViewDeliveryMode';
-import type { AttendanceViewRole } from './attendanceViewRole';
 
 export interface AttendanceView {
-  installed: boolean;
-  enabled: boolean;
-  deliveryMode?: AttendanceViewDeliveryMode;
-  role?: AttendanceViewRole;
-  sourceFinished?: boolean;
-  register?: AttendanceRegister;
+  available: boolean;
+  finished: boolean;
+  /** @nullable */
+  endedAt: Date | null;
 }

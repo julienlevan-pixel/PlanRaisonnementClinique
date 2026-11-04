@@ -848,12 +848,14 @@ export function TeachingSessionPage({ actions }: { actions: AppActions }) {
             </section>
           )}
           <SessionCaseProgress session={s} />
-          <AttendanceManager
-            key={s.id}
-            kind="teaching-sessions"
-            id={s.id}
-            name={s.name}
-          />
+          {s.role === "students" && s.deliveryMode !== "asynchronous" && (
+            <AttendanceManager
+              key={s.id}
+              kind="teaching-sessions"
+              id={s.id}
+              name={s.name}
+            />
+          )}
           {current && (
             <TestParticipantAccess
               key={current.id}
@@ -1132,7 +1134,13 @@ export function TeachingParticipantBoundary({
       </header>
       {s.status === "finished" && query.data?.report ? (
         <main className="participant-result-content">
-          <ParticipantAttendance key={s.id} scopeKey={s.id} />
+          <ParticipantAttendance
+            key={s.id}
+            scopeKey={s.id}
+            eligible={
+              s.role === "students" && s.deliveryMode !== "asynchronous"
+            }
+          />
           <CumulativeReport role={s.role} report={query.data.report} own />
           {s.deliveryMode === "asynchronous" && !s.groupFinished && (
             <p>

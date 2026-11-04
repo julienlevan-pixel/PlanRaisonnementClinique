@@ -9,5 +9,5 @@ import type { AttendanceEntry } from './attendanceEntry';
 import type { AttendanceView } from './attendanceView';
 
 export type AttendanceParticipantView = AttendanceView & ({
-  own?: AttendanceEntry | null;
+  own: AttendanceEntry | null;
 });

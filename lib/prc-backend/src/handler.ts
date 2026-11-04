@@ -1271,6 +1271,7 @@ type TeachingSessionRow = {
   delivery_mode?: "synchronous" | "asynchronous";
   archived_at: string | null;
   created_at: string;
+  finished_at: string | null;
 };
 
 async function teachingReady() {
@@ -2241,9 +2242,11 @@ async function handle(request: Request): Promise<Response> {
         return {
           scope,
           teacherId: teacher.id,
-          role: session.role,
-          deliveryMode: session.delivery_mode ?? "synchronous",
+          available:
+            session.role === "students" &&
+            session.delivery_mode !== "asynchronous",
           finished: session.status === "finished",
+          endedAt: session.finished_at ?? null,
         };
       }
       const launch = (await lockManagedLaunch(client, scope.id, teacher.id))
@@ -2257,15 +2260,17 @@ async function handle(request: Request): Promise<Response> {
       return {
         scope,
         teacherId: teacher.id,
-        role: launch.role,
-        deliveryMode:
-          launch.case_snapshot.studentWorkflow?.deliveryMode ??
-          launch.case_snapshot.sessionMode ??
-          "synchronous",
-        finished:
-          launch.role === "panel"
-            ? launch.status !== "open"
-            : launch.status === "published",
+        available:
+          launch.role === "students" &&
+          !launch.is_trial &&
+          (launch.case_snapshot.studentWorkflow?.deliveryMode ??
+            launch.case_snapshot.sessionMode ??
+            "synchronous") === "synchronous",
+        finished: launch.status !== "open",
+        endedAt:
+          launch.closed_at?.toISOString() ??
+          launch.published_at?.toISOString() ??
+          null,
       };
     },
     participant: async (client) => {
@@ -2284,9 +2289,11 @@ async function handle(request: Request): Promise<Response> {
         return {
           scope: { kind: "teaching-sessions", id: session.id },
           memberId: participant.teachingMemberId,
-          role: participant.role,
-          deliveryMode: session.delivery_mode ?? "synchronous",
+          available:
+            session.role === "students" &&
+            session.delivery_mode !== "asynchronous",
           finished: session.status === "finished",
+          endedAt: session.finished_at ?? null,
         };
       }
       const launch = (
@@ -2299,15 +2306,17 @@ async function handle(request: Request): Promise<Response> {
       return {
         scope: { kind: "launches", id: launch.id },
         participantId: participant.id,
-        role: participant.role,
-        deliveryMode:
-          launch.case_snapshot.studentWorkflow?.deliveryMode ??
-          launch.case_snapshot.sessionMode ??
-          "synchronous",
-        finished:
-          launch.role === "panel"
-            ? launch.status !== "open"
-            : launch.status === "published",
+        available:
+          launch.role === "students" &&
+          !launch.is_trial &&
+          (launch.case_snapshot.studentWorkflow?.deliveryMode ??
+            launch.case_snapshot.sessionMode ??
+            "synchronous") === "synchronous",
+        finished: launch.status !== "open",
+        endedAt:
+          launch.closed_at?.toISOString() ??
+          launch.published_at?.toISOString() ??
+          null,
       };
     },
   });

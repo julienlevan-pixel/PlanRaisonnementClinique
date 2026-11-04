@@ -5,21 +5,9 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-import type { AttendanceEntrySource } from './attendanceEntrySource';
-import type { AttendanceStatus } from './attendanceStatus';
 
 export interface AttendanceEntry {
   id: string;
-  revision: number;
   fullName: string;
-  /** @nullable */
-  studentNumber: string | null;
-  status: AttendanceStatus;
-  source: AttendanceEntrySource;
-  /** @nullable */
-  confirmedAt: Date | null;
-  /** @nullable */
-  teacherMarkedAt: Date | null;
-  updatedAt: Date;
-  canDelete: boolean;
+  joinedAt: Date;
 }

@@ -1038,97 +1038,10 @@ paths:
     get:
       operationId: getAttendance
       tags: [activities]
-      description: Feuille privée du professeur. Requiert les droits de gestion sur toute la séance. Sans migration 007, installed vaut false.
+      description: Liste privée des étudiants inscrits pendant la séance synchrone active. L’heure de première inscription est conservée. Requiert les droits de gestion sur toute la séance. Sans migration supplémentaire.
       responses:
         "200":
-          description: Feuille et effectifs de présence
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AttendanceTeacherView" }
-    post:
-      operationId: openAttendance
-      tags: [activities]
-      description: Active ou rouvre les confirmations. Le choix de recueillir le matricule peut être modifié avant la première ligne de la feuille.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AttendanceSetupInput" }
-      responses:
-        "200":
-          description: Feuille activée
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AttendanceTeacherView" }
-  /attendance/{scope}/{scopeId}/close:
-    parameters:
-      - { $ref: "#/components/parameters/AttendanceScope" }
-      - { $ref: "#/components/parameters/AttendanceScopeId" }
-    post:
-      operationId: closeAttendance
-      tags: [activities]
-      description: Termine les confirmations sans fermer le questionnaire ni transformer les statuts à confirmer en absences.
-      responses:
-        "200":
-          description: Feuille fermée aux confirmations participantes
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AttendanceTeacherView" }
-  /attendance/{scope}/{scopeId}/roster:
-    parameters:
-      - { $ref: "#/components/parameters/AttendanceScope" }
-      - { $ref: "#/components/parameters/AttendanceScopeId" }
-    post:
-      operationId: addAttendanceRoster
-      tags: [activities]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AttendanceRosterInput" }
-      responses:
-        "200":
-          description: Liste attendue ajoutée sans doublons
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AttendanceTeacherView" }
-  /attendance/{scope}/{scopeId}/entries/{entryId}:
-    parameters:
-      - { $ref: "#/components/parameters/AttendanceScope" }
-      - { $ref: "#/components/parameters/AttendanceScopeId" }
-      - { $ref: "#/components/parameters/AttendanceEntryId" }
-    post:
-      operationId: markAttendance
-      tags: [activities]
-      description: Corrige explicitement un statut, y compris après la séance. Une révision périmée est refusée.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AttendanceMarkInput" }
-      responses:
-        "200":
-          description: Statut corrigé par le professeur
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AttendanceTeacherView" }
-  /attendance/{scope}/{scopeId}/entries/{entryId}/delete:
-    parameters:
-      - { $ref: "#/components/parameters/AttendanceScope" }
-      - { $ref: "#/components/parameters/AttendanceScopeId" }
-      - { $ref: "#/components/parameters/AttendanceEntryId" }
-    post:
-      operationId: removeAttendanceRosterEntry
-      tags: [activities]
-      description: Retire seulement une ligne attendue non liée à une participation.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AttendanceRevisionInput" }
-      responses:
-        "200":
-          description: Ligne retirée
+          description: Présences automatiques, ou available false pour les autres publics et modalités.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AttendanceTeacherView" }
@@ -1138,61 +1051,14 @@ paths:
       tags: [participants]
       security:
         - participantSession: []
-      description: Retourne exclusivement sa propre confirmation. Les identités et statuts d’autrui restent privés.
+      description: Sa propre présence automatique, sans identité d’autrui. Aucune confirmation supplémentaire.
       responses:
         "200":
-          description: Sa confirmation dans la séance courante
+          description: Première inscription à la séance synchrone étudiante.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AttendanceParticipantView" }
-    post:
-      operationId: confirmOwnAttendance
-      tags: [participants]
-      security:
-        - participantSession: []
-      description: Confirmation unique par participation à la séance, indépendante des cas et du pointage. Une correction du professeur est conservée.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/AttendancePersonInput" }
-      responses:
-        "200":
-          description: Sa confirmation enregistrée
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/AttendanceParticipantView" }
-  /participant/state:
-    get:
-      operationId: getParticipantActivityState
-      tags: [participants]
-      security:
-        - participantSession: []
-      description: État de sa propre séance, sans copie d’autrui. Pour les séances pilotées, inclut le cas lorsque le professeur l’a présenté, l’étape courante et le nombre de personnes ayant rejoint.
-      responses:
-        "200":
-          description: État persistant du lancement et de sa propre copie
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ParticipantActivityState" }
-  /launches/{launchId}/projection:
-    get:
-      operationId: getLaunchProjection
-      tags: [activities]
-      description: >-
-        Vue authentifiée du propriétaire, filtrée par les étapes de révélation.
-        Ne contient ni identités de participants ni scores individuels.
-      parameters:
-        - in: path
-          name: launchId
-          required: true
-          schema: { type: string }
-      responses:
-        "200":
-          description: Cas et agrégats anonymes pour la projection
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Projection" }
+
 components:
   parameters:
     AttendanceScope:
@@ -1203,11 +1069,6 @@ components:
     AttendanceScopeId:
       in: path
       name: scopeId
-      required: true
-      schema: { type: string, format: uuid }
-    AttendanceEntryId:
-      in: path
-      name: entryId
       required: true
       schema: { type: string, format: uuid }
   securitySchemes:
@@ -1228,84 +1089,28 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/ErrorResponse" }
   schemas:
-    AttendanceStatus:
-      type: string
-      enum: [unconfirmed, present, late, absent, excused]
-    AttendancePersonInput:
-      type: object
-      properties:
-        fullName: { type: string, minLength: 1, maxLength: 160 }
-        studentNumber: { type: [string, "null"], maxLength: 80 }
-      required: [fullName]
-    AttendanceSetupInput:
-      type: object
-      properties:
-        collectStudentNumber: { type: boolean, default: false }
-    AttendanceRosterInput:
-      type: object
-      properties:
-        rows: { type: array, minItems: 1, maxItems: 500, items: { $ref: "#/components/schemas/AttendancePersonInput" } }
-      required: [rows]
-    AttendanceRevisionInput:
-      type: object
-      properties:
-        expectedRevision: { type: integer, minimum: 0 }
-      required: [expectedRevision]
-    AttendanceMarkInput:
-      type: object
-      properties:
-        expectedRevision: { type: integer, minimum: 0 }
-        status: { $ref: "#/components/schemas/AttendanceStatus" }
-      required: [expectedRevision, status]
     AttendanceEntry:
       type: object
       properties:
         id: { type: string }
-        revision: { type: integer }
         fullName: { type: string }
-        studentNumber: { type: [string, "null"] }
-        status: { $ref: "#/components/schemas/AttendanceStatus" }
-        source: { type: string, enum: [roster, participant] }
-        confirmedAt: { type: [string, "null"], format: date-time }
-        teacherMarkedAt: { type: [string, "null"], format: date-time }
-        updatedAt: { type: string, format: date-time }
-        canDelete: { type: boolean }
-      required: [id, revision, fullName, studentNumber, status, source, confirmedAt, teacherMarkedAt, updatedAt, canDelete]
-    AttendanceRegister:
-      type: object
-      properties:
-        id: { type: string }
-        collectStudentNumber: { type: boolean }
-        openedAt: { type: string, format: date-time }
-        closedAt: { type: [string, "null"], format: date-time }
-        open: { type: boolean }
-      required: [id, collectStudentNumber, openedAt, closedAt, open]
+        joinedAt: { type: string, format: date-time }
+      required: [id, fullName, joinedAt]
     AttendanceView:
       type: object
       properties:
-        installed: { type: boolean }
-        enabled: { type: boolean }
-        deliveryMode: { type: string, enum: [synchronous, asynchronous] }
-        role: { type: string, enum: [panel, students] }
-        sourceFinished: { type: boolean }
-        register: { $ref: "#/components/schemas/AttendanceRegister" }
-      required: [installed, enabled]
-    AttendanceSummary:
-      type: object
-      properties:
-        unconfirmed: { type: integer }
-        present: { type: integer }
-        late: { type: integer }
-        absent: { type: integer }
-        excused: { type: integer }
-      required: [unconfirmed, present, late, absent, excused]
+        available: { type: boolean }
+        finished: { type: boolean }
+        endedAt: { type: [string, "null"], format: date-time }
+      required: [available, finished, endedAt]
     AttendanceTeacherView:
       allOf:
         - $ref: "#/components/schemas/AttendanceView"
         - type: object
           properties:
             entries: { type: array, items: { $ref: "#/components/schemas/AttendanceEntry" } }
-            summary: { $ref: "#/components/schemas/AttendanceSummary" }
+            count: { type: integer }
+          required: [entries, count]
     AttendanceParticipantView:
       allOf:
         - $ref: "#/components/schemas/AttendanceView"
@@ -1315,6 +1120,7 @@ components:
               anyOf:
                 - $ref: "#/components/schemas/AttendanceEntry"
                 - type: "null"
+          required: [own]
     HealthStatus:
       type: object
       properties: { status: { type: string } }

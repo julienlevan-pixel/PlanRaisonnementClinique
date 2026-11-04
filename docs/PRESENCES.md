@@ -1,46 +1,33 @@
-# Prendre les présences
+# Présences des étudiants en séance synchrone
 
-La fonction utilise le même code ou QR que la séance et conserve la palette claire de l’application. Elle fonctionne pour les séances multi-cas, les collectes individuelles et les deux publics : étudiants ou panel expert.
+La liste est automatique et concerne uniquement les étudiants qui rejoignent une séance synchrone pendant qu’elle accepte les inscriptions. Le même QR ou code est utilisé ; aucun compte supplémentaire, matricule ou confirmation de présence n’est demandé.
+
+Le formulaire d’entrée demande **Votre nom et prénom** et explique que l’entrée pendant la séance enregistre la présence. Le nom de participation est utilisé pour la liste. Pour une séance déjà commencée avec des pseudonymes, les anciens noms saisis restent ceux affichés ; l’application ne peut pas deviner les noms réels.
 
 ## Pour le professeur
 
-1. Ouvrir la séance ou la collecte et choisir **Prendre les présences**.
-2. Activer la feuille. Pour les étudiants, le matricule peut être recueilli en plus du nom et du prénom. Ce choix reste modifiable avant la première ligne de la feuille.
-3. Facultativement, ouvrir **Ajouter une liste de personnes attendues** et coller une personne par ligne. Lorsque le matricule est activé, le séparer du nom par un point-virgule. Les doublons sont ignorés ; les zéros initiaux sont conservés.
-4. Suivre les déclarations et corriger un statut : **À confirmer**, **Présent·e**, **En retard**, **Absent·e** ou **Absence justifiée**. La recherche et le filtre facilitent le suivi d’un groupe. Une ligne attendue non liée à une participation peut être retirée.
-5. Choisir **Terminer les confirmations** lorsque souhaité. Cette commande ne ferme pas le questionnaire. Une personne encore « À confirmer » n’est pas automatiquement marquée absente. Les absences sont renseignées par le professeur, à partir de sa liste attendue.
-6. Télécharger **Exporter la feuille CSV**. L’export contient la liste complète, les statuts, les heures de confirmation et de correction, et la modalité. Les noms et matricules restent réservés aux personnes autorisées à gérer la séance.
+Choisir **Voir les présences** dans la séance ou la collecte étudiante synchrone. La liste présente les noms et l’heure de **première inscription**, avec recherche par nom. Elle se met à jour pendant son ouverture. Une séance multi-cas garde une seule ligne par identité de participation pour toute la séance.
 
-Le professeur peut rouvrir les confirmations avant la fin de la séance. Une séance terminée reste consultable et la feuille peut être corrigée manuellement. Les statuts modifiés sont datés et enregistrent l’auteur de la correction. Une révision périmée est refusée : le statut récent est présenté avant une nouvelle correction.
+**Exporter en Excel (.xls)** télécharge la liste complète, même si la recherche filtre l’écran. Le fichier est un véritable classeur binaire BIFF8, avec les colonnes séance, nom et prénom, date, heure d’inscription et fuseau horaire. Les noms restent des cellules texte et ne sont jamais interprétés comme des formules. L’heure affichée et exportée utilise le fuseau du navigateur du professeur, explicitement indiqué dans le fichier.
 
-## Pour les participants
+Il n’y a plus d’activation, de liste attendue, de statut de retard, de motif d’absence ou de correction manuelle. Les experts et les groupes asynchrones n’ont pas de feuille de présence.
 
-Après avoir rejoint par le code ou QR habituel, le participant voit **Votre présence**. Il renseigne son nom et prénom, ainsi que son matricule si demandé, puis choisit **Confirmer ma présence**. Son pseudonyme de questionnaire reste conservé.
+## Limites temporelles
 
-La confirmation est unique pour toute la séance : actualiser la page, reprendre son parcours ou changer de cas ne crée pas une seconde présence. Elle reste accessible pendant l’accueil, la réponse et la restitution. Une correction du professeur est présentée au participant et ne peut pas être annulée par une nouvelle déclaration.
+- Une séance multi-cas accepte des inscriptions tant que la séance est ouverte ; la fin d’un cas ne termine pas la séance entière.
+- Pour une collecte individuelle, la fermeture des accès aux réponses termine aussi les nouvelles inscriptions.
+- Une nouvelle inscription après la fin est refusée côté serveur, y compris si le formulaire était déjà ouvert avant la fermeture.
+- Les personnes déjà inscrites peuvent revenir à leur copie ou au bilan. Cette reprise ne crée aucune ligne et ne modifie pas l’heure initiale.
+- Un simple chargement de la page de code ne suffit pas : la présence apparaît après une entrée réussie dans la séance.
 
-En asynchrone, les libellés deviennent **Votre participation** et **Confirmer ma participation**. Il s’agit d’une participation déclarée, sans attestation de présence physique en classe. Dans tous les modes, le professeur peut vérifier les déclarations et corriger sa feuille.
+## Confidentialité et notes
 
-## Trois informations indépendantes
+La liste nominative est réservée aux professeurs autorisés à gérer la séance. Un étudiant reçoit uniquement sa propre présence ; aucun nom d’autrui n’est ajouté à la projection ou au corrigé collectif. Une inscription ne prouve pas une connexion continue et ne signifie pas qu’une réponse a été transmise. Les notes et les réponses restent indépendantes des présences.
 
-- **A rejoint** : une participation existe dans la séance.
-- **Présence ou participation enregistrée** : une déclaration ou un statut a été renseigné dans la feuille.
-- **Réponse transmise** : une copie définitive existe pour le cas.
+La reprise avec le même navigateur ou la même clé évite les doublons. Comme pour le questionnaire, une inscription dans un autre navigateur crée une autre identité de participation : le nom seul n’est pas une preuve d’identité et deux étudiants peuvent porter le même nom.
 
-Ces trois nombres peuvent différer. La prise de présences ne bloque pas les réponses, ne change pas leur statut et n’accorde ou ne retire aucun point. Sans liste attendue, le système ne peut pas énumérer les personnes qui n’ont jamais rejoint ; la liste permet au professeur de renseigner ces absences.
+## Installation
 
-## Installation Supabase
+**Aucune nouvelle migration Supabase n’est nécessaire.** L’heure d’inscription provient des données de participation déjà enregistrées par le serveur. Les anciennes tables de la migration 007 sont conservées sans suppression de leur historique, mais ne servent plus à cette liste automatique. L’ancien script UPGRADE_ATTENDANCE.sql n’est plus requis pour les présences automatiques.
 
-Après les migrations 001 à 006 déjà utilisées pour les séances, exécuter [UPGRADE_ATTENDANCE.sql](UPGRADE_ATTENDANCE.sql) dans Supabase SQL Editor. Le résultat attendu est `true` pour `feuilles_presences_installees` et `confirmations_installees`.
-
-Ce script ajoute uniquement les tables privées de présences et leur historique d’installation. Il peut être relancé. Pour une installation gérée par la ligne de commande, `pnpm db:migrate` applique automatiquement `007_attendance.sql`.
-
-Sans cette installation, le professeur reçoit une information de mise à jour dans la feuille et les parcours participants existants continuent de fonctionner. Aucune nouvelle variable d’environnement ni dépendance n’est nécessaire.
-
-## Contrôles d’accès et validation
-
-Les participants ne reçoivent que leur propre confirmation, jamais la liste attendue, les matricules ou les statuts d’autrui. Aucune identité de présence n’est ajoutée à la projection ou au corrigé collectif. Les droits de gestion sont revérifiés pour chaque accès, y compris sur tous les cas d’une séance partagée. Les rôles Supabase publics ne peuvent pas lire les tables privées.
-
-Les confirmations utilisent l’identité participante reconnue par le serveur et l’heure de la base de données. Les répétitions et les déclarations simultanées sont sérialisées pour éviter les doublons. L’authentification précède l’acquisition du client transactionnel pour permettre l’arrivée simultanée d’un groupe. Les imports de liste sont validés intégralement et insérés en lot.
-
-Les tests couvrent l’activation, les listes attendues, les confirmations répétées et concurrentes, les corrections et leurs révisions, la confidentialité, les révocations, les séances multi-cas asynchrones, la conservation du pointage, l’export CSV, l’affichage mobile et l’absence de migration. Le parcours navigateur sur PostgreSQL comprend également l’activation par le professeur et la confirmation d’un expert.
+L’export Excel est chargé uniquement lorsqu’on le demande. Les tests couvrent les inscriptions et reconnexions, les limites de fermeture, les arrivées simultanées, la confidentialité et les droits révoqués, les séances multi-cas, la conservation des notes, les formats horaires, l’export XLS et l’affichage mobile.

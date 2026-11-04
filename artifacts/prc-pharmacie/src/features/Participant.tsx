@@ -284,6 +284,10 @@ export function Join({ actions }: { actions: AppActions }) {
       </div>
     );
   const closed = info.data.status !== "open";
+  const automaticAttendance =
+    info.data.role === "students" &&
+    info.data.deliveryMode !== "asynchronous" &&
+    !info.data.isTrial;
   let savedJoinKey = joinKeys.current[code];
   try {
     savedJoinKey ||=
@@ -336,9 +340,11 @@ export function Join({ actions }: { actions: AppActions }) {
               </p>
             )}
             <p className="body-copy">
-              Aucun compte à créer. Indiquez votre nom ou pseudonyme. Pour
-              reprendre ensuite votre copie, utilisez ce même navigateur ; le
-              pseudonyme seul ne donne pas accès à une copie.
+              {automaticAttendance
+                ? "Indiquez votre nom et prénom : votre présence et l’heure d’inscription sont enregistrées automatiquement si la séance est active. La liste est réservée au professeur."
+                : "Aucun compte à créer. Indiquez votre nom ou pseudonyme."}{" "}
+              Pour reprendre ensuite votre copie, utilisez ce même navigateur ;
+              le nom seul ne donne pas accès à une copie.
             </p>
             {!closed && (
               <details className="join-instructions">
@@ -361,9 +367,13 @@ export function Join({ actions }: { actions: AppActions }) {
             )}
             <form onSubmit={submit}>
               <Input
-                label="Votre nom ou pseudonyme"
+                label={
+                  automaticAttendance
+                    ? "Votre nom et prénom"
+                    : "Votre nom ou pseudonyme"
+                }
                 maxLength={100}
-                autoComplete="nickname"
+                autoComplete={automaticAttendance ? "name" : "nickname"}
                 value={pseudonym}
                 onChange={(event) => setPseudonym(event.target.value)}
                 required
@@ -912,6 +922,11 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
           <ParticipantAttendance
             key={joinInfo.teachingSession?.id ?? joinInfo.launchId}
             scopeKey={joinInfo.teachingSession?.id ?? joinInfo.launchId}
+            eligible={
+              joinInfo.role === "students" &&
+              joinInfo.deliveryMode !== "asynchronous" &&
+              !joinInfo.isTrial
+            }
           />
           <ParticipantProgress
             expert={joinInfo.role === "panel"}
@@ -986,6 +1001,11 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         <ParticipantAttendance
           key={joinInfo.teachingSession?.id ?? joinInfo.launchId}
           scopeKey={joinInfo.teachingSession?.id ?? joinInfo.launchId}
+          eligible={
+            joinInfo.role === "students" &&
+            joinInfo.deliveryMode !== "asynchronous" &&
+            !joinInfo.isTrial
+          }
         />
         <ParticipantProgress
           expert={joinInfo.role === "panel"}
@@ -1683,6 +1703,11 @@ export function ParticipantResults({
           <ParticipantAttendance
             key={data.case.teachingSession?.id ?? data.case.launchId}
             scopeKey={data.case.teachingSession?.id ?? data.case.launchId}
+            eligible={
+              role === "students" &&
+              data.case.deliveryMode !== "asynchronous" &&
+              !data.case.isTrial
+            }
           />
         )}
         {!reviewing && (
