@@ -741,14 +741,17 @@ export function ActivityPage({
           </div>
         </section>
       )}
-      {!embedded && (
-        <AttendanceManager
-          key={`attendance-${launchId}`}
-          kind="launches"
-          id={launchId}
-          name={name}
-        />
-      )}
+      {!embedded &&
+        l.role === "students" &&
+        l.deliveryMode !== "asynchronous" &&
+        !l.isTrial && (
+          <AttendanceManager
+            key={`attendance-${launchId}`}
+            kind="launches"
+            id={launchId}
+            name={name}
+          />
+        )}
       {!embedded && !l.isTrial && (
         <TestParticipantAccess
           key={launchId}

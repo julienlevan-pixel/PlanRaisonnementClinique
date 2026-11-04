@@ -122,7 +122,7 @@ test("typed and QR access confirm the same session and never require a participa
   ).toHaveCount(0);
   await expect(page.getByLabel(/mot de passe/i)).toHaveCount(0);
   await page
-    .getByLabel("Votre nom ou pseudonyme", { exact: true })
+    .getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true })
     .fill("Julien");
   await page.screenshot({
     path: testInfo.outputPath("check-in-mobile.png"),
@@ -238,7 +238,7 @@ test("closed sessions explain their status and recognized participants resume wi
     page.getByRole("region", { name: "Votre participation reconnue" }),
   ).toContainText("Bon retour, Julien.");
   await expect(
-    page.getByLabel("Votre nom ou pseudonyme", { exact: true }),
+    page.getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "Reprendre mon parcours", exact: true }),

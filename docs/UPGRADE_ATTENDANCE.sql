@@ -1,4 +1,6 @@
--- Présences PRC : à exécuter dans Supabase SQL Editor après les migrations 001 à 006.
+-- Historique de la migration 007 : inutile pour la liste automatique des présences synchrones.
+-- Voir PRESENCES.md ; conservé uniquement pour les anciennes installations.
+-- Anciennes présences manuelles : script compatible avec les migrations 001 à 006.
 -- Ajoute uniquement des tables privées ; les comptes, cas, réponses et points sont conservés.
 BEGIN;
 SELECT pg_advisory_xact_lock(742619034);

@@ -1336,140 +1336,96 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await host.session.call(`/launches/${panelTrial.launchId}/reference/generate`,'POST',{minimumPanelSize:1},409);
   });
 
-  await t.test("attendance is private, explicit, repeat-safe and independent of expert submissions",async()=>{
-    const host=await newUser(), stranger=await newUser();
-    const item=await host.session.call('/prcs','POST',completeCase(),201);
-    const live=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel',sessionMode:'synchronous'},201);
+  await t.test("automatic attendance lists only synchronous students with immutable first registration time", async()=>{
+    const host=await newUser(), outsider=await newUser();
+    const item=await host.session.call('/prcs','POST',completeCase(),201);await createReference(host.session,item);
+    const live=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'synchronous',sessionMode:'synchronous'},201);
     const path=`/attendance/launches/${live.id}`;
-    await anonymous.call(path,'GET',undefined,401);
-    await stranger.session.call(path,'GET',undefined,404);
-    const first=new Session(),second=new Session(),third=new Session();
-    for(const [person,pseudonym] of [[first,'Pseudo A'],[second,'Pseudo B'],[third,'Pseudo C']] as const) await person.call(`/launches/${live.id}/join`,'POST',{pseudonym,code:live.code,joinKey:randomUUID()});
-    await first.call(path,'GET',undefined,401);
-    assert.equal((await first.call('/participant/attendance')).enabled,false);
-    await first.call('/participant/attendance','POST',{fullName:'Marie Tremblay'},409);
-    await host.session.call(path,'POST',{collectStudentNumber:false});
-    const roster={rows:[{fullName:'Marie Tremblay'},{fullName:'Alex Gagnon'},{fullName:'Absent attendu'},{fullName:'À confirmer encore'}]};
-    await host.session.call(path+'/roster','POST',roster);
-    assert.equal((await host.session.call(path+'/roster','POST',roster)).entries.length,4);
-    await first.call('/participant/attendance','POST',{fullName:'MARIE TREMBLAY',status:'excused',memberId:randomUUID()});
-    const confirmation=(await first.call('/participant/attendance')).own;
-    assert.equal(confirmation.status,'present');assert.equal(confirmation.fullName,'Marie Tremblay');assert.ok(confirmation.confirmedAt);
-    const repeated=await first.call('/participant/attendance','POST',{fullName:'Nom remplacé'});
-    assert.equal(repeated.own.id,confirmation.id);assert.equal(repeated.own.confirmedAt,confirmation.confirmedAt);
-    const privateView=await second.call('/participant/attendance');
-    assert.equal(privateView.own,null);assert.equal(privateView.entries,undefined);assert.equal(privateView.summary,undefined);assert.equal(JSON.stringify(privateView).includes('Marie Tremblay'),false);
-    await second.call('/participant/attendance','POST',{fullName:'Alex Gagnon'});
-    let sheet=await host.session.call(path);
-    const marie=sheet.entries.find((row:any)=>row.fullName==='Marie Tremblay');
-    sheet=await host.session.call(`${path}/entries/${marie.id}`,'POST',{status:'late',expectedRevision:marie.revision});
-    await host.session.call(`${path}/entries/${marie.id}`,'POST',{status:'absent',expectedRevision:marie.revision},409);
-    assert.equal((await first.call('/participant/attendance','POST',{fullName:'Marie Tremblay'})).own.status,'late');
-    const absent=sheet.entries.find((row:any)=>row.fullName==='Absent attendu');
-    await host.session.call(`${path}/entries/${absent.id}`,'POST',{status:'absent',expectedRevision:absent.revision});
-    await host.session.call(path+'/close','POST',{});
-    assert.equal((await host.session.call(path)).summary.unconfirmed,1);
-    await third.call('/participant/attendance','POST',{fullName:'Encore un nom'},409);
-    assert.equal((await host.session.call(`/launches/${live.id}`)).status,'open');
+    await anonymous.call(path,'GET',undefined,401);await outsider.session.call(path,'GET',undefined,404);
+    assert.equal((await host.session.call(path)).count,0);
+    const learner=new Session(), peer=new Session(), key=randomUUID();
+    const first=await learner.call(`/launches/${live.id}/join`,'POST',{pseudonym:'Marie Tremblay',code:live.code,joinKey:key});
+    await peer.call(`/launches/${live.id}/join`,'POST',{pseudonym:'Alex Gagnon',code:live.code,joinKey:randomUUID()});
+    const own=await learner.call('/participant/attendance');
+    assert.equal(own.available,true);assert.equal(own.own.fullName,'Marie Tremblay');assert.ok(Date.parse(own.own.joinedAt));
+    assert.equal(own.entries,undefined);assert.equal(own.count,undefined);assert.equal(JSON.stringify(own).includes('Alex Gagnon'),false);
+    const db=(await pool.query('SELECT created_at FROM prc_private.participants WHERE id=$1',[first.participantId])).rows[0];
+    assert.equal(own.own.joinedAt,new Date(db.created_at).toISOString());
+    const resume=new Session();await resume.call(`/launches/${live.id}/join`,'POST',{pseudonym:'Ne pas remplacer',code:live.code,joinKey:key});
+    assert.deepEqual((await resume.call('/participant/attendance')).own,own.own);
+    assert.equal((await host.session.call(path)).count,2);
+    await learner.call('/participant/attendance','POST',{fullName:'Autre nom'},405);
+    await host.session.call(path,'POST',{},405);
+    const sheet=await host.session.call(path);assert.equal(sheet.entries.length,2);assert.equal(sheet.finished,false);
+    assert.equal((await host.session.call(`/launches/${live.id}`)).submissionCount,0);
+    assert.equal(JSON.stringify(await host.session.call(`/launches/${live.id}/projection`)).includes('Marie Tremblay'),false);
+    await learner.call(path,'GET',undefined,401);
     await host.session.call(`/launches/${live.id}/session`,'POST',{action:'present'});
     await host.session.call(`/launches/${live.id}/session`,'POST',{action:'open'});
-    await save(third,answer(item));await third.call('/participant/submit','POST',{});
-    assert.equal((await third.call('/participant/response')).response.state,'submitted');
-    assert.equal((await first.call('/participant/response')).joinInfo.pseudonym,'Pseudo A');
-    const projection=await host.session.call(`/launches/${live.id}/projection`);
-    assert.equal(JSON.stringify(projection).includes('Marie Tremblay'),false);
-    assert.equal((await host.session.call(`/launches/${live.id}`)).submissionCount,1);
-    await host.session.call(path,'POST',{});
-    await third.call('/participant/attendance','POST',{fullName:'Troisième personne'});
-    assert.equal((await host.session.call(path)).entries.length,5);
-    const another=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},201);
-    const otherPath=`/attendance/launches/${another.id}`;
-    await host.session.call(otherPath,'POST',{});
-    await host.session.call(`${otherPath}/entries/${marie.id}`,'POST',{status:'present',expectedRevision:0},404);
-    const sqlClient=await pool.connect();
-    try {await sqlClient.query('SET ROLE anon');await assert.rejects(()=>sqlClient.query('SELECT * FROM prc_private.attendance_entries'));}finally{await sqlClient.query('RESET ROLE');sqlClient.release();}
+    await save(learner,answer(item));await learner.call('/participant/submit','POST',{});
+    assert.equal((await learner.call('/participant/response')).response.state,'submitted');
+    assert.equal((await host.session.call(path)).count,2);
+    await host.session.call(`/launches/${live.id}/close`,'POST',{});
+    const late=new Session();await late.call(`/launches/${live.id}/join`,'POST',{pseudonym:'Après la fin',code:live.code,joinKey:randomUUID()},409);
+    const after=new Session();await after.call(`/launches/${live.id}/join`,'POST',{pseudonym:'Reprise',code:live.code,joinKey:key});
+    assert.deepEqual((await after.call('/participant/attendance')).own,own.own);
+    const closed=await host.session.call(path);assert.equal(closed.finished,true);assert.equal(closed.count,2);assert.ok(closed.endedAt);
+    // Transaction timestamps can differ from lock acquisition order: accepted joins remain present.
+    await pool.query("UPDATE prc_private.launches SET closed_at=$1::timestamptz-interval '1 second' WHERE id=$2",[own.own.joinedAt,live.id]);
+    assert.equal((await host.session.call(path)).count,2);
   });
 
-  await t.test("one attendance follows asynchronous cases, protects student numbers and remains correctable after finishing",async()=>{
-    const host=await newUser(), items=[];
+  await t.test("one automatic attendance per multi-case synchronous session survives case changes and final closure",async()=>{
+    const host=await newUser(),items=[];
     for(let i=0;i<2;i++){const item=await host.session.call('/prcs','POST',completeCase(),201);await createReference(host.session,item);items.push(item);}
-    const lesson=await host.session.call('/teaching-sessions','POST',{name:'Présences multi-cas',role:'students',deliveryMode:'asynchronous',prcIds:items.map(item=>item.id)},201);
-    const path=`/attendance/teaching-sessions/${lesson.id}`;
-    let sheet=await host.session.call(path,'POST',{collectStudentNumber:true});
-    assert.equal((await host.session.call(path,'POST',{collectStudentNumber:false})).register.collectStudentNumber,false);
-    await host.session.call(path,'POST',{collectStudentNumber:true});
-    sheet=await host.session.call(path+'/roster','POST',{rows:[{fullName:'Marie Tremblay',studentNumber:'001234'},{fullName:'Personne attendue',studentNumber:'001235'}]});
-    await host.session.call(path,'POST',{collectStudentNumber:false},409);
-    const learner=new Session(),duplicate=new Session();
-    for(const person of [learner,duplicate])await person.call(`/teaching-sessions/${lesson.id}/join`,'POST',{pseudonym:'Pseudonyme étudiant',code:lesson.code,joinKey:randomUUID()});
-    await learner.call('/participant/attendance','POST',{fullName:'Marie Tremblay'},400);
-    const own=(await learner.call('/participant/attendance','POST',{fullName:'Marie Tremblay',studentNumber:'001234'})).own;
-    assert.equal(own.studentNumber,'001234');assert.equal(own.id,sheet.entries.find((r:any)=>r.studentNumber==='001234').id);
-    await duplicate.call('/participant/attendance','POST',{fullName:'Autre personne',studentNumber:'001234'},409);
-    assert.equal((await duplicate.call('/participant/attendance')).own,null);
+    const lesson=await host.session.call('/teaching-sessions','POST',{name:'Présences synchrones',role:'students',deliveryMode:'synchronous',prcIds:items.map(item=>item.id)},201);
+    const endpoint=`/teaching-sessions/${lesson.id}`,path=`/attendance/teaching-sessions/${lesson.id}`;
+    const learner=new Session(),key=randomUUID();await learner.call(endpoint+'/join','POST',{pseudonym:'Marie Tremblay',code:lesson.code,joinKey:key});
+    const own=(await learner.call('/participant/attendance')).own;
     for(let position=0;position<2;position++){
-      const context=(await learner.call('/participant/teaching-session')).session;
-      await save(learner,{...answer(items[position]),launchId:context.currentLaunchId});await learner.call('/participant/submit','POST',{launchId:context.currentLaunchId});
-      const result=await learner.call('/participant/results');assert.equal(result.score,13);assert.equal(result.case.grading.maximum,15);
-      assert.equal((await learner.call('/participant/attendance')).own.id,own.id);
-      await learner.call('/participant/teaching-session/next','POST',{launchId:context.currentLaunchId,expectedPosition:position});
+      const current=(await learner.call('/participant/teaching-session')).session.currentLaunchId;
+      assert.equal((await host.session.call(path)).count,1);assert.deepEqual((await learner.call('/participant/attendance')).own,own);
+      await host.session.call(`/launches/${current}/session`,'POST',{action:'present'});
+      await host.session.call(`/launches/${current}/session`,'POST',{action:'open'});
+      await save(learner,{...answer(items[position]),launchId:current});await learner.call('/participant/submit','POST',{launchId:current});
+      await host.session.call(`/launches/${current}/close`,'POST',{});await host.session.call(`/launches/${current}/publish`,'POST',{});
+      await host.session.call(endpoint+'/next','POST',{expectedPosition:position});
     }
-    assert.equal((await host.session.call(path)).summary.present,1);
-    await host.session.call(`/teaching-sessions/${lesson.id}/finish`,'POST',{});
-    assert.equal((await learner.call('/participant/attendance')).register.open,false);
-    await duplicate.call('/participant/attendance','POST',{fullName:'Personne attendue',studentNumber:'001235'},409);
-    sheet=await host.session.call(path);
-    const row=sheet.entries.find((entry:any)=>entry.id===own.id);
-    await host.session.call(`${path}/entries/${row.id}`,'POST',{status:'excused',expectedRevision:row.revision});
-    assert.equal((await learner.call('/participant/attendance')).own.status,'excused');
-    const report=(await learner.call('/participant/teaching-session')).report;
-    assert.equal(report.own.score,26);assert.equal(report.maximum,30);
-    assert.equal((await host.session.call(`/teaching-sessions/${lesson.id}`)).report.memberCount,2);
-    await host.session.call(path,'POST',{},409);
-    const outsider=await newUser();await outsider.session.call(path,'GET',undefined,404);
-    const upgrade=await readFile(new URL('../../../docs/UPGRADE_ATTENDANCE.sql',import.meta.url),'utf8');
-    await pool.query(upgrade);await pool.query(upgrade);
-    assert.equal((await host.session.call(path)).entries.length,2);
+    assert.equal((await host.session.call(path)).finished,true);
+    const newcomer=new Session();await newcomer.call(endpoint+'/join','POST',{pseudonym:'Trop tard',code:lesson.code,joinKey:randomUUID()},409);
+    const resume=new Session();await resume.call(endpoint+'/join','POST',{pseudonym:'Autre nom',code:lesson.code,joinKey:key});
+    assert.deepEqual((await resume.call('/participant/attendance')).own,own);assert.equal((await host.session.call(path)).count,1);
+    const report=(await learner.call('/participant/teaching-session')).report;assert.equal(report.own.score,26);assert.equal(report.maximum,30);
   });
 
-  await t.test("attendance bulk imports are atomic and missing installation never blocks existing participants",async()=>{
-    const host=await newUser();const item=await host.session.call('/prcs','POST',completeCase(),201);
-    const launch=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},201);
-    const path=`/attendance/launches/${launch.id}`;
-    await host.session.call(path,'POST',{});
-    const rows=Array.from({length:500},(_,i)=>({fullName:`Personne attendue ${i}`}));
-    assert.equal((await host.session.call(path+'/roster','POST',{rows})).entries.length,500);
-    await host.session.call(path+'/roster','POST',{rows:[{fullName:'Ne doit pas rester'},{fullName:''}]},400);
-    assert.equal((await host.session.call(path)).entries.length,500);
-    await host.session.call(path+'/roster','POST',{rows:[...rows,{fullName:'501e'}]},400);
-    const learner=new Session();await learner.call(`/launches/${launch.id}/join`,'POST',{pseudonym:'Participant',code:launch.code,joinKey:randomUUID()});
-    await pool.query('ALTER TABLE prc_private.attendance_registers RENAME TO attendance_registers_pending');
-    try {
-      assert.equal((await learner.call('/participant/attendance')).installed,false);
-      assert.equal((await host.session.call(path)).installed,false);
-      await host.session.call(path,'POST',{},503);
-      assert.equal((await learner.call('/participant/response')).response.state,'draft');
-    } finally {await pool.query('ALTER TABLE prc_private.attendance_registers_pending RENAME TO attendance_registers');}
+  await t.test("attendance is unavailable for asynchronous students and experts, and needs no attendance migration",async()=>{
+    const host=await newUser();const item=await host.session.call('/prcs','POST',completeCase(),201);await createReference(host.session,item);
+    for(const options of [{role:'panel',sessionMode:'synchronous'},{role:'students',deliveryMode:'asynchronous'}]){
+      const launch=await host.session.call(`/prcs/${item.id}/launches`,'POST',options,201);
+      const person=new Session();await person.call(`/launches/${launch.id}/join`,'POST',{pseudonym:'Participant',code:launch.code,joinKey:randomUUID()});
+      const view=await host.session.call(`/attendance/launches/${launch.id}`);assert.equal(view.available,false);assert.deepEqual(view.entries,[]);
+      assert.equal((await person.call('/participant/attendance')).available,false);assert.equal((await person.call('/participant/attendance')).own,null);
+    }
+    const lesson=await host.session.call('/teaching-sessions','POST',{name:'Autonomie',role:'students',deliveryMode:'asynchronous',prcIds:[item.id]},201);
+    assert.equal((await host.session.call(`/attendance/teaching-sessions/${lesson.id}`)).available,false);
+    const launch=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'synchronous'},201);
+    await pool.query('ALTER TABLE prc_private.attendance_registers RENAME TO attendance_registers_legacy');
+    try {assert.equal((await host.session.call(`/attendance/launches/${launch.id}`)).available,true);}finally{await pool.query('ALTER TABLE prc_private.attendance_registers_legacy RENAME TO attendance_registers');}
   });
 
-  await t.test("simultaneous attendance does not exhaust the connection pool and revoked managers lose the sheet",{timeout:10000},async()=>{
-    const host=await newUser(),colleague=await newUser();
-    const item=await host.session.call('/prcs','POST',completeCase(),201);
-    const launch=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'panel'},201);
-    const path=`/attendance/launches/${launch.id}`;
-    await host.session.call(path,'POST',{});
+  await t.test("simultaneous registration counts each student once, excludes post-closure arrivals and revokes private access",{timeout:10000},async()=>{
+    const host=await newUser(),colleague=await newUser();const item=await host.session.call('/prcs','POST',completeCase(),201);await createReference(host.session,item);
+    const launch=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'synchronous'},201),path=`/attendance/launches/${launch.id}`;
     const people=Array.from({length:20},()=>new Session());
-    await Promise.all(people.map((person,i)=>person.call(`/launches/${launch.id}/join`,'POST',{pseudonym:`Participant ${i}`,code:launch.code,joinKey:randomUUID()})));
-    const all=await Promise.all(people.map((person,i)=>person.call('/participant/attendance','POST',{fullName:`Personne ${i}`})));
-    assert.equal(new Set(all.map(value=>value.own.id)).size,20);
-    assert.equal((await host.session.call(path)).summary.present,20);
-    await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:true});
-    assert.equal((await colleague.session.call(path)).entries.length,20);
-    await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:false});
-    await colleague.session.call(path,'GET',undefined,404);
-    await colleague.session.call(path+'/close','POST',{},404);
-    const result=await host.session.call(`/launches/${launch.id}`);
-    assert.equal(result.submissionCount,0);assert.equal(result.participantCount,20);
+    await Promise.all(people.map((person,i)=>person.call(`/launches/${launch.id}/join`,'POST',{pseudonym:`Étudiant ${i}`,code:launch.code,joinKey:randomUUID()})));
+    assert.equal((await host.session.call(path)).count,20);
+    await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:true});assert.equal((await colleague.session.call(path)).count,20);
+    await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:false});await colleague.session.call(path,'GET',undefined,404);
+    const racing=new Session();
+    const [joined]=await Promise.all([racing.call(`/launches/${launch.id}/join`,'POST',{pseudonym:'Arrivée concurrente',code:launch.code,joinKey:randomUUID()},[200,409]),host.session.call(`/launches/${launch.id}/close`,'POST',{})]);
+    const after=await host.session.call(path);assert.equal(after.count,joined.participantId?21:20);
+    const late=new Session();await late.call(`/launches/${launch.id}/join`,'POST',{pseudonym:'Après fermeture',code:launch.code,joinKey:randomUUID()},409);
+    assert.equal((await host.session.call(path)).count,after.count);assert.equal((await host.session.call(`/launches/${launch.id}`)).submissionCount,0);
   });
 
 });

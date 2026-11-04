@@ -5,126 +5,26 @@
  * API de PRC Pharmacie
  * OpenAPI spec version: 1.0.0
  */
-export type AttendanceStatus = typeof AttendanceStatus[keyof typeof AttendanceStatus];
-
-
-export const AttendanceStatus = {
-  unconfirmed: 'unconfirmed',
-  present: 'present',
-  late: 'late',
-  absent: 'absent',
-  excused: 'excused',
-} as const;
-
-export interface AttendancePersonInput {
-  /**
-     * @minLength 1
-     * @maxLength 160
-     */
-  fullName: string;
-  /**
-     * @maxLength 80
-     * @nullable
-     */
-  studentNumber?: string | null;
-}
-
-export interface AttendanceSetupInput {
-  collectStudentNumber?: boolean;
-}
-
-export interface AttendanceRosterInput {
-  /**
-     * @minItems 1
-     * @maxItems 500
-     */
-  rows: AttendancePersonInput[];
-}
-
-export interface AttendanceRevisionInput {
-  /** @minimum 0 */
-  expectedRevision: number;
-}
-
-export interface AttendanceMarkInput {
-  /** @minimum 0 */
-  expectedRevision: number;
-  status: AttendanceStatus;
-}
-
-export type AttendanceEntrySource = typeof AttendanceEntrySource[keyof typeof AttendanceEntrySource];
-
-
-export const AttendanceEntrySource = {
-  roster: 'roster',
-  participant: 'participant',
-} as const;
-
 export interface AttendanceEntry {
   id: string;
-  revision: number;
   fullName: string;
-  /** @nullable */
-  studentNumber: string | null;
-  status: AttendanceStatus;
-  source: AttendanceEntrySource;
-  /** @nullable */
-  confirmedAt: string | null;
-  /** @nullable */
-  teacherMarkedAt: string | null;
-  updatedAt: string;
-  canDelete: boolean;
+  joinedAt: string;
 }
-
-export interface AttendanceRegister {
-  id: string;
-  collectStudentNumber: boolean;
-  openedAt: string;
-  /** @nullable */
-  closedAt: string | null;
-  open: boolean;
-}
-
-export type AttendanceViewDeliveryMode = typeof AttendanceViewDeliveryMode[keyof typeof AttendanceViewDeliveryMode];
-
-
-export const AttendanceViewDeliveryMode = {
-  synchronous: 'synchronous',
-  asynchronous: 'asynchronous',
-} as const;
-
-export type AttendanceViewRole = typeof AttendanceViewRole[keyof typeof AttendanceViewRole];
-
-
-export const AttendanceViewRole = {
-  panel: 'panel',
-  students: 'students',
-} as const;
 
 export interface AttendanceView {
-  installed: boolean;
-  enabled: boolean;
-  deliveryMode?: AttendanceViewDeliveryMode;
-  role?: AttendanceViewRole;
-  sourceFinished?: boolean;
-  register?: AttendanceRegister;
-}
-
-export interface AttendanceSummary {
-  unconfirmed: number;
-  present: number;
-  late: number;
-  absent: number;
-  excused: number;
+  available: boolean;
+  finished: boolean;
+  /** @nullable */
+  endedAt: string | null;
 }
 
 export type AttendanceTeacherView = AttendanceView & {
-  entries?: AttendanceEntry[];
-  summary?: AttendanceSummary;
+  entries: AttendanceEntry[];
+  count: number;
 };
 
 export type AttendanceParticipantView = AttendanceView & ({
-  own?: AttendanceEntry | null;
+  own: AttendanceEntry | null;
 });
 
 export interface HealthStatus {

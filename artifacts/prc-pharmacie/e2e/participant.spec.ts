@@ -76,7 +76,7 @@ for (const invitation of [false, true]) {
       page.getByText("Aucun compte à créer.", { exact: false }),
     ).toBeVisible();
     await page
-      .getByLabel("Votre nom ou pseudonyme", { exact: true })
+      .getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true })
       .fill("Expert test");
     await page.getByRole("button", { name: "Rejoindre la séance" }).click();
     await expect(page).toHaveURL("/participant");
@@ -583,13 +583,13 @@ test("reuses the private join retry key after a lost response and reload", async
   );
   await page.goto("/join/RETRY");
   await page
-    .getByLabel("Votre nom ou pseudonyme", { exact: true })
+    .getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true })
     .fill("Étudiant test");
   await page.getByRole("button", { name: "Rejoindre la séance" }).click();
   await expect(page.getByRole("alert")).toContainText("Réponse interrompue");
   await page.reload();
   await page
-    .getByLabel("Votre nom ou pseudonyme", { exact: true })
+    .getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true })
     .fill("Étudiant test");
   await page.getByRole("button", { name: "Rejoindre la séance" }).click();
   await expect(page).toHaveURL("/participant");
@@ -683,7 +683,7 @@ test("can resume a closed activity with its existing private join key", async ({
   );
   await page.goto("/join/CLOSED");
   await page
-    .getByLabel("Votre nom ou pseudonyme", { exact: true })
+    .getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true })
     .fill("Copie existante");
   await page
     .getByRole("button", { name: "Reprendre ma copie", exact: true })

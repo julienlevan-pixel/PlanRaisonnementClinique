@@ -25,7 +25,7 @@ async function confirmClick(page: Page, name: string) {
   await page.getByRole('button', { name, exact: true }).click();
 }
 async function answerAndSubmit(page: Page, pseudonym: string, teacher?: Page) {
-  await page.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(pseudonym);
+  await page.getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true }).fill(pseudonym);
   await page.getByRole('button', { name: 'Rejoindre la séance', exact: true }).click();
   await expect(page).toHaveURL(/\/participant$/);
   if (teacher) {
@@ -102,11 +102,6 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await teacher.getByRole('button', { name: 'Faire répondre le panel', exact: true }).click();
       await expect(teacher).toHaveURL(/\/activity\/[0-9a-f-]+$/);
       panelPath = new URL(teacher.url()).pathname;
-      await teacher.getByRole('button',{name:'Prendre les présences',exact:true}).click();
-      const attendance=teacher.getByRole('dialog',{name:'Feuille de présence',exact:true});
-      await attendance.getByRole('button',{name:'Activer la prise de présences',exact:true}).click();
-      await expect(attendance).toContainText('Confirmations ouvertes');
-      await attendance.getByRole('button',{name:'Fermer',exact:true}).click();
       await teacher.getByLabel('Nom de l’invitation', { exact: true }).fill('Expert fictif navigateur');
       await teacher.getByRole('button', { name: 'Créer une invitation', exact: true }).click();
       const link = teacher.locator('.invitation-banner a');
@@ -115,14 +110,6 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       expect(new URL(invitationUrl, baseURL).origin).toBe(new URL(baseURL).origin);
       await expert.goto(invitationUrl);
       await answerAndSubmit(expert, 'Expert navigateur fictif', teacher);
-      const ownAttendance=expert.getByRole('region',{name:'Votre présence à la séance',exact:true});
-      await ownAttendance.getByLabel('Nom et prénom pour la feuille de présence',{exact:true}).fill('Expert présence fictive');
-      await ownAttendance.getByRole('button',{name:'Confirmer ma présence',exact:true}).click();
-      await expect(ownAttendance).toContainText('Expert présence fictive · Présent·e');
-      await expect(teacher.getByRole('button',{name:'Prendre les présences',exact:true})).toHaveCount(1);
-      await teacher.getByRole('button',{name:'Prendre les présences',exact:true}).click();
-      await expect(attendance).toContainText('Expert présence fictive');
-      await attendance.getByRole('button',{name:'Fermer',exact:true}).click();
       await expert.reload();
       await expect(expert.getByRole('heading', { name: 'Votre réponse définitive', exact: true })).toBeVisible();
       await expect(expert.locator('.expert-diagnostic')).toHaveCount(2);
@@ -154,6 +141,12 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       studentUrl = (await access.getAttribute('href'))!;
       await student.goto(studentUrl);
       await answerAndSubmit(student, 'Étudiant navigateur fictif', teacher);
+      await expect(student.getByRole('region',{name:'Votre présence à la séance',exact:true})).toContainText('Présence enregistrée');
+      await teacher.getByRole('button',{name:'Voir les présences',exact:true}).click();
+      const attendance=teacher.getByRole('dialog',{name:'Présences étudiantes',exact:true});
+      await expect(attendance).toContainText('Étudiant navigateur fictif');
+      await expect(attendance.getByRole('listitem')).toHaveCount(1);
+      await attendance.getByRole('button',{name:'Fermer',exact:true}).click();
       await expect(student.getByRole('heading', { name: 'Votre résultat', exact: true })).not.toBeVisible();
       await expect(student.getByText('Votre note reste privée et masquée', { exact: false })).toBeVisible();
     });
@@ -270,7 +263,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       const syncStudent = await page(), asyncStudent = await page();
       for (const [participant, joinLink, name] of [[syncStudent, syncJoin, 'Toux synchrone'], [asyncStudent, asyncJoin, 'Toux asynchrone']] as const) {
         await participant.goto((await joinLink.getAttribute('href'))!);
-        await participant.getByLabel('Votre nom ou pseudonyme', { exact: true }).fill(name);
+        await participant.getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/, { exact: true }).fill(name);
         await participant.getByRole('button', { name: 'Rejoindre la séance', exact: true }).click();
         await expect(participant).toHaveURL(/\/participant$/);
         if (name === 'Toux synchrone') {
@@ -345,7 +338,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       const join=teacher.locator('.access-card a[href*="/join/"]');
       await expect(join).toBeVisible();
       await learner.goto((await join.getAttribute('href'))!);
-      await learner.getByLabel('Votre nom ou pseudonyme',{exact:true}).fill('Étudiant de la séance');
+      await learner.getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/,{exact:true}).fill('Étudiant de la séance');
       await learner.getByRole('button',{name:'Rejoindre la séance',exact:true}).click();
       await expect(learner).toHaveURL(/\/participant$/);
       const projection=await teacher.context().newPage();
@@ -396,7 +389,7 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       const access=teacher.getByRole('link',{name:'Ouvrir le lien étudiant',exact:true});
       await expect(access).toBeVisible();const href=(await access.getAttribute('href'))!;
       for(const [p,name] of [[autonomous,'Autonome'],[slower,'En attente']] as const){
-        await p.goto(href);await p.getByLabel('Votre nom ou pseudonyme',{exact:true}).fill(name);
+        await p.goto(href);await p.getByLabel(/^Votre nom (?:ou pseudonyme|et prénom)$/,{exact:true}).fill(name);
         await p.getByRole('button',{name:'Rejoindre la séance',exact:true}).click();await expect(p).toHaveURL(/\/participant$/);
       }
       for(let position=0;position<2;position++){

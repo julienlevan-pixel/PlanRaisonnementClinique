@@ -1,64 +1,39 @@
-import { useState, type FormEvent } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, ClipboardCheck, Download, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { CheckCircle2, ClipboardCheck, Download } from "lucide-react";
 import { api } from "../app/api";
 import { Btn, Input, ErrorBox, Loading } from "../app/ui";
 import { getError } from "../app/utils";
 import { ParticipantDialog } from "./ParticipantExperience";
+import {
+  attendanceDate,
+  attendanceTime,
+  attendanceTimeZone,
+  attendanceWorkbook,
+  type AttendanceEntry,
+} from "./attendance-export";
 import "./attendance.css";
 
-type AttendanceStatus =
-  "unconfirmed" | "present" | "late" | "absent" | "excused";
-type Entry = {
-  id: string;
-  revision: number;
-  fullName: string;
-  studentNumber: string | null;
-  status: AttendanceStatus;
-  source: string;
-  confirmedAt: string | null;
-  teacherMarkedAt: string | null;
-  updatedAt: string;
-  canDelete: boolean;
-};
 type AttendanceView = {
-  installed: boolean;
-  enabled: boolean;
-  deliveryMode?: "synchronous" | "asynchronous";
-  sourceFinished?: boolean;
-  role?: "panel" | "students";
-  register?: {
-    id: string;
-    open: boolean;
-    collectStudentNumber: boolean;
-    openedAt: string;
-    closedAt: string | null;
-  };
-  entries?: Entry[];
-  summary?: Record<AttendanceStatus, number>;
-  own?: Entry | null;
+  available: boolean;
+  finished: boolean;
+  endedAt: string | null;
+  entries?: AttendanceEntry[];
+  count?: number;
+  own?: AttendanceEntry | null;
 };
-const labels: Record<AttendanceStatus, string> = {
-  unconfirmed: "À confirmer",
-  present: "Présent·e",
-  late: "En retard",
-  absent: "Absent·e",
-  excused: "Absence justifiée",
-};
-const date = (value: string | null) =>
-  value
-    ? new Date(value).toLocaleString("fr-CA", {
-        dateStyle: "short",
-        timeStyle: "short",
-      })
-    : "—";
 const poll = (data?: AttendanceView) =>
   navigator.onLine &&
   document.visibilityState === "visible" &&
-  data?.installed !== false &&
-  !data?.sourceFinished
+  data?.available !== false &&
+  !data?.finished
     ? 15000
     : false;
+const normalize = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr-CA");
 
 export function AttendanceManager({
   kind,
@@ -71,139 +46,68 @@ export function AttendanceManager({
 }) {
   const [opened, setOpened] = useState(false),
     [visited, setVisited] = useState(false),
-    [collectNumber, setCollectNumber] = useState(false),
-    [roster, setRoster] = useState(""),
     [search, setSearch] = useState(""),
-    [filter, setFilter] = useState("all"),
-    [localError, setLocalError] = useState("");
-  const cache = useQueryClient(),
-    endpoint = `/api/attendance/${kind}/${id}`,
-    key = ["attendance", kind, id];
+    [exporting, setExporting] = useState(false),
+    [exportError, setExportError] = useState("");
   const query = useQuery({
-    queryKey: key,
-    queryFn: () => api<AttendanceView>(endpoint),
+    queryKey: ["attendance", kind, id],
+    queryFn: () => api<AttendanceView>(`/api/attendance/${kind}/${id}`),
     enabled: visited,
     retry: false,
-    refetchInterval: (q) => poll(q.state.data),
+    refetchInterval: (q) => (opened ? poll(q.state.data) : false),
     refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
-  const change = useMutation({
-    onMutate: () => cache.cancelQueries({ queryKey: key }),
-    mutationFn: ({
-      suffix = "",
-      data = {},
-    }: {
-      suffix?: string;
-      data?: unknown;
-    }) => api<AttendanceView>(endpoint + suffix, "POST", data),
-    onSuccess: (data) => {
-      cache.setQueryData(key, data);
-      setLocalError("");
-    },
-    onError: (error: any) => {
-      if (error.status === 409) void query.refetch();
-    },
-  });
   const view = query.data,
-    register = view?.register,
     entries = view?.entries ?? [],
-    summary = view?.summary;
-  const recorded = (summary?.present ?? 0) + (summary?.late ?? 0),
-    asynchronous = view?.deliveryMode === "asynchronous";
-  const addRoster = (event: FormEvent) => {
-    event.preventDefault();
-    setLocalError("");
-    const lines = roster
-      .split(/\r?\n/)
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (!lines.length || lines.length > 500) {
-      setLocalError("Ajoutez de 1 à 500 personnes, une par ligne.");
-      return;
-    }
-    const rows = lines.map((line) => {
-      const [fullName, studentNumber, ...extra] = line
-        .split(";")
-        .map((s) => s.trim());
-      return { fullName, studentNumber: studentNumber || undefined, extra };
-    });
-    if (
-      rows.some(
-        (row) =>
-          !row.fullName ||
-          row.extra.length ||
-          (!register?.collectStudentNumber && row.studentNumber),
-      )
-    ) {
-      setLocalError(
-        register?.collectStudentNumber
-          ? "Utilisez : Nom et prénom ; matricule (facultatif dans la liste)."
-          : "Indiquez seulement le nom et le prénom, une personne par ligne.",
-      );
-      return;
-    }
-    change.mutate(
-      {
-        suffix: "/roster",
-        data: { rows: rows.map(({ extra, ...row }) => row) },
-      },
-      { onSuccess: () => setRoster("") },
-    );
-  };
-  const exportCSV = () => {
-    const cell = (value: unknown) => {
-      let result = String(value ?? "");
-      if (/^\s*[=+\-@]/.test(result)) result = "'" + result;
-      return '"' + result.replaceAll('"', '""') + '"';
-    };
-    const rows = [
-      [
-        "Séance",
-        "Nom et prénom",
-        ...(register?.collectStudentNumber ? ["Matricule"] : []),
-        "Statut",
-        "Confirmation participante",
-        "Correction professeur",
-        "Modalité",
-      ],
-      ...entries.map((entry) => [
+    timeZone = attendanceTimeZone();
+  const filtered = entries.filter((entry) =>
+    normalize(entry.fullName).includes(normalize(search.trim())),
+  );
+  const exportExcel = async () => {
+    setExporting(true);
+    setExportError("");
+    try {
+      // Export a fresh full list, even when the displayed list is filtered.
+      const latest = await query.refetch();
+      if (latest.error || !latest.data?.available)
+        throw (
+          latest.error ??
+          new Error("La liste des présences n’est plus disponible.")
+        );
+      const buffer = await attendanceWorkbook(
         name,
-        entry.fullName,
-        ...(register?.collectStudentNumber ? [entry.studentNumber] : []),
-        labels[entry.status],
-        entry.confirmedAt ?? "",
-        entry.teacherMarkedAt ?? "",
-        asynchronous ? "Participation asynchrone" : "Présence synchrone",
-      ]),
-    ];
-    const url = URL.createObjectURL(
-      new Blob(
-        ["\uFEFF" + rows.map((row) => row.map(cell).join(";")).join("\r\n")],
-        { type: "text/csv;charset=utf-8" },
-      ),
-    );
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `presences-${name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9]+/g, "-")
-      .slice(0, 70)}.csv`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+        latest.data.entries ?? [],
+        timeZone,
+      );
+      const url = URL.createObjectURL(
+        new Blob([buffer], { type: "application/vnd.ms-excel" }),
+      );
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `presences-${normalize(name)
+        .replace(/[^a-z0-9]+/g, "-")
+        .slice(0, 70)}.xls`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      setExportError(getError(error));
+    } finally {
+      setExporting(false);
+    }
   };
+  if (view?.available === false) return null;
   return (
-    <section className="attendance-access" aria-label="Prise de présences">
+    <section className="attendance-access" aria-label="Présences étudiantes">
       <div>
         <ClipboardCheck size={20} aria-hidden="true" />
         <span>
-          <strong>Présences</strong>
+          <strong>Présences étudiantes</strong>
           <small>
-            Feuille nominative réservée au professeur
-            {view?.enabled ? ` · ${recorded} enregistrée(s)` : ""}
+            Inscription automatique pendant la séance synchrone
+            {view ? ` · ${view.count ?? 0} étudiant(s)` : ""}
           </small>
         </span>
       </div>
@@ -215,310 +119,105 @@ export function AttendanceManager({
           setOpened(true);
         }}
       >
-        Prendre les présences
+        Voir les présences
       </Btn>
       {opened && (
         <ParticipantDialog
-          title="Feuille de présence"
-          busy={change.isPending}
+          title="Présences étudiantes"
+          busy={exporting}
           onClose={() => setOpened(false)}
         >
           <p className="attendance-name">{name}</p>
           {query.isPending ? (
-            <Loading label="Ouverture de la feuille de présence…" />
+            <Loading label="Chargement des présences…" />
           ) : query.isError ? (
             <ErrorBox
               message={getError(query.error)}
               retry={() => query.refetch()}
             />
-          ) : view?.installed === false ? (
-            <p className="participant-notice">
-              La prise de présences sera disponible après la mise à jour de la
-              base de données par l’administrateur.
-            </p>
-          ) : !view?.enabled ? (
-            <>
-              <p>
-                Activez une feuille pour cette séance. Les participants
-                confirmeront avec le même QR code ou code d’accès, sans créer de
-                compte.
-              </p>
-              {view?.role === "students" && (
-                <label className="attendance-option">
-                  <input
-                    type="checkbox"
-                    checked={collectNumber}
-                    onChange={(e) => setCollectNumber(e.target.checked)}
-                  />
-                  Recueillir aussi le matricule
-                </label>
-              )}
-              {view?.sourceFinished && (
-                <p>
-                  La séance est terminée : vous pourrez renseigner cette feuille
-                  manuellement.
-                </p>
-              )}
-              <Btn
-                disabled={change.isPending}
-                onClick={() =>
-                  change.mutate({
-                    data: { collectStudentNumber: collectNumber },
-                  })
-                }
-              >
-                {change.isPending
-                  ? "Activation…"
-                  : view?.sourceFinished
-                    ? "Créer la feuille de présence"
-                    : "Activer la prise de présences"}
-              </Btn>
-            </>
           ) : (
             <>
-              <p>
-                {asynchronous
-                  ? "Cette feuille confirme une participation asynchrone, sans attester une présence en classe."
-                  : "Les participants déclarent leur présence. Vous pouvez vérifier et corriger chaque statut."}{" "}
-                Les réponses et les points restent indépendants.
+              <p className="attendance-explanation">
+                Les étudiants sont considérés présents dès qu’ils rejoignent la
+                séance active. L’heure correspond à leur première inscription ;
+                une reconnexion ne la modifie pas.
               </p>
               <div className="attendance-tools">
-                <span
-                  className="status"
-                  data-tone={register?.open ? "running" : "neutral"}
-                >
-                  {register?.open
-                    ? "Confirmations ouvertes"
-                    : "Confirmations terminées"}
-                </span>
+                <div>
+                  <strong>{view?.count ?? 0} étudiant(s) présent(s)</strong>
+                  <small>
+                    {view?.finished
+                      ? "Inscriptions terminées · liste conservée"
+                      : "Séance active · mise à jour automatique"}
+                  </small>
+                </div>
                 <Btn
                   kind="outline"
-                  disabled={!entries.length}
-                  onClick={exportCSV}
+                  disabled={!entries.length || exporting}
+                  onClick={() => void exportExcel()}
                 >
                   <Download size={16} />
-                  Exporter la feuille CSV
+                  {exporting
+                    ? "Préparation du fichier…"
+                    : "Exporter en Excel (.xls)"}
                 </Btn>
               </div>
-              {!entries.length &&
-                register?.open &&
-                view.role === "students" && (
-                  <label className="attendance-option">
-                    <input
-                      type="checkbox"
-                      checked={register.collectStudentNumber}
-                      disabled={change.isPending}
-                      onChange={(e) =>
-                        change.mutate({
-                          data: { collectStudentNumber: e.target.checked },
-                        })
-                      }
-                    />
-                    Recueillir aussi le matricule (modifiable avant l’ajout de
-                    participants)
-                  </label>
-                )}
-              <div className="attendance-counts">
-                {(
-                  [
-                    "present",
-                    "late",
-                    "unconfirmed",
-                    "absent",
-                    "excused",
-                  ] as const
-                ).map((status) => (
-                  <div key={status}>
-                    <strong>{summary?.[status] ?? 0}</strong>
-                    <span>
-                      {asynchronous && status === "present"
-                        ? "Participation confirmée"
-                        : labels[status]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <details className="attendance-roster">
-                <summary>Ajouter une liste de personnes attendues</summary>
-                <form onSubmit={addRoster}>
-                  <label className="field">
-                    <span>Liste des participants attendus</span>
-                    <textarea
-                      value={roster}
-                      onChange={(e) => setRoster(e.target.value)}
-                      rows={5}
-                      placeholder={
-                        register?.collectStudentNumber
-                          ? "Marie Tremblay ; 001234\nAlex Gagnon ; 001235"
-                          : "Marie Tremblay\nAlex Gagnon"
-                      }
-                    />
-                  </label>
-                  <p>
-                    Une personne par ligne
-                    {register?.collectStudentNumber
-                      ? ", avec son matricule après un point-virgule si vous l’avez"
-                      : ""}
-                    . Les doublons sont ignorés. Les personnes restent « À
-                    confirmer » tant qu’aucun statut n’est renseigné.
-                  </p>
-                  <Btn
-                    type="submit"
-                    kind="outline"
-                    disabled={change.isPending || !roster.trim()}
-                  >
-                    Ajouter à la feuille
-                  </Btn>
-                </form>
-              </details>
-              {entries.length > 0 ? (
+              {view?.finished && (
+                <p className="participant-notice">
+                  La liste est arrêtée à la fin des inscriptions. Revenir
+                  consulter une copie ou un bilan ne crée pas une nouvelle
+                  présence.
+                </p>
+              )}
+              <p className="attendance-timezone">Heure locale : {timeZone}</p>
+              {entries.length ? (
                 <>
-                  <div className="attendance-filters">
-                    <Input
-                      label="Rechercher dans la feuille"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      placeholder="Nom ou matricule"
-                    />
-                    <label className="field">
-                      <span>Filtrer les présences</span>
-                      <select
-                        value={filter}
-                        onChange={(e) => setFilter(e.target.value)}
-                      >
-                        <option value="all">Tous les statuts</option>
-                        {Object.entries(labels).map(([value, label]) => (
-                          <option key={value} value={value}>
-                            {label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  <ul
-                    className="attendance-list"
-                    aria-label="Présences des participants"
-                  >
-                    {entries
-                      .filter(
-                        (entry) =>
-                          (filter === "all" || entry.status === filter) &&
-                          `${entry.fullName} ${entry.studentNumber ?? ""}`
-                            .toLocaleLowerCase("fr-CA")
-                            .includes(search.toLocaleLowerCase("fr-CA")),
-                      )
-                      .sort((a, b) =>
-                        a.fullName.localeCompare(b.fullName, "fr-CA"),
-                      )
-                      .map((entry) => (
+                  <Input
+                    label="Rechercher un étudiant"
+                    placeholder="Nom et prénom"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                  {filtered.length ? (
+                    <ul
+                      className="attendance-list"
+                      aria-label="Étudiants présents"
+                    >
+                      {filtered.map((entry) => (
                         <li key={entry.id}>
-                          <div className="attendance-identity">
-                            <strong>{entry.fullName}</strong>
-                            {register?.collectStudentNumber && (
-                              <span>
-                                Matricule :{" "}
-                                {entry.studentNumber || "Non renseigné"}
-                              </span>
-                            )}
-                            <small>
-                              {entry.confirmedAt
-                                ? `Déclaration le ${date(entry.confirmedAt)}`
-                                : "Aucune confirmation participante"}
-                              {entry.teacherMarkedAt
-                                ? ` · Statut corrigé le ${date(entry.teacherMarkedAt)}`
-                                : ""}
-                            </small>
-                          </div>
-                          <label className="field attendance-status">
-                            <span>Statut de {entry.fullName}</span>
-                            <select
-                              aria-label={`Statut de ${entry.fullName}`}
-                              value={entry.status}
-                              disabled={change.isPending}
-                              onChange={(e) =>
-                                change.mutate({
-                                  suffix: `/entries/${entry.id}`,
-                                  data: {
-                                    status: e.target.value,
-                                    expectedRevision: entry.revision,
-                                  },
-                                })
-                              }
-                            >
-                              {Object.entries(labels).map(([value, label]) => (
-                                <option key={value} value={value}>
-                                  {label}
-                                </option>
-                              ))}
-                            </select>
-                          </label>
-                          {entry.canDelete && (
-                            <button
-                              type="button"
-                              className="attendance-delete"
-                              disabled={change.isPending}
-                              aria-label={`Retirer ${entry.fullName} de la liste attendue`}
-                              onClick={() => {
-                                if (
-                                  window.confirm(
-                                    `Retirer ${entry.fullName} de la liste attendue ?`,
-                                  )
-                                )
-                                  change.mutate({
-                                    suffix: `/entries/${entry.id}/delete`,
-                                    data: { expectedRevision: entry.revision },
-                                  });
-                              }}
-                            >
-                              <Trash2 size={17} />
-                            </button>
-                          )}
+                          <strong>{entry.fullName}</strong>
+                          <span>
+                            <time dateTime={entry.joinedAt}>
+                              {attendanceDate(entry.joinedAt, timeZone)} ·{" "}
+                              {attendanceTime(entry.joinedAt, timeZone)}
+                            </time>
+                            <small>Première inscription</small>
+                          </span>
                         </li>
                       ))}
-                  </ul>
+                    </ul>
+                  ) : (
+                    <p className="attendance-empty">
+                      Aucun étudiant ne correspond à votre recherche.
+                    </p>
+                  )}
                 </>
               ) : (
                 <p className="attendance-empty">
-                  La feuille est prête. Les confirmations apparaîtront ici, même
-                  avant la transmission des réponses. Vous pouvez aussi ajouter
-                  une liste attendue.
+                  {view?.finished
+                    ? "Aucun étudiant n’a rejoint cette séance pendant son ouverture."
+                    : "Aucun étudiant n’a encore rejoint cette séance. La liste se remplira automatiquement à leur entrée."}
                 </p>
               )}
-              <div className="attendance-footer">
-                {register?.open ? (
-                  <Btn
-                    kind="outline"
-                    disabled={change.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          "Terminer les confirmations de présence ? Les réponses au questionnaire restent disponibles selon le déroulement de la séance.",
-                        )
-                      )
-                        change.mutate({ suffix: "/close" });
-                    }}
-                  >
-                    Terminer les confirmations
-                  </Btn>
-                ) : !view?.sourceFinished ? (
-                  <Btn
-                    kind="outline"
-                    disabled={change.isPending}
-                    onClick={() => change.mutate({})}
-                  >
-                    Rouvrir les confirmations
-                  </Btn>
-                ) : null}
-                <small>
-                  « À confirmer » ne signifie pas « absent ». Vous renseignez
-                  les absences explicitement.
-                </small>
-              </div>
+              <p className="attendance-footer">
+                Liste nominative réservée au professeur. La présence est
+                indépendante des réponses transmises et des notes.
+              </p>
             </>
           )}
-          {(localError || change.isError) && (
+          {exportError && (
             <p className="form-error" role="alert">
-              {localError || getError(change.error)}
+              {exportError}
             </p>
           )}
         </ParticipantDialog>
@@ -527,119 +226,44 @@ export function AttendanceManager({
   );
 }
 
-export function ParticipantAttendance({ scopeKey }: { scopeKey: string }) {
-  const [fullName, setFullName] = useState<string | null>(null),
-    [number, setNumber] = useState<string | null>(null),
-    cache = useQueryClient(),
-    key = ["participant-attendance", scopeKey];
+export function ParticipantAttendance({
+  scopeKey,
+  eligible = true,
+}: {
+  scopeKey: string;
+  eligible?: boolean;
+}) {
   const query = useQuery({
-    queryKey: key,
+    queryKey: ["participant-attendance", scopeKey],
+    enabled: eligible,
     queryFn: () => api<AttendanceView>("/api/participant/attendance"),
     retry: false,
-    refetchInterval: (q) => poll(q.state.data),
-    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
-  });
-  const confirm = useMutation({
-    onMutate: () => cache.cancelQueries({ queryKey: key }),
-    mutationFn: () =>
-      api<AttendanceView>("/api/participant/attendance", "POST", {
-        fullName: fullName ?? query.data?.own?.fullName ?? "",
-        studentNumber: number ?? query.data?.own?.studentNumber ?? undefined,
-      }),
-    onSuccess: (data) => cache.setQueryData(key, data),
-    onError: (error: any) => {
-      if (error.status === 409) void query.refetch();
-    },
   });
   const view = query.data,
     own = view?.own,
-    asynchronous = view?.deliveryMode === "asynchronous",
-    recorded = own && own.status !== "unconfirmed";
-  if (!view?.enabled || !view.register) return null;
+    timeZone = attendanceTimeZone();
+  if (!eligible || !view?.available || !own) return null;
   return (
     <section
-      className={`attendance-participant${recorded ? " recorded" : ""}`}
-      aria-label={
-        asynchronous
-          ? "Votre participation à la séance"
-          : "Votre présence à la séance"
-      }
+      className="attendance-participant"
+      aria-label="Votre présence à la séance"
     >
-      <div className="attendance-participant-heading">
-        <CheckCircle2 size={21} aria-hidden="true" />
-        <h2>{asynchronous ? "Votre participation" : "Votre présence"}</h2>
-      </div>
-      {recorded ? (
-        <>
-          <p>
-            <strong>{own.fullName}</strong> ·{" "}
-            {asynchronous && own.status === "present"
-              ? "Participation confirmée"
-              : labels[own.status]}
-          </p>
-          <small>
-            {own.teacherMarkedAt
-              ? `Statut renseigné par le professeur le ${date(own.teacherMarkedAt)}`
-              : `Confirmation enregistrée le ${date(own.confirmedAt)}`}
-          </small>
-          {["absent", "excused"].includes(own.status) && (
-            <p>Pour faire corriger ce statut, adressez-vous au professeur.</p>
-          )}
-        </>
-      ) : view.register.open ? (
-        <>
-          <p>
-            {asynchronous
-              ? "Confirmez votre participation à cette séance."
-              : "Confirmez votre présence à cette séance."}{" "}
-            Votre nom sera visible seulement par le professeur. Cette
-            confirmation est indépendante de vos réponses et de votre note.
-          </p>
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              confirm.mutate();
-            }}
-          >
-            <Input
-              label="Nom et prénom pour la feuille de présence"
-              value={fullName ?? own?.fullName ?? ""}
-              onChange={(e) => setFullName(e.target.value)}
-              maxLength={160}
-              autoComplete="name"
-              required
-            />
-            {view.register.collectStudentNumber && (
-              <Input
-                label="Matricule"
-                value={number ?? own?.studentNumber ?? ""}
-                onChange={(e) => setNumber(e.target.value)}
-                maxLength={80}
-                autoComplete="off"
-                required
-              />
-            )}
-            <Btn type="submit" disabled={confirm.isPending}>
-              {confirm.isPending
-                ? "Confirmation…"
-                : asynchronous
-                  ? "Confirmer ma participation"
-                  : "Confirmer ma présence"}
-            </Btn>
-          </form>
-        </>
-      ) : (
+      <CheckCircle2 size={21} aria-hidden="true" />
+      <div>
+        <strong>Présence enregistrée</strong>
         <p>
-          Les confirmations sont terminées. Le professeur peut renseigner ou
-          corriger votre statut.
+          {own.fullName} · Inscription le{" "}
+          <time dateTime={own.joinedAt}>
+            {attendanceDate(own.joinedAt, timeZone)} à{" "}
+            {attendanceTime(own.joinedAt, timeZone)}
+          </time>
         </p>
-      )}
-      {confirm.isError && (
-        <p className="form-error" role="alert">
-          {getError(confirm.error)}
-        </p>
-      )}
+        <small>
+          Votre entrée pendant la séance suffit. Aucune confirmation à
+          effectuer.
+        </small>
+      </div>
     </section>
   );
 }

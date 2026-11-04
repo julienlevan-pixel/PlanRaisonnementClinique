@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFile } from "node:fs/promises";
-
+import { read, utils } from "@e965/xlsx";
+test.use({ timezoneId: "America/Toronto" });
 const teacher = {
   id: "teacher",
   username: "Professeur",
@@ -8,11 +9,6 @@ const teacher = {
   active: true,
   mustChangePassword: false,
 };
-const observations = Array.from({ length: 20 }, (_, i) => ({
-  id: `o${i}`,
-  text: `Donnée clinique ${i + 1}`,
-  category: "Examen physique",
-}));
 const clinicalCase = {
   launchId: "live",
   name: "Toux",
@@ -22,45 +18,24 @@ const clinicalCase = {
     { id: "a", label: "Asthme" },
     { id: "b", label: "Reflux" },
   ],
-  observations,
+  observations: Array.from({ length: 20 }, (_, i) => ({
+    id: `o${i}`,
+    text: `Donnée ${i + 1}`,
+    category: "Examen physique",
+  })),
   requiredChoices: 5,
 };
-const base = (enabled = true) => ({
-  installed: true,
-  enabled,
-  role: "students",
-  deliveryMode: "synchronous",
-  sourceFinished: false,
-  register: enabled
-    ? {
-        id: "register",
-        open: true,
-        collectStudentNumber: false,
-        openedAt: "2026-11-04T12:00:00Z",
-        closedAt: null,
-      }
-    : undefined,
-});
-const entry = (id: string, fullName: string) => ({
-  id,
-  revision: 0,
-  fullName,
-  studentNumber: null as string | null,
-  status: "unconfirmed",
-  source: "roster",
-  confirmedAt: null as string | null,
-  teacherMarkedAt: null as string | null,
-  updatedAt: "2026-11-04T12:00:00Z",
-  canDelete: true,
-});
-const summary = (entries: any[]) =>
-  Object.fromEntries(
-    ["present", "late", "unconfirmed", "absent", "excused"].map((status) => [
-      status,
-      entries.filter((e) => e.status === status).length,
-    ]),
-  );
-async function teacherPage(page: Page) {
+const entries = [
+  { id: "one", fullName: "Marie Tremblay", joinedAt: "2026-11-04T12:00:01Z" },
+  { id: "two", fullName: "Émilie Gagnon", joinedAt: "2026-11-04T12:01:02Z" },
+  { id: "three", fullName: "=2+3", joinedAt: "2026-11-04T12:02:03Z" },
+];
+const base = { available: true, finished: false, endedAt: null };
+async function teacherPage(
+  page: Page,
+  role = "students",
+  deliveryMode = "synchronous",
+) {
   await page.route("**/api/auth/me", (r) =>
     r.fulfill({ json: { user: teacher } }),
   );
@@ -71,13 +46,13 @@ async function teacherPage(page: Page) {
         prcId: "prc",
         name: "Toux",
         code: "ABCD2345",
-        role: "students",
+        role,
         status: "open",
         createdAt: "2026-11-04",
-        participantCount: 18,
-        submissionCount: 3,
+        participantCount: 3,
+        submissionCount: 0,
         guidedReview: true,
-        deliveryMode: "synchronous",
+        deliveryMode,
         case: clinicalCase,
         liveSession: { phase: "lobby" },
         reveals: {},
@@ -85,19 +60,20 @@ async function teacherPage(page: Page) {
     }),
   );
   await page.goto("/activity/live");
-  await page
-    .getByRole("button", { name: "Prendre les présences", exact: true })
-    .click();
-  return page.getByRole("dialog", { name: "Feuille de présence", exact: true });
 }
-async function participantPage(page: Page, mode = "synchronous") {
+async function participantPage(
+  page: Page,
+  role = "students",
+  deliveryMode = "synchronous",
+) {
   const info = {
     ...clinicalCase,
-    role: "students",
+    role,
     status: "open",
-    deliveryMode: mode,
-    pseudonym: "Pseudo conservé",
-    liveSession: mode === "synchronous" ? { phase: "lobby" } : undefined,
+    deliveryMode,
+    pseudonym: "Marie Tremblay",
+    liveSession:
+      deliveryMode === "synchronous" ? { phase: "lobby" } : undefined,
   };
   await page.route("**/api/participant/teaching-session", (r) =>
     r.fulfill({ json: { session: null } }),
@@ -121,9 +97,9 @@ async function participantPage(page: Page, mode = "synchronous") {
     r.fulfill({
       json: {
         status: "open",
-        role: "students",
+        role,
         liveSession: info.liveSession,
-        participantCount: 18,
+        participantCount: 3,
         joinInfo: info,
         responseState: "draft",
         revision: 0,
@@ -135,294 +111,158 @@ async function participantPage(page: Page, mode = "synchronous") {
   await page.goto("/participant");
 }
 
-test("professor activates attendance, imports an expected roster and exports safe CSV without closing answers", async ({
+test("professor sees automatic attendance and exports a genuine XLS with complete names, timestamps and safe text", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  let state: any = base(false),
-    entries: any[] = [],
-    collect = false;
-  const writes: string[] = [];
-  const view = () => ({ ...state, entries, summary: summary(entries) });
-  await page.route("**/api/attendance/launches/live**", (r) => {
-    const path = new URL(r.request().url()).pathname;
-    if (r.request().method() === "POST") {
-      writes.push(path);
-      const data = r.request().postDataJSON();
-      if (path.endsWith("/roster")) {
-        entries = data.rows.map((row: any, i: number) => ({
-          ...entry(`r${i}`, row.fullName),
-          studentNumber: row.studentNumber ?? null,
-        }));
-      } else if (path.includes("/entries/")) {
-        const row = entries.find((e) => path.endsWith(e.id));
-        expect(data.expectedRevision).toBe(row.revision);
-        row.status = data.status;
-        row.teacherMarkedAt = "2026-11-04T12:10:00Z";
-        row.revision++;
-      } else if (path.endsWith("/close")) {
-        state.register.open = false;
-        state.register.closedAt = "2026-11-04T12:15:00Z";
-      } else {
-        collect = data.collectStudentNumber === true;
-        state = base();
-        state.register.collectStudentNumber = collect;
-      }
-    }
-    return r.fulfill({ json: view() });
+  let reads = 0;
+  await page.route("**/api/attendance/launches/live", (r) => {
+    expect(r.request().method()).toBe("GET");
+    reads++;
+    return r.fulfill({ json: { ...base, entries, count: 3 } });
   });
-  const dialog = await teacherPage(page);
-  await dialog
-    .getByRole("checkbox", {
-      name: "Recueillir aussi le matricule",
-      exact: true,
-    })
-    .check();
-  await dialog
-    .getByRole("button", { name: "Activer la prise de présences", exact: true })
+  await teacherPage(page);
+  await page
+    .getByRole("button", { name: "Voir les présences", exact: true })
     .click();
-  await expect(dialog).toContainText("Confirmations ouvertes");
+  const dialog = page.getByRole("dialog", {
+    name: "Présences étudiantes",
+    exact: true,
+  });
+  await expect(dialog).toContainText("3 étudiant(s) présent(s)");
+  await expect(dialog.getByRole("listitem")).toHaveCount(3);
+  await expect(dialog.getByRole("combobox")).toHaveCount(0);
+  await expect(dialog.getByText(/retard|justifiée|À confirmer/)).toHaveCount(0);
   await dialog
-    .getByText("Ajouter une liste de personnes attendues", { exact: true })
+    .getByLabel("Rechercher un étudiant", { exact: true })
+    .fill("emilie");
+  await expect(dialog.getByRole("listitem")).toHaveCount(1);
+  const download = page.waitForEvent("download");
+  await dialog
+    .getByRole("button", { name: "Exporter en Excel (.xls)", exact: true })
     .click();
-  await dialog
-    .getByLabel("Liste des participants attendus", { exact: true })
-    .fill("Marie Tremblay ; 001234\nAlex Gagnon ; 001235\n=2+3 ; 001236");
-  await dialog
-    .getByRole("button", { name: "Ajouter à la feuille", exact: true })
-    .click();
-  await expect(
-    dialog
-      .getByRole("list", { name: "Présences des participants" })
-      .locator("li"),
-  ).toHaveCount(3);
-  expect(collect).toBe(true);
-  expect(entries[0].studentNumber).toBe("001234");
-  await dialog
-    .getByRole("combobox", { name: "Statut de Marie Tremblay", exact: true })
-    .selectOption("present");
-  await expect(
-    dialog.getByRole("combobox", {
-      name: "Statut de Marie Tremblay",
-      exact: true,
-    }),
-  ).toHaveValue("present");
-  const downloaded = page.waitForEvent("download");
-  await dialog
-    .getByRole("button", { name: "Exporter la feuille CSV", exact: true })
-    .click();
-  const file = await downloaded;
-  const csv = await readFile((await file.path())!, "utf8");
-  expect(csv).toContain('"001234"');
-  expect(csv).toContain('"Présent·e"');
-  expect(csv).toContain('"\'=2+3"');
-  page.once("dialog", (d) => d.accept());
-  await dialog
-    .getByRole("button", { name: "Terminer les confirmations", exact: true })
-    .click();
-  await expect(dialog).toContainText("Confirmations terminées");
-  expect(entries.filter((e) => e.status === "unconfirmed")).toHaveLength(2);
-  expect(
-    writes.every((path) => path.startsWith("/api/attendance/launches/live")),
-  ).toBe(true);
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
+  const file = await download;
+  expect(file.suggestedFilename()).toBe("presences-toux.xls");
+  const data = await readFile((await file.path())!);
+  expect([...data.subarray(0, 8)]).toEqual([
+    208, 207, 17, 224, 161, 177, 26, 225,
+  ]);
+  const book = read(data, { type: "buffer" }),
+    sheet = book.Sheets["Présences"];
+  const rows = utils.sheet_to_json<string[]>(sheet, { header: 1 });
+  expect(rows).toHaveLength(4);
+  expect(rows[0]).toEqual([
+    "Séance",
+    "Nom et prénom",
+    "Date d’inscription",
+    "Heure d’inscription",
+    "Fuseau horaire",
+  ]);
+  expect(rows[1][2]).toBe("2026-11-04");
+  expect(rows[1][3]).toBe("07:00:01");
+  expect(rows[1][4]).toBe("America/Toronto");
+  expect(rows[1][1]).toBe("Marie Tremblay");
+  expect(rows[2][1]).toBe("Émilie Gagnon");
+  expect(sheet.B4.t).toBe("s");
+  expect(sheet.B4.v).toBe("=2+3");
+  expect(sheet.B4.f).toBeUndefined();
+  expect(reads).toBeGreaterThanOrEqual(2);
+  await dialog.getByLabel("Rechercher un étudiant", { exact: true }).fill("");
+  expect(await dialog.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(
+    true,
+  );
   await dialog.screenshot({
-    path: testInfo.outputPath("teacher-attendance-mobile.png"),
-    animations: "disabled",
+    path: testInfo.outputPath("presences-professeur-mobile.png"),
   });
   await dialog.getByRole("button", { name: "Fermer", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "Prendre les présences", exact: true }),
+    page.getByRole("button", { name: "Voir les présences", exact: true }),
   ).toBeFocused();
 });
 
-test("a participant confirms once in the lobby and retains their quiz pseudonym after reloading", async ({
+test("student presence is recorded immediately, needs no second form and survives reload", async ({
   page,
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  let own: any = null,
-    posts = 0;
+  const writes: string[] = [];
   await page.route("**/api/participant/attendance", (r) => {
-    if (r.request().method() === "POST") {
-      posts++;
-      const data = r.request().postDataJSON();
-      expect(data.fullName).toBe("Marie Tremblay");
-      own = {
-        ...entry("self", data.fullName),
-        status: "present",
-        source: "participant",
-        canDelete: false,
-        confirmedAt: "2026-11-04T12:00:00Z",
-      };
-    }
-    return r.fulfill({ json: { ...base(), own } });
+    if (r.request().method() !== "GET") writes.push(r.request().method());
+    return r.fulfill({ json: { ...base, own: entries[0] } });
   });
   await participantPage(page);
-  const presence = page.getByRole("region", {
+  const own = page.getByRole("region", {
     name: "Votre présence à la séance",
     exact: true,
   });
-  await presence
-    .getByLabel("Nom et prénom pour la feuille de présence", { exact: true })
-    .fill("Marie Tremblay");
-  await presence
-    .getByRole("button", { name: "Confirmer ma présence", exact: true })
-    .click();
-  await expect(presence).toContainText("Marie Tremblay · Présent·e");
+  await expect(own).toContainText("Présence enregistrée");
+  await expect(own).toContainText("Marie Tremblay");
+  await expect(own.locator("time")).toHaveAttribute(
+    "datetime",
+    entries[0].joinedAt,
+  );
+  await expect(own.getByRole("button")).toHaveCount(0);
+  await expect(own.getByRole("textbox")).toHaveCount(0);
   await expect(
-    page.getByRole("heading", {
-      name: "Vous avez rejoint la séance, Pseudo conservé",
+    page.getByRole("region", {
+      name: "Salle d’attente de la séance",
       exact: true,
     }),
   ).toBeVisible();
   await page.reload();
-  await expect(presence).toContainText("Confirmation enregistrée");
-  await expect(
-    presence.getByRole("button", {
-      name: "Confirmer ma présence",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  expect(posts).toBe(1);
+  await expect(own).toContainText("Présence enregistrée");
+  expect(writes).toEqual([]);
   await page.screenshot({
-    path: testInfo.outputPath("participant-attendance-mobile.png"),
+    path: testInfo.outputPath("presences-etudiant-mobile.png"),
     fullPage: true,
-    animations: "disabled",
   });
 });
 
-test("asynchronous attendance is clearly participation and preserves a student number's leading zeroes", async ({
+test("closed session retains its list without controls for adding or marking people", async ({
   page,
 }) => {
-  let own: any = null;
-  const view = {
-    ...base(),
-    deliveryMode: "asynchronous",
-    register: { ...base().register!, collectStudentNumber: true },
-  };
-  await page.route("**/api/participant/attendance", (r) => {
-    if (r.request().method() === "POST") {
-      const data = r.request().postDataJSON();
-      expect(data.studentNumber).toBe("001234");
-      own = {
-        ...entry("self", data.fullName),
-        studentNumber: data.studentNumber,
-        status: "present",
-        source: "participant",
-        confirmedAt: "2026-11-04T12:00:00Z",
-      };
-    }
-    return r.fulfill({ json: { ...view, own } });
-  });
-  await participantPage(page, "asynchronous");
-  const participation = page.getByRole("region", {
-    name: "Votre participation à la séance",
-    exact: true,
-  });
-  await participation
-    .getByLabel("Nom et prénom pour la feuille de présence", { exact: true })
-    .fill("Marie Tremblay");
-  await participation.getByLabel("Matricule", { exact: true }).fill("001234");
-  await participation
-    .getByRole("button", { name: "Confirmer ma participation", exact: true })
-    .click();
-  await expect(participation).toContainText("Participation confirmée");
-  await expect(
-    page.getByLabel("Impression clinique", { exact: true }),
-  ).toBeVisible();
-});
-
-test("closed attendance and a professor correction never force a new declaration", async ({
-  page,
-}) => {
-  const own = {
-    ...entry("self", "Marie Tremblay"),
-    status: "excused",
-    teacherMarkedAt: "2026-11-04T12:00:00Z",
-  };
-  await page.route("**/api/participant/attendance", (r) =>
+  await page.route("**/api/attendance/launches/live", (r) =>
     r.fulfill({
-      json: { ...base(), register: { ...base().register!, open: false }, own },
+      json: {
+        ...base,
+        finished: true,
+        endedAt: "2026-11-04T13:00:00Z",
+        entries,
+        count: 3,
+      },
     }),
   );
-  await participantPage(page);
-  const presence = page.getByRole("region", {
-    name: "Votre présence à la séance",
+  await teacherPage(page);
+  await page
+    .getByRole("button", { name: "Voir les présences", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Présences étudiantes",
     exact: true,
   });
-  await expect(presence).toContainText("Absence justifiée");
-  await expect(presence).toContainText("Statut renseigné par le professeur");
-  await expect(presence.getByRole("button")).toHaveCount(0);
-  await expect(
-    page.getByRole("region", {
-      name: "Salle d’attente de la séance",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(dialog).toContainText("liste conservée");
+  await expect(dialog).toContainText("ne crée pas une nouvelle présence");
+  await expect(dialog.getByRole("button")).toHaveCount(2);
 });
 
-test("a stale professor edit refreshes the status before a new correction", async ({
-  page,
-}) => {
-  let row = { ...entry("r1", "Marie Tremblay"), status: "present" },
-    posts = 0;
-  await page.route("**/api/attendance/launches/live**", (r) => {
-    if (r.request().method() === "POST") {
-      posts++;
-      const data = r.request().postDataJSON();
-      if (posts === 1) {
-        row = { ...row, status: "late", revision: 1 };
-        return r.fulfill({
-          status: 409,
-          json: {
-            error:
-              "La présence a été actualisée. Consultez le statut récent avant de le corriger.",
-          },
-        });
-      }
-      expect(data.expectedRevision).toBe(1);
-      row = { ...row, status: data.status, revision: 2 };
-    }
-    return r.fulfill({
-      json: { ...base(), entries: [row], summary: summary([row]) },
-    });
+for (const [role, mode] of [
+  ["panel", "synchronous"],
+  ["students", "asynchronous"],
+])
+  test(`no attendance workflow for ${role} ${mode}`, async ({ page }) => {
+    await page.route("**/api/participant/attendance", (r) =>
+      r.fulfill({
+        json: { available: false, finished: false, endedAt: null, own: null },
+      }),
+    );
+    await participantPage(page, role, mode);
+    await expect(
+      page.getByRole("region", {
+        name: "Votre présence à la séance",
+        exact: true,
+      }),
+    ).toHaveCount(0);
+    await teacherPage(page, role, mode);
+    await expect(
+      page.getByRole("button", { name: "Voir les présences", exact: true }),
+    ).toHaveCount(0);
   });
-  const dialog = await teacherPage(page);
-  const status = dialog.getByRole("combobox", {
-    name: "Statut de Marie Tremblay",
-    exact: true,
-  });
-  await status.selectOption("absent");
-  await expect(dialog.getByRole("alert")).toContainText(
-    "La présence a été actualisée",
-  );
-  await expect(status).toHaveValue("late");
-  await status.selectOption("excused");
-  await expect(status).toHaveValue("excused");
-  expect(posts).toBe(2);
-});
-
-test("an uninstalled attendance feature remains optional and leaves the participant flow usable", async ({
-  page,
-}) => {
-  await page.route("**/api/participant/attendance", (r) =>
-    r.fulfill({ json: { installed: false, enabled: false } }),
-  );
-  await participantPage(page);
-  await expect(
-    page.getByRole("region", {
-      name: "Votre présence à la séance",
-      exact: true,
-    }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("region", {
-      name: "Salle d’attente de la séance",
-      exact: true,
-    }),
-  ).toBeVisible();
-});
