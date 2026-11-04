@@ -1,23 +1,22 @@
-# Synthèse des choix du groupe
+# Histogrammes des choix du groupe
 
-Le professeur ouvre **Impressions cliniques et données retenues**, dans une collecte étudiante ou en bas d’une séance. Pour une séance multi-cas, **Cas à analyser** permet de retrouver chaque cas, y compris après la fin de la séance. La synthèse fonctionne en synchrone et en asynchrone.
+Dans une collecte étudiante ou une séance, ouvrir **Impressions et données cliniques**. Le sélecteur de cas reste disponible pour les séances multi-cas, en synchrone ou en asynchrone, y compris après leur fin.
 
-## Lire les graphiques
+La synthèse contient uniquement quatre histogrammes :
 
-Les quatre indicateurs présentent les copies définitives, les participations non soumises exclues, l’effectif du panel du corrigé et le nombre d’impressions proposées. Les brouillons ne contribuent jamais aux choix.
+1. **Impression clinique** : les choix principaux des étudiants et des experts.
+2. **Impression clinique alternative** : les choix alternatifs des deux groupes.
+3. **Données cliniques de l’impression** : les données choisies pour l’impression principale sélectionnée.
+4. **Données cliniques de l’alternative** : les données choisies pour l’impression alternative sélectionnée.
 
-Chaque impression est comparée au panel expert du corrigé enregistré pour le groupe. La barre étudiante distingue l’impression principale (partie pleine) et l’impression alternative (partie hachurée). Les effectifs et pourcentages sont écrits à côté des barres : aucune information ne dépend seulement de la couleur. Un étudiant peut sélectionner deux impressions distinctes ; la somme des fréquences des diagnostics atteint donc 200 % sur les copies complètes. Chaque diagnostic reste compris entre 0 et 100 %.
+Les deux derniers histogrammes ont chacun leur propre liste d’impressions. Ils utilisent le même rôle pour les étudiants et les experts. Par défaut, l’impression la plus choisie du groupe est sélectionnée, sans imposer la sélection de l’autre graphique.
 
-En sélectionnant une impression, le professeur voit toutes les données du cas dans leur ordre d’origine. Les choix **en faveur (+)**, **en défaveur (−)** et **non retenus** utilisent comme dénominateur les étudiants ayant sélectionné cette impression, principale ou alternative. La comparaison experte utilise de même les experts l’ayant retenue. Les deux effectifs peuvent différer.
+Les barres comparent les fréquences sur une échelle commune de 0 à 100 %. Les étudiants sont toujours en bleu et les experts en vert. Les effectifs figurent dans la légende et les valeurs sont écrites à côté des barres. Les impressions et les données restent dans l’ordre du cas.
 
-La recherche accepte les accents ou leur absence. Le tri facultatif **Écarts au panel les plus marqués** met en premier les plus grands écarts de fréquence d’un signe. Ce tri décrit les choix du groupe et ne modifie aucun point. Les notes et les poids d’importance experts de 1 à 3 ne sont pas utilisés comme effectifs.
+Seules les réponses soumises sont utilisées. La synthèse ne présente pas le nombre de participants inscrits, les copies non soumises, les réponses individuelles ou les noms. Pour une donnée clinique, les choix + et − comptent chacun comme une sélection, sans pondération par les points experts. Un étudiant ne compte qu’une fois par donnée.
 
-Une impression sans réponse étudiante est signalée comme telle. Si aucun expert ne l’a retenue, aucune comparaison clinique n’est inventée. Un cas sans copie définitive affiche un état vide, sans faux graphique de réponses à zéro.
+Pour les impressions, la base est l’ensemble des soumissions du groupe. Pour les données, la base est l’effectif ayant choisi le diagnostic dans le rôle considéré. Une base nulle est affichée par un tiret, plutôt qu’un pourcentage inventé ou une fraction 0/0. Il n’y a pas de tri par écart, de recherche ou de détail des signes dans cette vue.
 
-## Accès et actualisation
+Le cas et le panel sont ceux enregistrés pour la collecte. Le barème, les choix originaux et les notes restent conservés. Aucune migration Supabase, dépendance supplémentaire ou variable d’environnement n’est nécessaire.
 
-Cette synthèse est uniquement collective : elle ne comporte ni noms, ni identifiants participants, ni copies individuelles. Son endpoint est réservé aux professeurs disposant des droits de gestion sur le cas et sa séance. Elle n’est pas ajoutée aux parcours étudiants ou à la projection.
-
-L’actualisation est active uniquement lorsque la synthèse est ouverte, le cas est ouvert et l’onglet est visible. Le bilan provisoire est identifié. Après fermeture, les choix restent consultables. Chaque changement de cas charge son propre bilan ; les réponses de deux cas ne sont pas mélangées.
-
-Aucune migration Supabase, nouvelle dépendance ou variable d’environnement n’est requise. La fonction lit les copies définitives et la référence figée existantes, sans modifier les réponses, les notes ou le barème.
+L’accès reste réservé au professeur autorisé. Le bilan ne renvoie aucun nom ni identifiant participant et n’est pas ajouté aux parcours étudiants ou à la projection. Les histogrammes ouverts s’actualisent pendant la collecte ; les cas sont toujours chargés séparément.

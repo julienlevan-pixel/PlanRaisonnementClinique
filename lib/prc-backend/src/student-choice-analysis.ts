@@ -1,13 +1,9 @@
-import {
-  combineDiagnostic,
-  type Choice,
-  type PanelDistribution,
-} from "./scoring.js";
+import type { Choice, PanelDistribution, Role } from "./scoring.js";
 
 type Case = {
   name: string;
   diagnostics: { id: string; label: string }[];
-  observations: { id: string; text: string; category?: string }[];
+  observations: { id: string; text: string }[];
 };
 export type ChoiceResponse = {
   state: string | null;
@@ -19,7 +15,7 @@ export type ChoiceResponse = {
 const percent = (count: number, total: number) =>
   total ? Math.round((count * 1000) / total) / 10 : 0;
 
-/** Teacher-only: all counts use definitive copies, never drafts or awarded points. */
+/** Four teacher-only histograms, separated by role. Clinical selection ignores sign and importance. */
 export function studentChoiceAnalysis(
   caseData: Case,
   rows: ChoiceResponse[],
@@ -30,74 +26,53 @@ export function studentChoiceAnalysis(
 ) {
   const copies = rows.filter((row) => row.state === "submitted");
   const panelTotal = panel?.totalSubmissions ?? 0;
-  return {
-    caseName: caseData.name,
-    participantCount: rows.length,
-    submittedCount: copies.length,
-    excludedCount: rows.length - copies.length,
-    panelTotal,
-    diagnostics: caseData.diagnostics.map((diagnostic) => {
-      const main = copies.filter(
-        (copy) => copy.main_diagnostic_id === diagnostic.id,
-      );
-      const alternative = copies.filter(
-        (copy) => copy.alternative_diagnostic_id === diagnostic.id,
-      );
+  const forRole = (role: Role) =>
+    caseData.diagnostics.map((diagnostic) => {
       const matching = copies.filter(
         (copy) =>
-          copy.main_diagnostic_id === diagnostic.id ||
-          copy.alternative_diagnostic_id === diagnostic.id,
+          (role === "main"
+            ? copy.main_diagnostic_id
+            : copy.alternative_diagnostic_id) === diagnostic.id,
       );
-      const experts = combineDiagnostic(
-        panel?.distributions ?? [],
-        diagnostic.id,
+      const experts = panel?.distributions.find(
+        (row) => row.diagnosticId === diagnostic.id && row.role === role,
       );
+      const panelCount = experts?.expertCount ?? 0;
       return {
         diagnosticId: diagnostic.id,
         label: diagnostic.label,
-        mainCount: main.length,
-        alternativeCount: alternative.length,
-        totalCount: matching.length,
-        mainPercent: percent(main.length, copies.length),
-        alternativePercent: percent(alternative.length, copies.length),
-        totalPercent: percent(matching.length, copies.length),
-        panelCount: experts.expertCount,
-        panelPercent: percent(experts.expertCount, panelTotal),
+        count: matching.length,
+        percent: percent(matching.length, copies.length),
+        panelCount,
+        panelPercent: percent(panelCount, panelTotal),
         observations: caseData.observations.map((observation) => {
-          let positive = 0,
-            negative = 0;
-          for (const copy of matching) {
-            const choices =
-              copy.main_diagnostic_id === diagnostic.id
-                ? copy.main_choices
-                : copy.alternative_choices;
-            const selected = choices?.find(
-              (choice) => choice.observationId === observation.id,
-            );
-            if (selected?.sign === "+") positive++;
-            if (selected?.sign === "-") negative++;
-          }
-          const reference = experts.observations.find(
+          const count = matching.filter((copy) =>
+            (role === "main"
+              ? copy.main_choices
+              : copy.alternative_choices
+            )?.some((choice) => choice.observationId === observation.id),
+          ).length;
+          const reference = experts?.observations.find(
             (row) => row.observationId === observation.id,
           );
-          const panelPositive = reference?.positive ?? 0,
-            panelNegative = reference?.negative ?? 0;
+          const selectedByExperts =
+            (reference?.positive ?? 0) + (reference?.negative ?? 0);
           return {
             observationId: observation.id,
             label: observation.text,
-            category: observation.category ?? "Autre",
-            positive,
-            negative,
-            notSelected: matching.length - positive - negative,
-            positivePercent: percent(positive, matching.length),
-            negativePercent: percent(negative, matching.length),
-            panelPositive,
-            panelNegative,
-            panelPositivePercent: percent(panelPositive, experts.expertCount),
-            panelNegativePercent: percent(panelNegative, experts.expertCount),
+            count,
+            percent: percent(count, matching.length),
+            panelCount: selectedByExperts,
+            panelPercent: percent(selectedByExperts, panelCount),
           };
         }),
       };
-    }),
+    });
+  return {
+    caseName: caseData.name,
+    submittedCount: copies.length,
+    panelTotal,
+    main: forRole("main"),
+    alternative: forRole("alternative"),
   };
 }

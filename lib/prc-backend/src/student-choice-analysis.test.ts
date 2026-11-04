@@ -63,7 +63,7 @@ const panel: PanelDistribution[] = [
   },
 ];
 
-test("choice percentages combine roles and use the selected diagnosis's students as the clinical denominator", () => {
+test("four histograms keep roles separate and count a clinical selection regardless of sign or points", () => {
   const data = studentChoiceAnalysis(
     caseData,
     [
@@ -76,44 +76,53 @@ test("choice percentages combine roles and use the selected diagnosis's students
     { totalSubmissions: 4, distributions: panel },
   );
   assert.equal(data.submittedCount, 4);
-  assert.equal(data.excludedCount, 1);
-  const a = data.diagnostics[0];
-  assert.equal(a.mainCount, 2);
-  assert.equal(a.alternativeCount, 1);
-  assert.equal(a.totalCount, 3);
-  assert.equal(a.totalPercent, 75);
-  assert.equal(a.panelCount, 3);
-  assert.equal(a.panelPercent, 75);
-  const clinical = a.observations[0];
-  assert.equal(clinical.positive, 1);
-  assert.equal(clinical.negative, 1);
-  assert.equal(clinical.notSelected, 1);
-  assert.equal(clinical.positivePercent, 33.3);
-  assert.equal(clinical.panelPositive, 2);
-  assert.equal(clinical.panelNegative, 1);
-  assert.equal(clinical.panelPositivePercent, 66.7);
-  assert.equal(a.observations[1].negative, 1);
-  assert.equal(a.observations[2].notSelected, 3);
+  assert.equal("participantCount" in data, false);
+  assert.equal("excludedCount" in data, false);
+  const main = data.main[0],
+    alternative = data.alternative[0];
+  assert.equal(main.count, 2);
+  assert.equal(main.percent, 50);
+  assert.equal(main.panelCount, 2);
+  assert.equal(main.panelPercent, 50);
+  assert.equal(alternative.count, 1);
+  assert.equal(alternative.percent, 25);
+  assert.equal(alternative.panelCount, 1);
+  assert.equal(alternative.panelPercent, 25);
+  assert.equal(main.observations[0].count, 2);
+  assert.equal(main.observations[0].percent, 100);
+  assert.equal(main.observations[0].panelCount, 2);
+  assert.equal(main.observations[0].panelPercent, 100);
+  assert.equal(alternative.observations[0].count, 0);
+  assert.equal(alternative.observations[0].panelCount, 1);
+  assert.equal(alternative.observations[0].panelPercent, 100);
+  assert.equal(alternative.observations[1].count, 1);
+  assert.equal(alternative.observations[1].percent, 100);
   assert.equal(
-    data.diagnostics.reduce((sum, row) => sum + row.totalPercent, 0),
-    200,
+    data.main.reduce((n, row) => n + row.percent, 0),
+    100,
+  );
+  assert.equal(
+    data.alternative.reduce((n, row) => n + row.percent, 0),
+    100,
   );
   assert.equal("copies" in data, false);
   assert.equal("participants" in data, false);
+  assert.equal("positive" in main.observations[0], false);
+  assert.equal("negative" in main.observations[0], false);
+  assert.equal("notSelected" in main.observations[0], false);
 });
 
-test("empty and unselected diagnoses contain all case observations without invented percentages or notes", () => {
+test("empty and unselected diagnoses retain case labels without fabricating clinical selections", () => {
   const empty = studentChoiceAnalysis(caseData, [row("a", "b", "+", "draft")]);
   assert.equal(empty.submittedCount, 0);
   assert.equal(empty.panelTotal, 0);
-  assert.equal(empty.excludedCount, 1);
-  for (const diagnostic of empty.diagnostics) {
-    assert.equal(diagnostic.totalCount, 0);
+  for (const diagnostic of [...empty.main, ...empty.alternative]) {
+    assert.equal(diagnostic.count, 0);
     assert.equal(diagnostic.observations.length, 3);
-    assert.equal(diagnostic.observations[0].positivePercent, 0);
+    assert.equal(diagnostic.observations[0].percent, 0);
   }
   const data = studentChoiceAnalysis(caseData, [row()]);
-  assert.equal(data.diagnostics[2].totalCount, 0);
-  assert.equal(data.diagnostics[2].observations[0].notSelected, 0);
+  assert.equal(data.main[2].count, 0);
+  assert.equal(data.main[2].observations[0].count, 0);
   assert.equal(JSON.stringify(data).includes("score"), false);
 });

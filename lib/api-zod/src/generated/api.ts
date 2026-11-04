@@ -2830,7 +2830,7 @@ export const PublishResultsResponse = zod.object({
 
 
 /**
- * Synthèse collective réservée au professeur autorisé. Copies définitives uniquement, sans noms ni réponses individuelles. Cas et panel figés de la collecte, disponible en synchrone et asynchrone.
+ * Quatre histogrammes collectifs réservés au professeur. Réponses soumises uniquement, impressions principales et alternatives séparées. Données comptées indépendamment du signe et des points. Aucun nom ni réponse individuelle.
  */
 export const GetStudentChoiceAnalysisParams = zod.object({
   "launchId": zod.coerce.string()
@@ -2839,34 +2839,38 @@ export const GetStudentChoiceAnalysisParams = zod.object({
 export const GetStudentChoiceAnalysisResponse = zod.object({
   "caseName": zod.string(),
   "status": zod.enum(['open', 'closed', 'revealed', 'published']),
-  "participantCount": zod.number().int(),
   "submittedCount": zod.number().int(),
-  "excludedCount": zod.number().int(),
   "panelTotal": zod.number().int(),
-  "diagnostics": zod.array(zod.object({
+  "main": zod.array(zod.object({
   "diagnosticId": zod.string(),
   "label": zod.string(),
-  "mainCount": zod.number().int(),
-  "alternativeCount": zod.number().int(),
-  "totalCount": zod.number().int(),
-  "mainPercent": zod.number(),
-  "alternativePercent": zod.number(),
-  "totalPercent": zod.number(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
   "panelCount": zod.number().int(),
   "panelPercent": zod.number(),
   "observations": zod.array(zod.object({
   "observationId": zod.string(),
   "label": zod.string(),
-  "category": zod.string(),
-  "positive": zod.number().int(),
-  "negative": zod.number().int(),
-  "notSelected": zod.number().int(),
-  "positivePercent": zod.number(),
-  "negativePercent": zod.number(),
-  "panelPositive": zod.number().int(),
-  "panelNegative": zod.number().int(),
-  "panelPositivePercent": zod.number(),
-  "panelNegativePercent": zod.number()
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
+}))
+})),
+  "alternative": zod.array(zod.object({
+  "diagnosticId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number(),
+  "observations": zod.array(zod.object({
+  "observationId": zod.string(),
+  "label": zod.string(),
+  "count": zod.number().int(),
+  "percent": zod.number(),
+  "panelCount": zod.number().int(),
+  "panelPercent": zod.number()
 }))
 }))
 })

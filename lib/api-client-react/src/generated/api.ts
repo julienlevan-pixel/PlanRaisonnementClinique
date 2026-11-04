@@ -4533,7 +4533,7 @@ export const getGetStudentChoiceAnalysisUrl = (launchId: string,) => {
 }
 
 /**
- * Synthèse collective réservée au professeur autorisé. Copies définitives uniquement, sans noms ni réponses individuelles. Cas et panel figés de la collecte, disponible en synchrone et asynchrone.
+ * Quatre histogrammes collectifs réservés au professeur. Réponses soumises uniquement, impressions principales et alternatives séparées. Données comptées indépendamment du signe et des points. Aucun nom ni réponse individuelle.
  */
 export const getStudentChoiceAnalysis = async (launchId: string, options?: Parameters<typeof customFetch>[1]): Promise<StudentChoiceAnalysis> => {
 

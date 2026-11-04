@@ -9,14 +9,8 @@
 export interface StudentObservationChoices {
   observationId: string;
   label: string;
-  category: string;
-  positive: number;
-  negative: number;
-  notSelected: number;
-  positivePercent: number;
-  negativePercent: number;
-  panelPositive: number;
-  panelNegative: number;
-  panelPositivePercent: number;
-  panelNegativePercent: number;
+  count: number;
+  percent: number;
+  panelCount: number;
+  panelPercent: number;
 }
