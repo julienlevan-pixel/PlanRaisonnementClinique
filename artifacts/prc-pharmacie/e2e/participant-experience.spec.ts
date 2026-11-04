@@ -208,6 +208,92 @@ test("a mobile student switches impressions without losing choices and consults 
   });
 });
 
+for (const mode of ["synchronous", "asynchronous"] as const) {
+  test(`a mobile expert keeps signs and importance when switching impressions in ${mode} mode`, async ({
+    page,
+  }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    const state = await fixture(page, { role: "panel", mode });
+    await page.goto("/participant");
+    await page.getByTestId("choice-main-positive-o0").click();
+    const mainPoints = page.getByRole("radiogroup", {
+      name: "Points impression clinique — Observation fictive 1",
+      exact: true,
+    });
+    await expect(mainPoints.getByRole("radio", { checked: true })).toHaveCount(
+      0,
+    );
+    await mainPoints.getByRole("radio", { name: /^3/ }).click();
+    await page
+      .getByRole("button", { name: "Alternative · 0/5", exact: true })
+      .click();
+    await expect(mainPoints).not.toBeVisible();
+    await page.getByTestId("choice-alternative-negative-o0").click();
+    const alternativePoints = page.getByRole("radiogroup", {
+      name: "Points impression clinique alternative — Observation fictive 1",
+      exact: true,
+    });
+    await alternativePoints.getByRole("radio", { name: /^2/ }).click();
+    await page
+      .getByRole("button", { name: "Principale · 1/5", exact: true })
+      .click();
+    await expect(mainPoints.getByRole("radio", { name: /^3/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await page.getByTestId("choice-main-negative-o0").click();
+    await expect(mainPoints.getByRole("radio", { name: /^3/ })).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    await expect
+      .poll(() => state.copy().mainChoices[0])
+      .toEqual({ observationId: "o0", sign: "-", points: 3 });
+    await expect
+      .poll(() => state.copy().alternativeChoices[0])
+      .toEqual({ observationId: "o0", sign: "-", points: 2 });
+    await page
+      .getByRole("button", { name: "Revoir le cas", exact: true })
+      .click();
+    await expect(page.getByRole("dialog")).toContainText(caseData.scenario);
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("button", { name: "Revoir le cas", exact: true }),
+    ).toBeFocused();
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      ).toBe(true);
+      expect(
+        await page
+          .locator("#participant-observation-matrix")
+          .evaluate((n) => n.scrollWidth <= n.clientWidth),
+      ).toBe(true);
+      const button = await mainPoints
+        .getByRole("radio", { name: /^3/ })
+        .boundingBox();
+      expect(button!.width).toBeGreaterThanOrEqual(44);
+      expect(button!.height).toBeGreaterThanOrEqual(44);
+    }
+    await page.screenshot({
+      path: testInfo.outputPath(`expert-mobile-${mode}.png`),
+      animations: "disabled",
+    });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(mainPoints).toBeVisible();
+    await expect(alternativePoints).toBeVisible();
+    await expect(
+      page.getByRole("group", {
+        name: "Choisir l’impression clinique à afficher",
+      }),
+    ).not.toBeVisible();
+    expect(state.submissions).toHaveLength(0);
+  });
+}
+
 test("expert importance has no default and supports direct choices, keyboard navigation and sign changes", async ({
   page,
 }) => {

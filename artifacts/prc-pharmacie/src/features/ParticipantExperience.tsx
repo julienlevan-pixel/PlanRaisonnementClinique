@@ -19,6 +19,34 @@ export type ResponseCase = {
   diagnostics: { id: string; label: string }[];
   observations: { id: string; text: string; category?: string }[];
 };
+export function ResponseSelectionInstructions({
+  expert,
+  exactFive,
+}: {
+  expert: boolean;
+  exactFive: boolean;
+}) {
+  return (
+    <>
+      <p className="body-copy">
+        Choisissez l’impression clinique la plus probable, puis une impression
+        clinique alternative plausible. Pour chacune, sélectionnez{" "}
+        {exactFive ? "les cinq données" : "de une à cinq données"} qui
+        permettent le mieux de la soutenir ou de la remettre en question.
+      </p>
+      <p className="body-copy">
+        {expert && (
+          <>
+            Attribuez une importance clinique à chaque donnée choisie : 1 = peu
+            importante, 2 = importante, 3 = très importante.{" "}
+          </>
+        )}
+        Une même donnée peut soutenir une impression clinique et affaiblir
+        l’autre. Cliquez à nouveau sur un signe retenu pour retirer ce choix.
+      </p>
+    </>
+  );
+}
 export function ParticipantInstructions({
   expert,
   asynchronous,
@@ -152,11 +180,13 @@ export function MobileImpressionSwitch({
   onChange,
   mainCount,
   alternativeCount,
+  controlsId = "participant-observation-matrix",
 }: {
   active: ImpressionRole;
   onChange: (role: ImpressionRole) => void;
   mainCount: number;
   alternativeCount: number;
+  controlsId?: string;
 }) {
   return (
     <div
@@ -167,6 +197,7 @@ export function MobileImpressionSwitch({
       <button
         type="button"
         aria-pressed={active === "main"}
+        aria-controls={controlsId}
         onClick={() => onChange("main")}
       >
         Principale · {mainCount}/5
@@ -174,6 +205,7 @@ export function MobileImpressionSwitch({
       <button
         type="button"
         aria-pressed={active === "alternative"}
+        aria-controls={controlsId}
         onClick={() => onChange("alternative")}
       >
         Alternative · {alternativeCount}/5

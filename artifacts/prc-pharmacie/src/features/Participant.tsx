@@ -25,6 +25,7 @@ import {
   CaseQuickAccess,
   MobileImpressionSwitch,
   ParticipantInstructions,
+  ResponseSelectionInstructions,
   PersonalFeedback,
   SubmissionReview,
 } from "./ParticipantExperience";
@@ -939,19 +940,17 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
             Principale : {draft.mainChoices.length}/5 · Alternative :{" "}
             {draft.alternativeChoices.length}/5
           </span>
-          {joinInfo.role === "students" && (
-            <MobileImpressionSwitch
-              active={mobileRole}
-              mainCount={draft.mainChoices.length}
-              alternativeCount={draft.alternativeChoices.length}
-              onChange={(role) => {
-                setMobileRole(role);
-                document
-                  .getElementById("participant-observation-matrix")
-                  ?.scrollTo({ top: 0 });
-              }}
-            />
-          )}
+          <MobileImpressionSwitch
+            active={mobileRole}
+            mainCount={draft.mainChoices.length}
+            alternativeCount={draft.alternativeChoices.length}
+            onChange={(role) => {
+              setMobileRole(role);
+              document
+                .getElementById("participant-observation-matrix")
+                ?.scrollTo({ top: 0 });
+            }}
+          />
         </div>
         {status === "open" && (
           <SessionCountdown
@@ -1045,26 +1044,14 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
             </ul>
           </div>
         )}
-        <p className="body-copy">
-          Choisissez l’impression clinique la plus probable, puis une impression
-          clinique alternative plausible. Pour chacune, sélectionnez{" "}
-          {joinInfo.role === "panel" || joinInfo.requiredChoices === 5
-            ? "les cinq données"
-            : "de une à cinq données"}{" "}
-          qui permettent le mieux de la soutenir ou de la remettre en question.
-        </p>
-        <p className="body-copy">
-          {joinInfo.role === "panel" && (
-            <>
-              Attribuez une importance clinique à chaque donnée choisie : 1 =
-              peu importante, 2 = importante, 3 = très importante.{" "}
-            </>
-          )}
-          Une même donnée peut soutenir une impression clinique et affaiblir
-          l’autre. Cliquez à nouveau sur un signe retenu pour retirer ce choix.
-        </p>
+        <ResponseSelectionInstructions
+          expert={joinInfo.role === "panel"}
+          exactFive={
+            joinInfo.role === "panel" || joinInfo.requiredChoices === 5
+          }
+        />
         <ObservationMatrix
-          mobileRole={joinInfo.role === "students" ? mobileRole : undefined}
+          mobileRole={mobileRole}
           observations={joinInfo.observations}
           diagnostics={joinInfo.diagnostics}
           mainDiagnosticId={draft.mainDiagnosticId}
@@ -1356,9 +1343,10 @@ export function ObservationMatrix({
   };
   return (
     <section
-      id={mobileRole ? "participant-observation-matrix" : undefined}
+      id={mobileRole ? `${idPrefix}-observation-matrix` : undefined}
       data-active-impression={mobileRole}
-      className={`observation-choices prc-matrix-scroll${mobileRole ? " student-mobile-matrix" : ""}`}
+      data-expert={expertPoints || undefined}
+      className={`observation-choices prc-matrix-scroll${mobileRole ? " responsive-impression-matrix" : ""}`}
       aria-label={
         renderObservation
           ? "Création du tableau clinique"
