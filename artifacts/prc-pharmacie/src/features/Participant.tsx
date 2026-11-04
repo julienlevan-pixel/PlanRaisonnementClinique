@@ -21,6 +21,7 @@ import { normalizeAccessCode } from "@workspace/prc-backend/access-code";
 import { AccessCodeForm, JoinConfirmation } from "./ParticipantAccess";
 import { ParticipantProgress } from "./ParticipantProgress";
 import { CaseScoreSummary } from "./CaseScoreSummary";
+import { ParticipantAttendance } from "./Attendance";
 import type { AppActions } from "../app/actions";
 import { Btn, Input, Loading, ErrorBox } from "../app/ui";
 import { getError } from "../app/utils";
@@ -908,6 +909,10 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
         <main className="participant-content">
           <h1>{joinInfo.name}</h1>
           <TrialNotice trial={joinInfo.isTrial} />
+          <ParticipantAttendance
+            key={joinInfo.teachingSession?.id ?? joinInfo.launchId}
+            scopeKey={joinInfo.teachingSession?.id ?? joinInfo.launchId}
+          />
           <ParticipantProgress
             expert={joinInfo.role === "panel"}
             asynchronous={false}
@@ -978,6 +983,10 @@ export function Participant({ actions: _actions }: { actions: AppActions }) {
       <main className="participant-content">
         <h1>{joinInfo.name}</h1>
         <TrialNotice trial={joinInfo.isTrial} />
+        <ParticipantAttendance
+          key={joinInfo.teachingSession?.id ?? joinInfo.launchId}
+          scopeKey={joinInfo.teachingSession?.id ?? joinInfo.launchId}
+        />
         <ParticipantProgress
           expert={joinInfo.role === "panel"}
           asynchronous={joinInfo.deliveryMode === "asynchronous"}
@@ -1668,6 +1677,12 @@ export function ParticipantResults({
             )}
             components={data.components}
             grading={data.case.grading}
+          />
+        )}
+        {!reviewing && (
+          <ParticipantAttendance
+            key={data.case.teachingSession?.id ?? data.case.launchId}
+            scopeKey={data.case.teachingSession?.id ?? data.case.launchId}
           />
         )}
         {!reviewing && (

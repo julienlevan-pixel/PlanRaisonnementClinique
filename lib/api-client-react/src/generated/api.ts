@@ -28,6 +28,13 @@ import type {
   AdvanceTeachingSession200,
   ArchiveInput,
   ArchiveResult,
+  AttendanceMarkInput,
+  AttendanceParticipantView,
+  AttendancePersonInput,
+  AttendanceRevisionInput,
+  AttendanceRosterInput,
+  AttendanceSetupInput,
+  AttendanceTeacherView,
   CollaborationRemoved,
   Collaborator,
   CurrentUser,
@@ -5197,6 +5204,721 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getCreateParticipantAccessTrialMutationOptions(options), queryClient);
+    }
+
+export const getGetAttendanceUrl = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,) => {
+
+
+
+
+  return `/api/attendance/${scope}/${scopeId}`
+}
+
+/**
+ * Feuille privée du professeur. Requiert les droits de gestion sur toute la séance. Sans migration 007, installed vaut false.
+ */
+export const getAttendance = async (scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceTeacherView> => {
+
+  return customFetch<AttendanceTeacherView>(getGetAttendanceUrl(scope,scopeId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAttendanceQueryKey = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,) => {
+    return [
+    `/api/attendance/${scope}/${scopeId}`
+    ] as const;
+    }
+
+
+export const getGetAttendanceQueryOptions = <TData = Awaited<ReturnType<typeof getAttendance>>, TError = ErrorType<unknown>>(scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAttendance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAttendanceQueryKey(scope,scopeId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAttendance>>> = ({ signal }) => getAttendance(scope,scopeId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: scope !== null && scope !== undefined && scopeId !== null && scopeId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAttendance>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetAttendanceQueryResult = NonNullable<Awaited<ReturnType<typeof getAttendance>>>
+export type GetAttendanceQueryError = ErrorType<unknown>
+
+
+export function useGetAttendance<TData = Awaited<ReturnType<typeof getAttendance>>, TError = ErrorType<unknown>>(
+ scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAttendance>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAttendance>>,
+          TError,
+          Awaited<ReturnType<typeof getAttendance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAttendance<TData = Awaited<ReturnType<typeof getAttendance>>, TError = ErrorType<unknown>>(
+ scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAttendance>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getAttendance>>,
+          TError,
+          Awaited<ReturnType<typeof getAttendance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetAttendance<TData = Awaited<ReturnType<typeof getAttendance>>, TError = ErrorType<unknown>>(
+ scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAttendance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetAttendance<TData = Awaited<ReturnType<typeof getAttendance>>, TError = ErrorType<unknown>>(
+ scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getAttendance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetAttendanceQueryOptions(scope,scopeId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getOpenAttendanceUrl = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,) => {
+
+
+
+
+  return `/api/attendance/${scope}/${scopeId}`
+}
+
+/**
+ * Active ou rouvre les confirmations. Le choix de recueillir le matricule peut être modifié avant la première ligne de la feuille.
+ */
+export const openAttendance = async (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,
+    attendanceSetupInput: AttendanceSetupInput, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceTeacherView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttendanceTeacherView>(getOpenAttendanceUrl(scope,scopeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attendanceSetupInput)
+  }
+);}
+
+
+
+
+
+export const getOpenAttendanceMutationKey = () => ['openAttendance'] as const;
+
+export const getOpenAttendanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openAttendance>>, TError,OpenAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof openAttendance>>, TError,OpenAttendanceMutationVariables, TContext> => {
+
+const mutationKey = getOpenAttendanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof openAttendance>>, OpenAttendanceMutationVariables> = (props) => {
+          const {scope,scopeId,data} = props ?? {};
+
+          return  openAttendance(scope,scopeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type OpenAttendanceMutationResult = NonNullable<Awaited<ReturnType<typeof openAttendance>>>
+    export type OpenAttendanceMutationBody = BodyType<AttendanceSetupInput>
+    export type OpenAttendanceMutationError = ErrorType<unknown>
+    export type OpenAttendanceMutationVariables = {scope: 'teaching-sessions' | 'launches';scopeId: string;data: BodyType<AttendanceSetupInput>}
+
+    export const useOpenAttendance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof openAttendance>>, TError,OpenAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof openAttendance>>,
+        TError,
+        OpenAttendanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getOpenAttendanceMutationOptions(options), queryClient);
+    }
+
+export const getCloseAttendanceUrl = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,) => {
+
+
+
+
+  return `/api/attendance/${scope}/${scopeId}/close`
+}
+
+/**
+ * Termine les confirmations sans fermer le questionnaire ni transformer les statuts à confirmer en absences.
+ */
+export const closeAttendance = async (scope: 'teaching-sessions' | 'launches',
+    scopeId: string, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceTeacherView> => {
+
+  return customFetch<AttendanceTeacherView>(getCloseAttendanceUrl(scope,scopeId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCloseAttendanceMutationKey = () => ['closeAttendance'] as const;
+
+export const getCloseAttendanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeAttendance>>, TError,CloseAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof closeAttendance>>, TError,CloseAttendanceMutationVariables, TContext> => {
+
+const mutationKey = getCloseAttendanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closeAttendance>>, CloseAttendanceMutationVariables> = (props) => {
+          const {scope,scopeId} = props ?? {};
+
+          return  closeAttendance(scope,scopeId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CloseAttendanceMutationResult = NonNullable<Awaited<ReturnType<typeof closeAttendance>>>
+
+    export type CloseAttendanceMutationError = ErrorType<unknown>
+    export type CloseAttendanceMutationVariables = {scope: 'teaching-sessions' | 'launches';scopeId: string}
+
+    export const useCloseAttendance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeAttendance>>, TError,CloseAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof closeAttendance>>,
+        TError,
+        CloseAttendanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCloseAttendanceMutationOptions(options), queryClient);
+    }
+
+export const getAddAttendanceRosterUrl = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,) => {
+
+
+
+
+  return `/api/attendance/${scope}/${scopeId}/roster`
+}
+
+export const addAttendanceRoster = async (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,
+    attendanceRosterInput: AttendanceRosterInput, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceTeacherView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttendanceTeacherView>(getAddAttendanceRosterUrl(scope,scopeId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attendanceRosterInput)
+  }
+);}
+
+
+
+
+
+export const getAddAttendanceRosterMutationKey = () => ['addAttendanceRoster'] as const;
+
+export const getAddAttendanceRosterMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAttendanceRoster>>, TError,AddAttendanceRosterMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof addAttendanceRoster>>, TError,AddAttendanceRosterMutationVariables, TContext> => {
+
+const mutationKey = getAddAttendanceRosterMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof addAttendanceRoster>>, AddAttendanceRosterMutationVariables> = (props) => {
+          const {scope,scopeId,data} = props ?? {};
+
+          return  addAttendanceRoster(scope,scopeId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AddAttendanceRosterMutationResult = NonNullable<Awaited<ReturnType<typeof addAttendanceRoster>>>
+    export type AddAttendanceRosterMutationBody = BodyType<AttendanceRosterInput>
+    export type AddAttendanceRosterMutationError = ErrorType<unknown>
+    export type AddAttendanceRosterMutationVariables = {scope: 'teaching-sessions' | 'launches';scopeId: string;data: BodyType<AttendanceRosterInput>}
+
+    export const useAddAttendanceRoster = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof addAttendanceRoster>>, TError,AddAttendanceRosterMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof addAttendanceRoster>>,
+        TError,
+        AddAttendanceRosterMutationVariables,
+        TContext
+      > => {
+      return useMutation(getAddAttendanceRosterMutationOptions(options), queryClient);
+    }
+
+export const getMarkAttendanceUrl = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,
+    entryId: string,) => {
+
+
+
+
+  return `/api/attendance/${scope}/${scopeId}/entries/${entryId}`
+}
+
+/**
+ * Corrige explicitement un statut, y compris après la séance. Une révision périmée est refusée.
+ */
+export const markAttendance = async (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,
+    entryId: string,
+    attendanceMarkInput: AttendanceMarkInput, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceTeacherView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttendanceTeacherView>(getMarkAttendanceUrl(scope,scopeId,entryId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attendanceMarkInput)
+  }
+);}
+
+
+
+
+
+export const getMarkAttendanceMutationKey = () => ['markAttendance'] as const;
+
+export const getMarkAttendanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAttendance>>, TError,MarkAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markAttendance>>, TError,MarkAttendanceMutationVariables, TContext> => {
+
+const mutationKey = getMarkAttendanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markAttendance>>, MarkAttendanceMutationVariables> = (props) => {
+          const {scope,scopeId,entryId,data} = props ?? {};
+
+          return  markAttendance(scope,scopeId,entryId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkAttendanceMutationResult = NonNullable<Awaited<ReturnType<typeof markAttendance>>>
+    export type MarkAttendanceMutationBody = BodyType<AttendanceMarkInput>
+    export type MarkAttendanceMutationError = ErrorType<unknown>
+    export type MarkAttendanceMutationVariables = {scope: 'teaching-sessions' | 'launches';scopeId: string;entryId: string;data: BodyType<AttendanceMarkInput>}
+
+    export const useMarkAttendance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAttendance>>, TError,MarkAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof markAttendance>>,
+        TError,
+        MarkAttendanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getMarkAttendanceMutationOptions(options), queryClient);
+    }
+
+export const getRemoveAttendanceRosterEntryUrl = (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,
+    entryId: string,) => {
+
+
+
+
+  return `/api/attendance/${scope}/${scopeId}/entries/${entryId}/delete`
+}
+
+/**
+ * Retire seulement une ligne attendue non liée à une participation.
+ */
+export const removeAttendanceRosterEntry = async (scope: 'teaching-sessions' | 'launches',
+    scopeId: string,
+    entryId: string,
+    attendanceRevisionInput: AttendanceRevisionInput, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceTeacherView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttendanceTeacherView>(getRemoveAttendanceRosterEntryUrl(scope,scopeId,entryId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attendanceRevisionInput)
+  }
+);}
+
+
+
+
+
+export const getRemoveAttendanceRosterEntryMutationKey = () => ['removeAttendanceRosterEntry'] as const;
+
+export const getRemoveAttendanceRosterEntryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAttendanceRosterEntry>>, TError,RemoveAttendanceRosterEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeAttendanceRosterEntry>>, TError,RemoveAttendanceRosterEntryMutationVariables, TContext> => {
+
+const mutationKey = getRemoveAttendanceRosterEntryMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeAttendanceRosterEntry>>, RemoveAttendanceRosterEntryMutationVariables> = (props) => {
+          const {scope,scopeId,entryId,data} = props ?? {};
+
+          return  removeAttendanceRosterEntry(scope,scopeId,entryId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveAttendanceRosterEntryMutationResult = NonNullable<Awaited<ReturnType<typeof removeAttendanceRosterEntry>>>
+    export type RemoveAttendanceRosterEntryMutationBody = BodyType<AttendanceRevisionInput>
+    export type RemoveAttendanceRosterEntryMutationError = ErrorType<unknown>
+    export type RemoveAttendanceRosterEntryMutationVariables = {scope: 'teaching-sessions' | 'launches';scopeId: string;entryId: string;data: BodyType<AttendanceRevisionInput>}
+
+    export const useRemoveAttendanceRosterEntry = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeAttendanceRosterEntry>>, TError,RemoveAttendanceRosterEntryMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof removeAttendanceRosterEntry>>,
+        TError,
+        RemoveAttendanceRosterEntryMutationVariables,
+        TContext
+      > => {
+      return useMutation(getRemoveAttendanceRosterEntryMutationOptions(options), queryClient);
+    }
+
+export const getGetOwnAttendanceUrl = () => {
+
+
+
+
+  return `/api/participant/attendance`
+}
+
+/**
+ * Retourne exclusivement sa propre confirmation. Les identités et statuts d’autrui restent privés.
+ */
+export const getOwnAttendance = async ( options?: Parameters<typeof customFetch>[1]): Promise<AttendanceParticipantView> => {
+
+  return customFetch<AttendanceParticipantView>(getGetOwnAttendanceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOwnAttendanceQueryKey = () => {
+    return [
+    `/api/participant/attendance`
+    ] as const;
+    }
+
+
+export const getGetOwnAttendanceQueryOptions = <TData = Awaited<ReturnType<typeof getOwnAttendance>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnAttendance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOwnAttendanceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOwnAttendance>>> = ({ signal }) => getOwnAttendance({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOwnAttendance>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetOwnAttendanceQueryResult = NonNullable<Awaited<ReturnType<typeof getOwnAttendance>>>
+export type GetOwnAttendanceQueryError = ErrorType<unknown>
+
+
+export function useGetOwnAttendance<TData = Awaited<ReturnType<typeof getOwnAttendance>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnAttendance>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOwnAttendance>>,
+          TError,
+          Awaited<ReturnType<typeof getOwnAttendance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOwnAttendance<TData = Awaited<ReturnType<typeof getOwnAttendance>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnAttendance>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getOwnAttendance>>,
+          TError,
+          Awaited<ReturnType<typeof getOwnAttendance>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetOwnAttendance<TData = Awaited<ReturnType<typeof getOwnAttendance>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnAttendance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+
+export function useGetOwnAttendance<TData = Awaited<ReturnType<typeof getOwnAttendance>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getOwnAttendance>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetOwnAttendanceQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getConfirmOwnAttendanceUrl = () => {
+
+
+
+
+  return `/api/participant/attendance`
+}
+
+/**
+ * Confirmation unique par participation à la séance, indépendante des cas et du pointage. Une correction du professeur est conservée.
+ */
+export const confirmOwnAttendance = async (attendancePersonInput: AttendancePersonInput, options?: Parameters<typeof customFetch>[1]): Promise<AttendanceParticipantView> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<AttendanceParticipantView>(getConfirmOwnAttendanceUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(attendancePersonInput)
+  }
+);}
+
+
+
+
+
+export const getConfirmOwnAttendanceMutationKey = () => ['confirmOwnAttendance'] as const;
+
+export const getConfirmOwnAttendanceMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmOwnAttendance>>, TError,ConfirmOwnAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmOwnAttendance>>, TError,ConfirmOwnAttendanceMutationVariables, TContext> => {
+
+const mutationKey = getConfirmOwnAttendanceMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmOwnAttendance>>, ConfirmOwnAttendanceMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmOwnAttendance(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmOwnAttendanceMutationResult = NonNullable<Awaited<ReturnType<typeof confirmOwnAttendance>>>
+    export type ConfirmOwnAttendanceMutationBody = BodyType<AttendancePersonInput>
+    export type ConfirmOwnAttendanceMutationError = ErrorType<unknown>
+    export type ConfirmOwnAttendanceMutationVariables = {data: BodyType<AttendancePersonInput>}
+
+    export const useConfirmOwnAttendance = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmOwnAttendance>>, TError,ConfirmOwnAttendanceMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof confirmOwnAttendance>>,
+        TError,
+        ConfirmOwnAttendanceMutationVariables,
+        TContext
+      > => {
+      return useMutation(getConfirmOwnAttendanceMutationOptions(options), queryClient);
     }
 
 export const getGetParticipantActivityStateUrl = () => {

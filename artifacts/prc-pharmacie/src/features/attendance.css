@@ -1,0 +1,218 @@
+.attendance-access {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 16px 20px;
+  margin: 20px 0;
+  border: 1px solid var(--palette-border);
+  border-radius: var(--design-radius);
+  background: var(--palette-surface);
+}
+.attendance-access > div,
+.attendance-participant-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.attendance-access svg,
+.attendance-participant-heading svg {
+  color: var(--palette-action);
+  flex-shrink: 0;
+}
+.attendance-access strong,
+.attendance-access small {
+  display: block;
+}
+.attendance-access small {
+  font-size: 13px;
+  color: var(--palette-muted);
+}
+.attendance-name {
+  font-weight: 600;
+  margin-bottom: 18px;
+}
+.attendance-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 20px 0;
+}
+.attendance-option input {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--palette-action);
+}
+.attendance-tools,
+.attendance-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 20px 0;
+}
+.attendance-counts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin: 24px 0;
+}
+.attendance-counts > div {
+  background: var(--palette-accent);
+  border-radius: 9px;
+  padding: 12px;
+}
+.attendance-counts strong {
+  font-size: 25px;
+  display: block;
+  color: var(--palette-action);
+}
+.attendance-counts span {
+  font-size: 12px;
+}
+.attendance-roster {
+  border-block: 1px solid var(--palette-border);
+  padding: 18px 0;
+  margin: 24px 0;
+}
+.attendance-roster summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.attendance-roster form {
+  margin-top: 18px;
+}
+.attendance-roster p,
+.attendance-empty,
+.attendance-footer small {
+  font-size: 14px;
+  color: var(--palette-muted);
+  line-height: 1.65;
+}
+.attendance-roster p {
+  margin: 12px 0;
+}
+.attendance-filters {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 16px;
+  margin-top: 24px;
+}
+.attendance-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.attendance-list > li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 0.65fr) 30px;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--palette-border);
+}
+.attendance-identity > strong,
+.attendance-identity > span,
+.attendance-identity > small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.attendance-identity > span,
+.attendance-identity > small {
+  font-size: 12px;
+  color: var(--palette-muted);
+  margin-top: 5px;
+}
+.attendance-list .field {
+  margin: 0;
+}
+.attendance-list select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid hsl(var(--input));
+  padding: 10px;
+  background: var(--palette-surface);
+  color: var(--palette-ink);
+}
+.attendance-status > span {
+  font-size: 12px;
+}
+.attendance-delete {
+  min-height: 44px;
+  color: var(--palette-danger-ink);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.attendance-footer {
+  border-top: 1px solid var(--palette-border);
+  padding-top: 20px;
+  margin-top: 30px;
+}
+.attendance-footer small {
+  flex: 1;
+  min-width: 180px;
+}
+.attendance-participant {
+  border: 1px solid var(--palette-border);
+  border-radius: var(--design-radius);
+  padding: 20px;
+  margin: 20px 0;
+  background: var(--palette-accent);
+  color: var(--palette-ink);
+}
+.attendance-participant-heading h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+.attendance-participant p {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 12px 0;
+}
+.attendance-participant small {
+  color: var(--palette-muted);
+  font-size: 12px;
+}
+.attendance-participant form {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.attendance-participant form .field {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+}
+.attendance-participant.recorded {
+  padding: 14px 18px;
+}
+@media (max-width: 650px) {
+  .attendance-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .attendance-filters {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .attendance-list > li {
+    grid-template-columns: minmax(0, 1fr) 36px;
+  }
+  .attendance-identity {
+    grid-column: 1/-1;
+  }
+  .attendance-list .attendance-status {
+    grid-column: 1;
+  }
+  .attendance-access > .btn,
+  .attendance-participant form .btn {
+    width: 100%;
+  }
+  .attendance-participant form .field {
+    flex-basis: 100%;
+  }
+}

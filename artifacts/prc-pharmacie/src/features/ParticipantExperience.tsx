@@ -101,7 +101,7 @@ export function ParticipantInstructions({
     </section>
   );
 }
-function ParticipantDialog({
+export function ParticipantDialog({
   title,
   children,
   onClose,
