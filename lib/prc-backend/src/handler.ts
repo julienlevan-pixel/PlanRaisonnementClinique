@@ -4192,8 +4192,8 @@ async function handle(request: Request): Promise<Response> {
       fail(400, "Ce bilan concerne uniquement les groupes étudiants.");
     const responses = await pool.query<ChoiceResponse>(
       `SELECT r.state,r.main_diagnostic_id,r.alternative_diagnostic_id,r.main_choices,r.alternative_choices
-       FROM prc_private.participants p LEFT JOIN prc_private.responses r ON r.participant_id=p.id
-       WHERE p.launch_id=$1 AND p.role='students' ORDER BY lower(p.pseudonym),p.id`,
+       FROM prc_private.participants p JOIN prc_private.responses r ON r.participant_id=p.id
+       WHERE p.launch_id=$1 AND p.role='students' AND r.state='submitted' ORDER BY p.id`,
       [launch.id],
     );
     const reference = await launchReference(launch);

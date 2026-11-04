@@ -6,96 +6,55 @@ const user = {
   active: true,
   mustChangePassword: false,
 };
-const observations = Array.from({ length: 20 }, (_, i) => ({
-  observationId: `o${i}`,
-  label:
-    i === 0
-      ? "Toux nocturne"
-      : i === 1
-        ? "Absence de fièvre"
-        : `Donnée clinique ${i + 1}`,
-  category: i < 2 ? "Description de la plainte" : "Examen physique",
-  positive: i === 0 ? 2 : 0,
-  negative: i === 1 ? 1 : 0,
-  notSelected: i === 0 ? 0 : i === 1 ? 1 : 2,
-  positivePercent: i === 0 ? 100 : 0,
-  negativePercent: i === 1 ? 50 : 0,
-  panelPositive: i === 0 ? 6 : 0,
-  panelNegative: i === 1 ? 6 : 0,
-  panelPositivePercent: i === 0 ? 75 : 0,
-  panelNegativePercent: i === 1 ? 75 : 0,
-}));
-const data = (name = "Toux", empty = false) => ({
-  caseName: name,
-  status: "published",
-  participantCount: 6,
-  submittedCount: empty ? 0 : 4,
-  excludedCount: empty ? 6 : 2,
-  panelTotal: 10,
-  diagnostics: [
-    {
-      diagnosticId: "a",
-      label: "Asthme",
-      mainCount: empty ? 0 : 1,
-      alternativeCount: empty ? 0 : 1,
-      totalCount: empty ? 0 : 2,
-      mainPercent: 25,
-      alternativePercent: 25,
-      totalPercent: 50,
-      panelCount: 8,
-      panelPercent: 80,
-      observations,
-    },
-    {
-      diagnosticId: "b",
-      label: "Reflux",
-      mainCount: empty ? 0 : 3,
-      alternativeCount: empty ? 0 : 1,
-      totalCount: empty ? 0 : 4,
-      mainPercent: 75,
-      alternativePercent: 25,
-      totalPercent: 100,
-      panelCount: 2,
-      panelPercent: 20,
-      observations: observations.map((row) => ({
-        ...row,
-        positive: 0,
-        negative: 0,
-        notSelected: 4,
-        positivePercent: 0,
-        negativePercent: 0,
-        panelPositive: 0,
-        panelNegative: 0,
-        panelPositivePercent: 0,
-        panelNegativePercent: 0,
-      })),
-    },
-    {
-      diagnosticId: "c",
-      label: "Infection",
-      mainCount: 0,
-      alternativeCount: empty ? 0 : 2,
-      totalCount: empty ? 0 : 2,
-      mainPercent: 0,
-      alternativePercent: 50,
-      totalPercent: 50,
-      panelCount: 0,
-      panelPercent: 0,
-      observations: observations.map((row) => ({
-        ...row,
-        positive: 0,
-        negative: 0,
-        notSelected: 2,
-        positivePercent: 0,
-        negativePercent: 0,
-        panelPositive: 0,
-        panelNegative: 0,
-        panelPositivePercent: 0,
-        panelNegativePercent: 0,
-      })),
-    },
-  ],
-});
+const observations = (count: number, panelCount: number) =>
+  Array.from({ length: 20 }, (_, i) => ({
+    observationId: `o${i}`,
+    label:
+      i === 0
+        ? "Toux nocturne"
+        : i === 1
+          ? "Absence de fièvre"
+          : `Donnée clinique ${i + 1}`,
+    count: i === 0 ? count : 0,
+    percent: i === 0 ? 100 : 0,
+    panelCount: i === 0 ? panelCount : 0,
+    panelPercent: i === 0 ? 75 : 0,
+  }));
+function data(name = "Toux", empty = false) {
+  const diagnostic = (
+    id: string,
+    label: string,
+    count: number,
+    panelCount: number,
+  ) => ({
+    diagnosticId: id,
+    label,
+    count: empty ? 0 : count,
+    percent: count * 25,
+    panelCount,
+    panelPercent: panelCount * 10,
+    observations: observations(
+      empty ? 0 : count,
+      Math.floor(panelCount * 0.75),
+    ),
+  });
+  return {
+    caseName: name,
+    status: "published",
+    submittedCount: empty ? 0 : 4,
+    panelTotal: 10,
+    main: [
+      diagnostic("a", "Asthme", 1, 8),
+      diagnostic("b", "Reflux", 3, 2),
+      diagnostic("c", "Infection", 0, 0),
+    ],
+    alternative: [
+      diagnostic("a", "Asthme", 1, 2),
+      diagnostic("b", "Reflux", 1, 5),
+      diagnostic("c", "Infection", 2, 3),
+    ],
+  };
+}
 async function authenticated(page: Page) {
   await page.route("**/api/auth/me", (r) => r.fulfill({ json: { user } }));
 }
@@ -134,7 +93,7 @@ async function activity(page: Page) {
   await page.goto("/activity/live");
 }
 
-test("collective charts separate impression roles, compare experts and use the diagnosis denominator for clinical data", async ({
+test("four simple histograms compare roles separately and show unsigned clinical selections without extra controls or counts", async ({
   page,
 }, testInfo) => {
   const requests: string[] = [];
@@ -146,73 +105,111 @@ test("collective charts separate impression roles, compare experts and use the d
   expect(requests).toEqual([]);
   const report = page.locator(".choice-analysis");
   await report.locator("summary").first().click();
-  await expect(report).toContainText("4 / 6");
-  await expect(report).toContainText("Non soumises · exclues");
-  await expect(report).toContainText("aucun nom ni réponse individuelle");
-  const asthme = report.getByRole("button", {
-    name: "Voir les données pour Asthme",
-    exact: true,
-  });
-  await expect(asthme).toContainText(
-    "Impression clinique : 1/4 (25 %) · Alternative : 1/4 (25 %)",
+  await expect(report.locator(".choice-histogram")).toHaveCount(4);
+  await expect(report).not.toContainText(
+    /non soumi|sans réponse|reçue|en faveur|en défaveur|écarts|parmi|200 %/i,
   );
-  await expect(asthme).toContainText("8/10 (80 %)");
-  await asthme.click();
-  await expect(asthme).toHaveAttribute("aria-pressed", "true");
-  const clinical = report.getByRole("region", {
-    name: "Données cliniques pour Asthme",
+  await expect(
+    report.locator(".distribution-metrics,.choice-second"),
+  ).toHaveCount(0);
+  await expect(report.getByRole("textbox")).toHaveCount(0);
+  const main = report.getByRole("region", {
+    name: "1. Impression clinique",
     exact: true,
   });
-  await expect(clinical).toContainText("2 étudiants");
-  await expect(clinical.locator(".choice-observation-list > li")).toHaveCount(
+  const alternative = report.getByRole("region", {
+    name: "2. Impression clinique alternative",
+    exact: true,
+  });
+  await expect(
+    main.getByRole("img", { name: "Étudiants : 1 sur 4, 25 %", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    main.getByRole("img", { name: "Experts : 8 sur 10, 80 %", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    alternative.getByRole("img", {
+      name: "Experts : 5 sur 10, 50 %",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  const clinical = report.getByRole("region", {
+    name: "3. Données cliniques de l’impression",
+    exact: true,
+  });
+  const clinicalAlternative = report.getByRole("region", {
+    name: "4. Données cliniques de l’alternative",
+    exact: true,
+  });
+  await clinical
+    .getByLabel("Impression clinique", { exact: true })
+    .selectOption("a");
+  await clinicalAlternative
+    .getByLabel("Impression clinique alternative", { exact: true })
+    .selectOption("b");
+  await expect(clinical.locator(".choice-bars > li")).toHaveCount(20);
+  await expect(clinicalAlternative.locator(".choice-bars > li")).toHaveCount(
     20,
   );
-  const first = clinical.locator("li").first();
-  await expect(first).toContainText("+ 2/2 (100 %)");
-  await expect(first).toContainText("+ 6/8 (75 %)");
-  await clinical
-    .getByLabel("Ordre des données", { exact: true })
-    .selectOption("gap");
-  await expect(clinical).toContainText("ne constitue pas une note");
-  await clinical
-    .getByLabel("Rechercher une donnée clinique", { exact: true })
-    .fill("fievre");
-  await expect(clinical.locator("li")).toHaveCount(1);
-  await expect(clinical.locator("li")).toContainText("− 1/2 (50 %)");
-  await report
-    .getByRole("button", {
-      name: "Voir les données pour Infection",
-      exact: true,
-    })
-    .click();
-  await expect(report).toContainText(
-    "Aucun expert n’a retenu cette impression",
-  );
-  expect(requests).toEqual(["GET"]);
   await expect(
-    report.getByRole("textbox", { name: /étudiant|participant/i }),
-  ).toHaveCount(0);
+    clinical
+      .locator("li")
+      .first()
+      .getByRole("img", { name: "Étudiants : 1 sur 1, 100 %", exact: true }),
+  ).toBeVisible();
+  await expect(
+    clinical
+      .locator("li")
+      .first()
+      .getByRole("img", { name: "Experts : 6 sur 8, 75 %", exact: true }),
+  ).toBeVisible();
+  await expect(
+    clinicalAlternative.getByLabel("Impression clinique alternative", {
+      exact: true,
+    }),
+  ).toHaveValue("b");
+  await clinical
+    .getByLabel("Impression clinique", { exact: true })
+    .selectOption("c");
+  await expect(clinical.locator("li").first()).not.toContainText("0/0");
+  await expect(clinical.locator("li").first()).toContainText("—");
+  await clinical
+    .getByLabel("Impression clinique", { exact: true })
+    .selectOption("a");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const left = await main.boundingBox(),
+    right = await alternative.boundingBox();
+  expect(right!.x).toBeGreaterThan(left!.x);
   await page.setViewportSize({ width: 390, height: 844 });
-  await asthme.click();
+  await expect.poll(async () => {
+    const box=await page.locator(".sidebar").boundingBox();
+    return box ? box.x+box.width : 0;
+  }).toBeLessThanOrEqual(1);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await report.evaluate((el) => el.scrollIntoView({ block: "start" }));
-  await page.screenshot({
-    path: testInfo.outputPath("choix-groupe-mobile.png"),
+  await main.screenshot({
+    path: testInfo.outputPath("impression-principale-mobile.png"), animations: "disabled",
   });
-  await report
-    .getByRole("list", { name: "Répartition des impressions cliniques" })
-    .screenshot({ path: testInfo.outputPath("choix-impressions-mobile.png") });
+  await alternative.screenshot({
+    path: testInfo.outputPath("impression-alternative-mobile.png"), animations: "disabled",
+  });
   await clinical.evaluate((el) => el.scrollIntoView({ block: "start" }));
   await page.screenshot({
-    path: testInfo.outputPath("choix-donnees-mobile.png"),
+    path: testInfo.outputPath("donnees-principales-mobile.png"), animations: "disabled",
   });
+  await clinicalAlternative.evaluate((el) =>
+    el.scrollIntoView({ block: "start" }),
+  );
+  await page.screenshot({
+    path: testInfo.outputPath("donnees-alternative-mobile.png"), animations: "disabled",
+  });
+  expect(requests).toEqual(["GET"]);
 });
 
-test("finished session exposes a selector and preserves the separation of cases including empty cases", async ({
+test("case selector keeps submissions separate and an empty case has no histogram or non-response count", async ({
   page,
 }) => {
   await authenticated(page);
@@ -259,19 +256,15 @@ test("finished session exposes a selector and preserves the separation of cases 
   await report.locator("summary").first().click();
   const picker = report.getByLabel("Cas à analyser", { exact: true });
   await expect(picker).toHaveValue("two");
-  await expect(report).toContainText("Aucune copie définitive pour ce cas");
+  await expect(report).toContainText("après la première soumission");
+  await expect(report.locator(".choice-histogram")).toHaveCount(0);
   await picker.selectOption("one");
   await expect(report.locator(".choice-case-title")).toHaveText("Toux");
-  await expect(
-    report.getByRole("button", {
-      name: "Voir les données pour Asthme",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(report.locator(".choice-histogram")).toHaveCount(4);
   expect(visits).toEqual(["two", "one"]);
 });
 
-test("a read failure offers retry and never invents a zero-participation graph", async ({
+test("a read failure offers retry without inventing empty histograms", async ({
   page,
 }) => {
   let count = 0;
@@ -287,12 +280,7 @@ test("a read failure offers retry and never invents a zero-participation graph",
   const report = page.locator(".choice-analysis");
   await report.locator("summary").first().click();
   await expect(report).toContainText("Lecture temporairement indisponible");
-  await expect(report.locator(".choice-diagnostic-list")).toHaveCount(0);
+  await expect(report.locator(".choice-histogram")).toHaveCount(0);
   await report.getByRole("button", { name: /Réessayer/ }).click();
-  await expect(
-    report.getByRole("button", {
-      name: "Voir les données pour Asthme",
-      exact: true,
-    }),
-  ).toBeVisible();
+  await expect(report.locator(".choice-histogram")).toHaveCount(4);
 });

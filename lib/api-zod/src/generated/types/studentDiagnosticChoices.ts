@@ -10,12 +10,8 @@ import type { StudentObservationChoices } from './studentObservationChoices';
 export interface StudentDiagnosticChoices {
   diagnosticId: string;
   label: string;
-  mainCount: number;
-  alternativeCount: number;
-  totalCount: number;
-  mainPercent: number;
-  alternativePercent: number;
-  totalPercent: number;
+  count: number;
+  percent: number;
   panelCount: number;
   panelPercent: number;
   observations: StudentObservationChoices[];

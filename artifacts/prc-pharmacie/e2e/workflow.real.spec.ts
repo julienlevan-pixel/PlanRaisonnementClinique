@@ -143,11 +143,11 @@ test('real PostgreSQL workflow: administrator, teacher, expert and student in se
       await answerAndSubmit(student, 'Étudiant navigateur fictif', teacher);
       const choices=teacher.locator('.choice-analysis');
       await choices.locator('summary').first().click();
-      await expect(choices).toContainText('1 / 1');
-      await choices.getByRole('button',{name:'Voir les données pour Hypothèse navigateur A',exact:true}).click();
-      const clinical=choices.getByRole('region',{name:'Données cliniques pour Hypothèse navigateur A',exact:true});
-      await expect(clinical.locator('.choice-observation-list > li')).toHaveCount(20);
-      await expect(clinical.locator('li').first()).toContainText('+ 1/1 (100 %)');
+      await expect(choices.locator('.choice-histogram')).toHaveCount(4);
+      const clinical=choices.getByRole('region',{name:'3. Données cliniques de l’impression',exact:true});
+      await clinical.getByLabel('Impression clinique',{exact:true}).selectOption({label:'Hypothèse navigateur A'});
+      await expect(clinical.locator('.choice-bars > li')).toHaveCount(20);
+      await expect(clinical.locator('li').first().getByRole('img',{name:'Étudiants : 1 sur 1, 100 %',exact:true})).toBeVisible();
       await expect(choices).not.toContainText('Étudiant navigateur fictif');
       const caseId=new URL(teacher.url()).pathname.split('/').pop();
       expect((await student.request.get(`/api/launches/${caseId}/choice-analysis`)).status()).toBe(401);

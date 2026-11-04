@@ -11,9 +11,8 @@ import type { StudentDiagnosticChoices } from './studentDiagnosticChoices';
 export interface StudentChoiceAnalysis {
   caseName: string;
   status: StudentChoiceAnalysisStatus;
-  participantCount: number;
   submittedCount: number;
-  excludedCount: number;
   panelTotal: number;
-  diagnostics: StudentDiagnosticChoices[];
+  main: StudentDiagnosticChoices[];
+  alternative: StudentDiagnosticChoices[];
 }

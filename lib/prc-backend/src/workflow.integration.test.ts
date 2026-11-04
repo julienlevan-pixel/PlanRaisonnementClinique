@@ -1434,7 +1434,7 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     const live=await host.session.call(`/prcs/${item.id}/launches`,'POST',{role:'students',deliveryMode:'asynchronous'},201);
     const path=`/launches/${live.id}/choice-analysis`;
     await anonymous.call(path,'GET',undefined,401);await stranger.session.call(path,'GET',undefined,404);
-    let data=await host.session.call(path);assert.equal(data.submittedCount,0);assert.equal(data.panelTotal,2);assert.equal(data.diagnostics.length,3);
+    let data=await host.session.call(path);assert.equal(data.submittedCount,0);assert.equal(data.panelTotal,2);assert.equal(data.main.length,3);assert.equal(data.alternative.length,3);
     const learners=[new Session(),new Session(),new Session(),new Session()];
     for(let i=0;i<4;i++)await learners[i].call(`/launches/${live.id}/join`,'POST',{pseudonym:`Identité privée choix ${i}`,code:live.code,joinKey:randomUUID()});
     await save(learners[0],answer(item));await learners[0].call('/participant/submit','POST',{});
@@ -1442,23 +1442,23 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await save(learners[2],{...answer(item),mainDiagnosticId:item.diagnostics[1].id,alternativeDiagnosticId:item.diagnostics[0].id});await learners[2].call('/participant/submit','POST',{});
     await save(learners[3],answer(item)); // Draft must not affect any count.
     const before=await learners[0].call('/participant/results');
-    data=await host.session.call(path);assert.equal(data.participantCount,4);assert.equal(data.submittedCount,3);assert.equal(data.excludedCount,1);
-    const main=data.diagnostics[0];assert.equal(main.mainCount,1);assert.equal(main.alternativeCount,1);assert.equal(main.totalCount,2);assert.equal(main.totalPercent,66.7);
-    assert.equal(main.observations[0].positive,1);assert.equal(main.observations[0].positivePercent,50);assert.equal(main.observations[0].notSelected,1);
-    assert.equal(main.panelCount,1);assert.equal(main.observations[0].panelPositivePercent,100);
-    assert.equal(main.observations[5].negative,1);assert.equal(main.observations.length,20);
+    data=await host.session.call(path);assert.equal(data.participantCount,undefined);assert.equal(data.submittedCount,3);assert.equal(data.excludedCount,undefined);
+    const main=data.main[0];assert.equal(main.count,1);assert.equal(main.percent,33.3);assert.equal(data.alternative[0].count,1);
+    assert.equal(main.observations[0].count,1);assert.equal(main.observations[0].percent,100);assert.equal(main.observations[0].notSelected,undefined);
+    assert.equal(main.panelCount,1);assert.equal(main.observations[0].panelPercent,100);
+    assert.equal(data.alternative[0].observations[5].count,1);assert.equal(data.alternative[0].observations[5].percent,100);assert.equal(main.observations.length,20);
     assert.equal(data.copies,undefined);assert.equal(data.participants,undefined);assert.equal(JSON.stringify(data).includes('Identité privée choix'),false);
     await learners[0].call(path,'GET',undefined,401);
     assert.equal((await learners[0].call('/participant/results')).choiceAnalysis,undefined);
     assert.equal((await host.session.call(`/launches/${live.id}/projection`)).choiceAnalysis,undefined);
     const document=await host.session.call(`/prcs/${item.id}`);
     await host.session.call(`/prcs/${item.id}`,'PUT',{...document,name:'Nom modifié après lancement',scenario:'Scénario révisé',version:document.version,diagnostics:document.diagnostics.map((row:any)=>row.label)});
-    data=await host.session.call(path);assert.equal(data.caseName,item.name);assert.equal(data.diagnostics[0].label,item.diagnostics[0].label);
+    data=await host.session.call(path);assert.equal(data.caseName,item.name);assert.equal(data.main[0].label,item.diagnostics[0].label);
     assert.equal((await learners[0].call('/participant/results')).score,before.score);
     await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:true});assert.equal((await colleague.session.call(path)).submittedCount,3);
     await host.session.call(`/prcs/${item.id}/collaborators`,'POST',{username:colleague.username,manageSessions:false});await colleague.session.call(path,'GET',undefined,404);
     await host.session.call(`/launches/${live.id}/close`,'POST',{});await host.session.call(`/launches/${live.id}/publish`,'POST',{});
-    const final=await host.session.call(path);assert.equal(final.status,'published');assert.deepEqual(final.diagnostics,data.diagnostics);
+    const final=await host.session.call(path);assert.equal(final.status,'published');assert.deepEqual(final.main,data.main);assert.deepEqual(final.alternative,data.alternative);
   });
 
   await t.test("multi-case choice analysis remains separated by case and rejects expert collections",async()=>{
@@ -1470,8 +1470,8 @@ test("complete private PRC workflow on disposable PostgreSQL", { skip: !process.
     await save(learner,{...answer(items[0]),launchId:context.currentLaunchId});await learner.call('/participant/submit','POST',{launchId:context.currentLaunchId});
     const session=await host.session.call(`/teaching-sessions/${lesson.id}`);
     assert.equal((await host.session.call(`/launches/${session.cases[0].id}/choice-analysis`)).submittedCount,1);
-    const next=await host.session.call(`/launches/${session.cases[1].id}/choice-analysis`);assert.equal(next.submittedCount,0);assert.equal(next.excludedCount,1);
-    assert.equal(next.diagnostics[0].diagnosticId,items[1].diagnostics[0].id);
+    const next=await host.session.call(`/launches/${session.cases[1].id}/choice-analysis`);assert.equal(next.submittedCount,0);assert.equal(next.excludedCount,undefined);
+    assert.equal(next.main[0].diagnosticId,items[1].diagnostics[0].id);
     const panel=await host.session.call(`/prcs/${items[0].id}/launches`,'POST',{role:'panel'},201);await host.session.call(`/launches/${panel.id}/choice-analysis`,'GET',undefined,400);
     const outsider=await newUser();await outsider.session.call(`/launches/${session.cases[0].id}/choice-analysis`,'GET',undefined,404);
   });
