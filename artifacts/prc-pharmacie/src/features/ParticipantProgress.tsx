@@ -1,4 +1,5 @@
 import type { LiveSession } from "./LiveSession";
+import { Status } from "../app/ui";
 import "./participant-access.css";
 
 export function ParticipantProgress({
@@ -88,6 +89,18 @@ export function ParticipantProgress({
       className="participant-journey"
       aria-label="Votre progression dans le cas"
     >
+      <Status
+        value={
+          published
+            ? "finished"
+            : submitted
+              ? "submitted"
+              : closed
+                ? "closed"
+                : "open"
+        }
+        phase={session?.phase}
+      />
       {submitted &&
         !expert &&
         !asynchronous &&

@@ -551,7 +551,7 @@ export function ActivityPage({
               : "ANIMER AVEC LES ÉTUDIANTS"
         }
         title={name}
-        aside={<Status value={l.status} />}
+        aside={<Status value={l.status} phase={l.liveSession?.phase} />}
       />
       {l.role === "panel" && !l.isTrial && !embedded && (
         <ProfessorJourney
@@ -981,7 +981,7 @@ export function ActivityPage({
                 onChange={(e) => setMinimum(e.target.value)}
               />
               <Btn
-                kind="outline"
+                kind={!reference ? "primary" : "outline"}
                 disabled={
                   busy ||
                   submitted < Number(minimum) ||
@@ -1010,6 +1010,7 @@ export function ActivityPage({
                 onChange={(e) => setExplanation(e.target.value)}
               />
               <Btn
+                kind={reference?.status === "draft" ? "primary" : "outline"}
                 disabled={busy || rubricDirty || reference?.status !== "draft"}
                 onClick={() => {
                   if (
@@ -1209,7 +1210,10 @@ export function ProjectionPage({
               p.launch?.code ||
               p.code}
           </b>
-          <Status value={p.status || p.launch?.status} />
+          <Status
+            value={p.status || p.launch?.status}
+            phase={p.launch?.liveSession?.phase}
+          />
         </div>
       </header>
       <p className="projection-privacy">

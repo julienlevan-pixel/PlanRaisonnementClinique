@@ -518,7 +518,8 @@ test("displays score on twenty and percentage as distinct values", async ({
   await expect(page.locator(".participant-score")).toContainText("12,8");
   await expect(page.locator(".participant-score")).toContainText("/ 20");
   await expect(page.locator(".participant-score")).toContainText("64 %");
-  await expect(page.locator(".score-components>div")).toHaveCount(4);
+  await expect(page.locator(".score-components .score-impression")).toHaveCount(2);
+  await expect(page.locator(".score-components dl>div")).toHaveCount(4);
 });
 
 test("never turns a non-submitted draft into a zero score", async ({

@@ -882,6 +882,7 @@ export function PrcEditor({ actions }: { actions: AppActions }) {
           <div className="editor-actions">
             <Btn
               type="submit"
+              kind="outline"
               disabled={saving || busy || conflict || (!dirty && !isNew)}
             >
               <Save size={15} /> Enregistrer le brouillon

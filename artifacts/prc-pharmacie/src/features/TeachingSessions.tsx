@@ -13,6 +13,7 @@ import {
   Input,
   Loading,
   SectionTitle,
+  Status,
 } from "../app/ui";
 import {
   SessionPreparationReview,
@@ -156,7 +157,12 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
         eyebrow="ORGANISER ET ANIMER"
         title="Mes séances"
         aside={
-          <Btn onClick={() => setCreating(!creating)}>Nouvelle séance</Btn>
+          <Btn
+            kind={creating ? "outline" : "primary"}
+            onClick={() => setCreating(!creating)}
+          >
+            Nouvelle séance
+          </Btn>
         }
       />
       <p>
@@ -398,16 +404,18 @@ export function TeachingSessions({ actions }: { actions: AppActions }) {
           {list.data?.map((s) => (
             <article className="panel-card" key={s.id}>
               <div className="eyebrow">
-                {s.role === "students" ? "SÉANCE ÉTUDIANTE" : "PANEL EXPERT"} ·{" "}
-                {s.status === "finished" ? "TERMINÉE" : "EN COURS"}
+                {s.role === "students" ? "SÉANCE ÉTUDIANTE" : "PANEL EXPERT"}
               </div>
+              <Status
+                value={s.status === "finished" ? "finished" : "in_progress"}
+              />
               <h2>{s.name}</h2>
               <p>
                 {s.caseCount} cas ·{" "}
                 {s.deliveryMode === "asynchronous" ? "Asynchrone" : "Synchrone"}{" "}
                 · {s.memberCount} participant(s) · Code <b>{s.code}</b>
               </p>
-              <Link className="btn btn-primary" href={`/seances/${s.id}`}>
+              <Link className="btn btn-outline" href={`/seances/${s.id}`}>
                 {s.status === "finished"
                   ? "Consulter le bilan"
                   : "Animer la séance"}
@@ -489,28 +497,36 @@ function CumulativeReport({
         )}
       {own && member && (
         <>
-          <h3>
-            {role === "panel"
-              ? "Vos contributions"
-              : member.complete
-                ? "Votre résultat global"
-                : "Votre bilan partiel"}
-          </h3>
-          {role === "students" && (
-            <p className="session-total">
-              {member.gradedMaximum === 0
-                ? "Aucun cas noté"
+          <div
+            className={
+              role === "students" && member.gradedMaximum > 0
+                ? "session-score-summary"
+                : "session-contribution-summary"
+            }
+          >
+            <h3>
+              {role === "panel"
+                ? "Vos contributions"
                 : member.complete
-                  ? `${number(member.score!)} / ${number(report.maximum)}`
-                  : `${number(member.subtotal)} / ${number(member.gradedMaximum)} sur les cas soumis`}
+                  ? "Votre résultat global"
+                  : "Votre bilan partiel"}
+            </h3>
+            {role === "students" && (
+              <p className="session-total">
+                {member.gradedMaximum === 0
+                  ? "Aucun cas noté"
+                  : member.complete
+                    ? `${number(member.score!)} / ${number(report.maximum)}`
+                    : `${number(member.subtotal)} / ${number(member.gradedMaximum)} sur les cas soumis`}
+              </p>
+            )}
+            <p>
+              {member.submittedCount} cas soumis sur {report.caseCount}.
+              {role === "students" &&
+                !member.complete &&
+                " Les cas non soumis ne reçoivent pas de zéro. Votre participation incomplète est exclue de la distribution des notes globales."}
             </p>
-          )}
-          <p>
-            {member.submittedCount} cas soumis sur {report.caseCount}.
-            {role === "students" &&
-              !member.complete &&
-              " Les cas non soumis ne reçoivent pas de zéro. Votre participation incomplète est exclue de la distribution des notes globales."}
-          </p>
+          </div>
           <div className="session-table-scroll">
             <table className="review-table">
               <thead>

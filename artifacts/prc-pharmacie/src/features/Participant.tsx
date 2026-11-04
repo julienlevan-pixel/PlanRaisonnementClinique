@@ -20,6 +20,7 @@ import type { Choice } from "@workspace/api-client-react";
 import { normalizeAccessCode } from "@workspace/prc-backend/access-code";
 import { AccessCodeForm, JoinConfirmation } from "./ParticipantAccess";
 import { ParticipantProgress } from "./ParticipantProgress";
+import { CaseScoreSummary } from "./CaseScoreSummary";
 import type { AppActions } from "../app/actions";
 import { Btn, Input, Loading, ErrorBox } from "../app/ui";
 import { getError } from "../app/utils";
@@ -1657,6 +1658,18 @@ export function ParticipantResults({
         )}
         <h1>{data.case.name}</h1>
         <TrialNotice trial={data.case.isTrial} />
+        {published && (
+          <CaseScoreSummary
+            score={Number(data.score)}
+            percentage={Number(
+              data.percentage ??
+                data.components.percentage ??
+                (Number(data.score) / (data.case.grading?.maximum ?? 20)) * 100,
+            )}
+            components={data.components}
+            grading={data.case.grading}
+          />
+        )}
         {!reviewing && (
           <ParticipantProgress
             expert={role === "panel"}
@@ -1699,67 +1712,14 @@ export function ParticipantResults({
             {!reviewing && <Link href="/participant">Revoir ma copie</Link>}
           </p>
         )}
-        {published ? (
-          <section className="participant-score">
-            <h2>Votre résultat</h2>
-            <p>Note obtenue / note maximale du cas</p>
-            <strong>
-              {number(data.score)}
-              <small> / {data.case.grading?.maximum ?? 20}</small>
-            </strong>
-            <span>
-              {number(
-                data.percentage ??
-                  data.components.percentage ??
-                  (Number(data.score) / (data.case.grading?.maximum ?? 20)) *
-                    100,
-              )}{" "}
-              %
-            </span>
-            <div className="score-components">
-              {[
-                [
-                  "mainDiagnosis",
-                  "Impression clinique",
-                  data.case.grading?.mainDiagnosisMaximum ?? 2,
-                ],
-                [
-                  "mainJustification",
-                  "Justification principale",
-                  data.case.grading?.clinicalMaximum ?? 8,
-                ],
-                [
-                  "alternativeDiagnosis",
-                  "Impression clinique alternative",
-                  data.case.grading?.alternativeDiagnosisMaximum ?? 2,
-                ],
-                [
-                  "alternativeJustification",
-                  "Justification alternative",
-                  data.case.grading?.clinicalMaximum ?? 8,
-                ],
-              ].map(([key, label, maximum]) => (
-                <div key={key}>
-                  <span>{label}</span>
-                  <b>
-                    {number(data.components[key] ?? 0)} / {maximum}
-                  </b>
-                </div>
-              ))}
-            </div>
-            <p>
-              Barème pédagogique proposé : une référence issue du panel, et non
-              une norme clinique universelle.
-            </p>
-          </section>
-        ) : role === "panel" ? (
+        {role === "panel" ? (
           <p className="body-copy">
             Les experts ne reçoivent pas de note sur la référence produite par
             leurs propres réponses. Après soumission, les tableaux du panel sont
             accessibles automatiquement, sans attendre la fermeture de la
             séance.
           </p>
-        ) : submitted ? (
+        ) : submitted && !published ? (
           <p className="body-copy">
             Votre note reste privée et masquée jusqu’à sa publication par le
             professeur. Les éléments de discussion apparaissent progressivement
